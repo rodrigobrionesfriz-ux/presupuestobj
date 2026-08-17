@@ -23,22 +23,22 @@ iconos/             iconos de la app
 
 ## 2. Pegar tu configuración
 
-Abre `index.html`, busca al inicio del `<script type="module">` el bloque `FIREBASE_CONFIG` y sustituye los valores:
+**Ya está hecho**: `index.html` viene con la configuración del proyecto `presupuestofamiliar-c77a9`. Si algún día cambias de proyecto, sustituye el bloque `FIREBASE_CONFIG` al inicio del `<script type="module">`:
 
 ```js
 const FIREBASE_CONFIG = {
   apiKey: "AIza...",
   authDomain: "mi-proyecto.firebaseapp.com",
   projectId: "mi-proyecto",
-  storageBucket: "mi-proyecto.appspot.com",
+  storageBucket: "mi-proyecto.firebasestorage.app",
   messagingSenderId: "123456789012",
   appId: "1:123456789012:web:abc123"
 };
 ```
 
-Si dejas los valores de ejemplo, la app arranca en **modo local**: funciona completa pero los datos no salen de la pestaña. Sirve para probarla antes de configurar nada.
+Si dejas valores que empiecen por `TU_`, la app arranca en **modo local**: funciona completa pero los datos no salen de la pestaña.
 
-> La `apiKey` de Firebase es pública por diseño: identifica el proyecto, no da acceso. Quien protege los datos son las reglas del paso 3.
+> La `apiKey` de Firebase es pública por diseño: identifica el proyecto, no da acceso. Quien protege los datos son las reglas del paso 3, así que ese paso no es opcional.
 
 ## 3. Publicar las reglas de seguridad
 
