@@ -101,13 +101,20 @@ Las alertas se calculan en el dispositivo: no hace falta servidor ni Cloud Messa
 
 ## 8. Temas
 
-El botón **◐** de la cabecera va rotando entre tres temas, y la elección se recuerda en cada dispositivo (también se eligen en Ajustes → Apariencia):
+El botón **◐** de la cabecera va rotando entre cuatro temas, y la elección se recuerda en cada dispositivo (también se eligen en Ajustes → Apariencia):
 
 - **Papel de contabilidad** — fondo verde claro con rayado de libro contable.
 - **Claro** — fondo limpio sin rayado y bordes remarcados en tono oscuro, con mayor contraste. Se lee mejor a plena luz.
 - **SAP Fiori** — paleta corporativa de SAP: shell `#354A5F`, azul de marca `#0A6ED1` para las acciones y los colores semánticos de Fiori aplicados con su significado real: `#107E3E` positivo cuando el sobre va bien, `#E9730C` crítico al acercarse al límite, `#BB0000` negativo al excederlo y `#6A6D70` neutro. Tarjetas con esquinas de 8px y sombra suave, botones con el estilo *emphasized* y *transparent* de Fiori.
+- **Femenino** — ciruela profunda `#3B2230`, granate `#A8385A`, oro viejo `#C9A227`, salvia y lavanda sobre fondo rosa empolvado, con los títulos en la serif Fraunces y la cabecera en degradado. Todos los pares de color cumplen contraste WCAG AA para texto.
 
-## 9. Corregir registros
+## 9. Fondo personal
+
+En **Ajustes → Fondo personal** cada persona puede subir una foto que aparece como marca de agua bajo la barra superior, con un control de intensidad del 4% al 40%. La imagen se reduce a 900px y se comprime en el propio teléfono antes de guardarse, y se difumina arriba y abajo para no estorbar la lectura.
+
+Es personal, no del hogar: se guarda en el perfil de cada usuario (`usuarios/{uid}`), así que tu pareja ve la suya y tú la tuya, y la tuya te sigue si entras desde otro dispositivo.
+
+## 10. Corregir registros
 
 Todo lo que se registra se puede corregir después:
 
@@ -117,7 +124,7 @@ Todo lo que se registra se puede corregir después:
 
 Eliminar está dentro de la propia ventana de edición y pide confirmación en dos pasos, así no se borra nada de un toque accidental en el teléfono.
 
-## 10. Comportamiento de las ventanas
+## 11. Comportamiento de las ventanas
 
 Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para que un roce accidental no borre lo que llevas escrito. Se cierran solo con la **✕** de la esquina, el botón **Cancelar** o la tecla **Esc**.
 
@@ -146,7 +153,7 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 ## Estructura de datos
 
 ```
-usuarios/{uid}                     → { hogarId, nombre }
+usuarios/{uid}                     → { hogarId, nombre, fondo, fondoOpacidad }
 hogares/{codigo}                   → { nombre, config, presupuestos, miembrosUid[] }
 hogares/{codigo}/movimientos/{id}  → { tipo, monto, categoria, fecha, metodo, tarjetaId, miembro, nota, esencial }
 hogares/{codigo}/deudas/{id}       → { nombre, tipo, saldo, original, tasaAnual, pagoMensual }

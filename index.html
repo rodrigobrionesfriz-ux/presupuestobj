@@ -19,7 +19,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --papel:#E4E9DD; --hoja:#FBFCF9; --tinta:#16241C; --suave:#5B6B60;
@@ -375,6 +375,58 @@ html[data-tema="fiori"] .codigo-hogar{border:1px dashed var(--azul);background:#
 html[data-tema="fiori"] .libro{border-left-color:var(--azul)}
 html[data-tema="fiori"] .gr line{stroke:var(--rayado)}
 html[data-tema="fiori"] .cerrar-modal:hover{background:#FFEBEB;border-color:var(--margen);color:var(--margen)}
+
+/* ==================================================================
+   TEMA FEMENINO — ciruela profunda, rosa empolvado y oro viejo.
+   Contraste alto de verdad (tinta #3B2230 sobre blanco), serif en los
+   títulos y semánticos suavizados: salvia, oro y granate.
+   ================================================================== */
+html[data-tema="femenino"]{
+  --papel:#FAF2F3; --hoja:#FFFFFF; --tinta:#3B2230; --suave:#7A5C68;
+  --rayado:#EBD9DE; --borde:#DCC2CB; --margen:#A8385A; --verde:#4E7C6A;
+  --ambar:#9A6A18; --azul:#8A6FA8; --oro:#C9A227;
+}
+html[data-tema="femenino"] body{
+  background-image:repeating-linear-gradient(115deg,transparent 0 22px,rgba(168,56,90,.045) 22px 23px)}
+html[data-tema="femenino"] h1,html[data-tema="femenino"] h2,html[data-tema="femenino"] h3,
+html[data-tema="femenino"] .cinta-total strong,html[data-tema="femenino"] .destacado strong{
+  font-family:'Fraunces',Georgia,serif;font-weight:700;letter-spacing:-.01em}
+html[data-tema="femenino"] .tarjeta{border-radius:7px;box-shadow:0 2px 10px rgba(59,34,48,.07)}
+html[data-tema="femenino"] .cinta{border-radius:7px 7px 0 0}
+html[data-tema="femenino"] header{background:linear-gradient(105deg,#3B2230 0%,#5A3145 100%);border-bottom-color:var(--oro)}
+html[data-tema="femenino"] header .sub,html[data-tema="femenino"] .estado-conn{color:#E3C9D2}
+html[data-tema="femenino"] .logo{border-color:var(--oro);color:#F7E4C8}
+html[data-tema="femenino"] nav{background:#3B2230}
+html[data-tema="femenino"] nav button{color:#C9A9B5}
+html[data-tema="femenino"] nav button.activo{color:#FFF;border-top-color:var(--oro)}
+html[data-tema="femenino"] .fab{background:var(--margen);box-shadow:0 4px 14px rgba(168,56,90,.35)}
+html[data-tema="femenino"] .fab:hover{background:#8C2C49}
+html[data-tema="femenino"] .btn{border-radius:5px}
+html[data-tema="femenino"] .btn.primario{background:var(--tinta);border-color:var(--tinta)}
+html[data-tema="femenino"] input,html[data-tema="femenino"] select,html[data-tema="femenino"] textarea{border-radius:5px}
+html[data-tema="femenino"] .chip{border-radius:5px}
+html[data-tema="femenino"] .chip.activo{background:#FBEEF2}
+html[data-tema="femenino"] .barra{border-radius:5px;background:#F3E4E8}
+html[data-tema="femenino"] .split{border-radius:5px}
+html[data-tema="femenino"] .hoja{border-radius:7px 7px 0 0;border-top-color:var(--oro)}
+html[data-tema="femenino"] .codigo-hogar{border-color:var(--oro);color:var(--margen)}
+html[data-tema="femenino"] .libro{border-left-color:var(--oro)}
+html[data-tema="femenino"] .gr line{stroke:var(--rayado)}
+
+/* ================= marca de agua personal ========================= */
+.marca-agua{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-position:center;background-size:cover;background-repeat:no-repeat;
+  opacity:0;transition:opacity .45s ease;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 68%,transparent 100%);
+  mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 68%,transparent 100%);
+}
+main{position:relative;z-index:1}
+.previa-fondo{width:100%;height:120px;border:1px solid var(--borde);border-radius:3px;
+  background-position:center;background-size:cover;background-color:var(--papel);margin-bottom:12px}
+.rango{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.rango input[type=range]{flex:1;padding:0;height:26px;background:none;border:none}
+.rango b{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;min-width:42px;text-align:right}
 </style>
 </head>
 <body>
@@ -382,6 +434,8 @@ html[data-tema="fiori"] .cerrar-modal:hover{background:#FFEBEB;border-color:var(
 <div id="acceso" class="acceso oculto"></div>
 
 <div id="app" class="oculto">
+  <div id="fondo" class="marca-agua" aria-hidden="true"></div>
+  <input type="file" id="fondo-archivo" accept="image/*" class="oculto">
   <header>
     <div class="marca">
       <span class="logo">₱F</span>
@@ -570,6 +624,14 @@ async function iniciarFirebase(){
       await setDoc(doc(db,"usuarios",auth.currentUser.uid),{hogarId:c});
       return c;
     },
+    async perfil(u){
+      const d = await getDoc(doc(db,"usuarios",u));
+      return d.exists()? d.data() : null;
+    },
+    guardarPerfil(patch){
+      if(!auth.currentUser) return Promise.resolve();
+      return setDoc(doc(db,"usuarios",auth.currentUser.uid),patch,{merge:true});
+    },
     async hogarDeUsuario(u){
       const d = await getDoc(doc(db,"usuarios",u));
       return d.exists()? d.data().hogarId : null;
@@ -614,9 +676,15 @@ async function iniciarFirebase(){
   onAuthStateChanged(auth, async u=>{
     if(!u){ FB.cortar(); S.uid=null; S.hogarId=null; pantallaAcceso(); return; }
     S.uid=u.uid; S.nombreUsuario=u.displayName||u.email||"Invitado"; S.foto=u.photoURL||"";
-    const h = await FB.hogarDeUsuario(u.uid);
-    if(!h){ pantallaHogar(); return; }
-    S.hogarId=h; FB.escuchar(h); mostrarApp();
+    cargarFondoLocal();
+    const p = await FB.perfil(u.uid);
+    if(p?.fondo && p.fondo!==S.fondo){
+      S.fondo=p.fondo; S.fondoOpacidad=p.fondoOpacidad??0.14;
+      guardarLocal(claveFondo(),S.fondo); guardarLocal(claveFondo()+":op",String(S.fondoOpacidad));
+      pintarFondo();
+    }
+    if(!p?.hogarId){ pantallaHogar(); return; }
+    S.hogarId=p.hogarId; FB.escuchar(p.hogarId); mostrarApp();
   });
 }
 const codigoHogar = ()=>{
@@ -1375,11 +1443,27 @@ function vAjustes(R){
       <button class="chip ${S.tema==="papel"?"activo":""}" data-tema-sel="papel"><b>PAP</b> Papel de contabilidad</button>
       <button class="chip ${S.tema==="claro"?"activo":""}" data-tema-sel="claro"><b>CLA</b> Claro con bordes marcados</button>
       <button class="chip ${S.tema==="fiori"?"activo":""}" data-tema-sel="fiori"><b>SAP</b> Fiori</button>
+      <button class="chip ${S.tema==="femenino"?"activo":""}" data-tema-sel="femenino"><b>FEM</b> Femenino</button>
     </div>
-    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori para los estados — verde positivo, naranja crítico, rojo negativo.</p>
+    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori — verde positivo, naranja crítico, rojo negativo. El tema <b>femenino</b> combina ciruela, rosa empolvado y oro viejo, con títulos en serif.</p>
     <div class="paleta">
-      ${[["#354A5F","Shell"],["#0A6ED1","Marca"],["#107E3E","Positivo"],["#E9730C","Crítico"],["#BB0000","Negativo"],["#6A6D70","Neutro"],["#F5F6F7","Fondo"]]
+      ${(S.tema==="femenino"
+        ? [["#3B2230","Ciruela"],["#A8385A","Granate"],["#C9A227","Oro"],["#4E7C6A","Salvia"],["#8A6FA8","Lavanda"],["#DCC2CB","Rosa"],["#FAF2F3","Fondo"]]
+        : [["#354A5F","Shell"],["#0A6ED1","Marca"],["#107E3E","Positivo"],["#E9730C","Crítico"],["#BB0000","Negativo"],["#6A6D70","Neutro"],["#F5F6F7","Fondo"]])
         .map(([c,n])=>`<span class="muestra"><i style="background:${c}"></i>${n}<b>${c}</b></span>`).join("")}
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="cab"><h2>Fondo personal</h2><span class="cod">${S.fondo?"con foto":"sin foto"}</span></div>
+    <p class="nota">Sube una foto tuya —la familia, un viaje, lo que quieras— y aparecerá como marca de agua bajo la barra superior. Es tuya: cada persona del hogar ve la suya.</p>
+    ${S.fondo?`<div class="previa-fondo" style="background-image:url(${S.fondo})"></div>
+      <div class="rango"><span class="cod">Intensidad</span>
+        <input type="range" id="op-fondo" min="4" max="40" step="1" value="${Math.round((S.fondoOpacidad??0.14)*100)}">
+        <b>${Math.round((S.fondoOpacidad??0.14)*100)}%</b></div>`:""}
+    <div class="fila-btns">
+      <button class="btn primario" data-accion="fondo">${S.fondo?"Cambiar foto":"Subir foto"}</button>
+      ${S.fondo?`<button class="btn peligro" data-accion="quitar-fondo">Quitar</button>`:""}
     </div>
   </section>
 
@@ -1436,6 +1520,12 @@ function conectar(R){
   });
   document.querySelectorAll("[data-editar-deuda]").forEach(b=>b.onclick=()=>modalDeuda(b.dataset.editarDeuda));
   document.querySelectorAll("[data-editar-meta]").forEach(b=>b.onclick=()=>modalMeta(b.dataset.editarMeta));
+  const opf=$("#op-fondo");
+  if(opf){
+    opf.oninput=e=>{ S.fondoOpacidad=Number(e.target.value)/100; pintarFondo();
+      const b=opf.parentElement.querySelector("b"); if(b) b.textContent=e.target.value+"%"; };
+    opf.onchange=()=>guardarFondo(S.fondo,S.fondoOpacidad);
+  }
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
   const ca=$("#chk-alertas"); if(ca) ca.onchange=e=>DB.guardarHogar({config:{...S.config,alertas:e.target.checked}});
   document.querySelectorAll("[data-quitar-miembro]").forEach(b=>b.onclick=()=>
@@ -1450,6 +1540,8 @@ function acciones(a,R){
     nuevo:()=>modalMovimiento(),
     "nueva-deuda":()=>modalDeuda(),
     "nueva-categoria":()=>modalCategoria(),
+    fondo:()=>elegirFondo(),
+    "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
     "nueva-meta":()=>modalMeta(),
     ejemplo:()=>cargarEjemplo(),
     sugerir:()=>sugerirPresupuestos(),
@@ -1863,9 +1955,76 @@ async function cargarEjemplo(){
 const guardarLocal=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
 const leerLocal=k=>{try{return localStorage.getItem(k)}catch{return null}};
 
-const TEMAS = ["papel","claro","fiori"];
-const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", fiori:"#354A5F"};
-const NOMBRE_TEMA = {papel:"papel", claro:"claro", fiori:"fiori"};
+const TEMAS = ["papel","claro","fiori","femenino"];
+const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", fiori:"#354A5F", femenino:"#3B2230"};
+const NOMBRE_TEMA = {papel:"papel", claro:"claro", fiori:"fiori", femenino:"femenino"};
+
+/* ================= marca de agua personal ========================= 
+   La foto es de cada persona, no del hogar: se guarda en su perfil
+   (usuarios/{uid}) y en este dispositivo, para que aparezca al instante
+   y le siga si entra desde otro teléfono. */
+const claveFondo = ()=>`pf-fondo:${S.uid||"local"}`;
+
+async function comprimirImagen(file,maxLado=900,calidad=.72){
+  const dibujar = (ancho,alto,fuente)=>{
+    const c=document.createElement("canvas"); c.width=ancho; c.height=alto;
+    c.getContext("2d").drawImage(fuente,0,0,ancho,alto);
+    return c.toDataURL("image/jpeg",calidad);
+  };
+  const medidas = (w,h)=>{ const e=Math.min(1,maxLado/Math.max(w,h)); return [Math.round(w*e),Math.round(h*e)]; };
+  if(window.createImageBitmap){
+    const bmp = await createImageBitmap(file);
+    return dibujar(...medidas(bmp.width,bmp.height),bmp);
+  }
+  return new Promise((ok,fallo)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{ const r=dibujar(...medidas(img.width,img.height),img); URL.revokeObjectURL(url); ok(r); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); fallo(new Error("imagen ilegible")); };
+    img.src=url;
+  });
+}
+
+function pintarFondo(){
+  const el=$("#fondo"); if(!el) return;
+  if(S.fondo){ el.style.backgroundImage=`url(${S.fondo})`; el.style.opacity=S.fondoOpacidad??0.14; }
+  else { el.style.backgroundImage="none"; el.style.opacity=0; }
+}
+
+async function guardarFondo(dataUrl,opacidad){
+  S.fondo=dataUrl||""; S.fondoOpacidad=opacidad??S.fondoOpacidad??0.14;
+  pintarFondo();
+  guardarLocal(claveFondo(), S.fondo);
+  guardarLocal(claveFondo()+":op", String(S.fondoOpacidad));
+  if(S.modo==="nube" && FB?.guardarPerfil){
+    try{ await FB.guardarPerfil({fondo:S.fondo, fondoOpacidad:S.fondoOpacidad}); }
+    catch(e){ console.warn("fondo:",e); avisar("Guardada solo en este dispositivo"); }
+  }
+}
+
+function cargarFondoLocal(){
+  S.fondo = leerLocal(claveFondo())||"";
+  const op = parseFloat(leerLocal(claveFondo()+":op"));
+  S.fondoOpacidad = isFinite(op)? op : 0.14;
+  pintarFondo();
+}
+
+async function elegirFondo(){
+  const input=$("#fondo-archivo");
+  input.value="";
+  input.onchange=async()=>{
+    const f=input.files?.[0]; if(!f) return;
+    if(!f.type.startsWith("image/")){ avisar("Elige un archivo de imagen"); return; }
+    avisar("Procesando la foto…");
+    try{
+      let url = await comprimirImagen(f);
+      if(url.length>800000) url = await comprimirImagen(f,700,.6);
+      if(url.length>900000){ avisar("La foto es demasiado pesada, prueba con otra"); return; }
+      await guardarFondo(url);
+      render(); avisar("Fondo actualizado");
+    }catch(e){ console.error(e); avisar("No se pudo leer la imagen"); }
+  };
+  input.click();
+}
 
 function aplicarTema(t){
   S.tema = TEMAS.includes(t)? t : "papel";
@@ -1967,6 +2126,7 @@ async function instalarApp(){
 
 /* ============================== arranque ========================== */
 aplicarTema(leerLocal("pf-tema")||"papel");
+cargarFondoLocal();
 registrarSW();
 $("#btn-tema").onclick=alternarTema;
 $("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);render()};
