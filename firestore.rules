@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Reglas para la app "Presupuesto familiar".
+// Modelo: cada hogar es un documento con la lista de UIDs autorizados.
+// Solo los miembros leen y escriben; unirse requiere conocer el código exacto.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Perfil mínimo: qué hogar le toca a cada usuario
+    match /usuarios/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /hogares/{hogarId} {
+
+      function esMiembro() {
+        return request.auth != null
+          && request.auth.uid in resource.data.miembrosUid;
+      }
+
+      // Solo se puede leer el hogar del que ya eres miembro
+      allow get, list: if esMiembro();
+
+      // Crear un hogar nuevo: te incluyes a ti mismo y a nadie más
+      allow create: if request.auth != null
+        && request.resource.data.miembrosUid == [request.auth.uid];
+
+      // Actualizar: los miembros pueden todo.
+      // Un no miembro solo puede añadirse a sí mismo (unirse con el código),
+      // sin quitar a nadie ni tocar otros campos en esa misma operación.
+      allow update: if esMiembro()
+        || (request.auth != null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['miembrosUid'])
+            && request.resource.data.miembrosUid.hasAll(resource.data.miembrosUid)
+            && request.resource.data.miembrosUid.removeAll(resource.data.miembrosUid) == [request.auth.uid]);
+
+      allow delete: if esMiembro();
+
+      // Movimientos, deudas y metas: solo miembros del hogar
+      match /{coleccion}/{docId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/hogares/$(hogarId)).data.miembrosUid;
+      }
+    }
+  }
+}

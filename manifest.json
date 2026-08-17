@@ -1,0 +1,33 @@
+{
+  "name": "Presupuesto familiar",
+  "short_name": "Presupuesto",
+  "description": "Presupuesto del hogar en tiempo real, con estadísticas de compra, deudas, metas y recomendaciones de ahorro.",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E4E9DD",
+  "theme_color": "#16241C",
+  "categories": ["finance", "productivity", "lifestyle"],
+  "icons": [
+    { "src": "iconos/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icono-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Registrar gasto",
+      "short_name": "Nuevo gasto",
+      "url": "./index.html?accion=nuevo",
+      "icons": [{ "src": "iconos/icono-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Ver estadísticas",
+      "short_name": "Estadísticas",
+      "url": "./index.html?vista=estadisticas",
+      "icons": [{ "src": "iconos/icono-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
