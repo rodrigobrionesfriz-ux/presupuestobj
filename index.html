@@ -92,6 +92,8 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .renglon i{flex:1;border-bottom:1px dotted var(--rayado)}
 .renglon b{font-weight:500;font-variant-numeric:tabular-nums}
 .renglon.tenue{color:var(--suave)}
+.marca-base{font-style:normal;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--borde);border-radius:2px;padding:1px 4px;margin-left:6px;vertical-align:1px}
 .cinta-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:11px;padding-top:11px;
   border-top:2px solid var(--tinta)}
 .cinta-total span{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase}
@@ -244,6 +246,24 @@ textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space
 .marca-fija{font-family:var(--tipo-num);font-style:normal;font-size:9px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--suave);border:1px solid var(--rayado);border-radius:2px;padding:1px 4px;margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
+.firma{font-size:11.5px;margin:-4px 0 13px;color:var(--suave)}
+.filtro-personas{margin:-6px 0 14px}
+.quien{font-weight:600}
+.personas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
+.personas>li{padding-bottom:14px;border-bottom:1px dotted var(--rayado)}
+.personas>li:last-child{border-bottom:none;padding-bottom:0}
+.persona-cab{display:flex;align-items:baseline;gap:9px;margin-bottom:9px}
+.punto-p{width:11px;height:11px;border-radius:50%;flex:none}
+.persona-nom{flex:1;font-size:15px;font-weight:600}
+.persona-cifra{font-family:var(--tipo-num);font-size:15px;font-variant-numeric:tabular-nums}
+.persona-cifra em{font-style:normal;font-size:11px;color:var(--suave);margin-left:7px}
+.persona-datos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px}
+.persona-datos em{display:block;font-style:normal;font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--suave);margin-bottom:2px}
+.persona-datos b{font-family:var(--tipo-num);font-size:13px;font-weight:500}
+.persona-pie{font-size:11px;color:var(--suave);margin:9px 0 0}
+.persona-suelta{font-size:12.5px;color:var(--suave)}
+@media(max-width:420px){.persona-datos{grid-template-columns:repeat(2,1fr)}}
 
 /* ---------------- modal ---------------- */
 .modal{position:fixed;inset:0;background:rgba(22,36,28,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
@@ -594,11 +614,26 @@ const presInicial = ()=>Object.fromEntries(CATEGORIAS.map(c=>[c.cod,0]));
 
 let S = {
   modo: HAY_FIREBASE ? "nube" : "local",
-  uid:null, hogarId:null, nombreUsuario:"",
+  uid:null, hogarId:null, nombreUsuario:"", perfiles:{},
   config: configInicial(), presupuestos: presInicial(),
   movimientos:[], deudas:[], metas:[],
-  mes: mesDe(hoyISO()), vista:"panel", filtroCat:"TODAS", filtroTexto:"", csv:"",
+  mes: mesDe(hoyISO()), vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
+const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
+/* Nombre con el que aparece cada persona del hogar. Si el movimiento trae el
+   uid de quien lo registró, se resuelve contra los perfiles del hogar. */
+const nombreDe = uid => S.perfiles?.[uid]?.nombre || "";
+const colorPersona = nombre =>{
+  const lista = personasHogar();
+  const i = lista.indexOf(nombre);
+  return COLORES_PERSONA[(i<0?0:i) % COLORES_PERSONA.length];
+};
+function personasHogar(){
+  const set = new Set(S.config.miembros||[]);
+  Object.values(S.perfiles||{}).forEach(p=>{ if(p?.nombre) set.add(p.nombre); });
+  return [...set];
+}
+const miNombre = ()=> nombreDe(S.uid) || (S.config.miembros?.[0]) || "Yo";
 
 const fmt = (n,dec=0)=>{
   try{
@@ -705,6 +740,7 @@ async function iniciarFirebase(){
         const v = d.data();
         S.config = {...configInicial(),...(v.config||{})};
         S.presupuestos = {...presInicial(),...(v.presupuestos||{})};
+        S.perfiles = v.perfiles||{};
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
       }, err=>marcarError(err)));
@@ -720,6 +756,7 @@ async function iniciarFirebase(){
       const p={};
       if(patch.config) p.config=patch.config;
       if(patch.presupuestos) p.presupuestos=patch.presupuestos;
+      if(patch.perfiles) p.perfiles=patch.perfiles;
       return Object.keys(p).length? updateDoc(doc(db,"hogares",S.hogarId),p) : Promise.resolve();
     },
     async agregar(col,obj){
@@ -838,10 +875,29 @@ function pantallaHogar(){
   };
   $("#hg-salir").onclick = ()=>FB.salir();
 }
+/* Deja constancia de quién es esta persona dentro del hogar, para que sus
+   movimientos se puedan atribuir por identificador y no solo por nombre. */
+async function registrarmeEnHogar(){
+  if(S.modo!=="nube" || !S.uid || !S.hogarId) return;
+  const propio = S.perfiles?.[S.uid];
+  const nombre = propio?.nombre
+    || (S.nombreUsuario.includes("@")? S.nombreUsuario.split("@")[0] : S.nombreUsuario)
+    || "Yo";
+  const miembros = S.config.miembros||[];
+  const faltaPerfil = !propio || propio.nombre!==nombre;
+  const faltaMiembro = !miembros.includes(nombre);
+  if(!faltaPerfil && !faltaMiembro) return;
+  await DB.guardarHogar({
+    perfiles:{...(S.perfiles||{}), [S.uid]:{nombre, correo:S.nombreUsuario}},
+    ...(faltaMiembro? {config:{...S.config, miembros:[...miembros, nombre]}} : {})
+  });
+}
+
 function mostrarApp(){
   $("#acceso").classList.add("oculto");
   $("#app").classList.remove("oculto");
   render();
+  setTimeout(()=>registrarmeEnHogar().catch(e=>console.warn("perfil:",e)),900);
 }
 
 /* ============================ cálculos ============================ */
@@ -854,15 +910,30 @@ function calcular(){
 
   const totalGasto = gastos.reduce((a,b)=>a+b.monto,0);
   const totalIngreso = ingresos.reduce((a,b)=>a+b.monto,0);
-  const ingresoBase = totalIngreso>0? totalIngreso : (S.config.ingresoMensual||0);
   const presupuestoTotal = Object.values(S.presupuestos).reduce((a,b)=>a+(b||0),0);
-  const disponible = ingresoBase-totalGasto;
 
   const dias = diasEnMes(mes);
   const esMesActual = mes===mesDe(hoyISO());
   const diaHoy = esMesActual? new Date().getDate() : dias;
   const restantes = Math.max(0,dias-diaHoy);
   const ritmoDiario = totalGasto/Math.max(1,diaHoy);
+
+  /* Base de ingresos del mes.
+     El ingreso estimado es lo que la familia espera recibir; los registrados son
+     los que ya entraron. A mitad de mes suele faltar parte del sueldo, así que
+     por omisión se toma el mayor de los dos y se muestran ambos, para que se vea
+     de dónde sale la cifra. La base se puede fijar a mano en Ajustes. */
+  const ingresoRegistrado = totalIngreso;
+  const ingresoEstimado = S.config.ingresoMensual||0;
+  const base = S.config.baseIngreso||"auto";
+  const ingresoBase =
+      base==="registrado" ? ingresoRegistrado
+    : base==="estimado"   ? (ingresoEstimado || ingresoRegistrado)
+    : esMesActual         ? Math.max(ingresoRegistrado, ingresoEstimado)
+    : (ingresoRegistrado>0 ? ingresoRegistrado : ingresoEstimado);
+  const baseUsada = ingresoBase===ingresoEstimado && ingresoEstimado!==ingresoRegistrado
+    ? "estimado" : "registrado";
+  const disponible = ingresoBase-totalGasto;
 
   /* Proyección de cierre de mes.
      Los cargos fijos (renta, servicios, colegiatura, suscripciones, cuotas de deuda)
@@ -949,9 +1020,33 @@ function calcular(){
       progreso: m.objetivo>0? clamp((m.ahorrado||0)/m.objetivo,0,1) : 0};
   });
 
+  /* Desglose por persona: en un hogar de dos, saber quién aporta y quién gasta
+     en qué es la estadística más útil. Se agrupa por el nombre atribuido, y se
+     cuenta aparte quién registró cada movimiento (por uid). */
+  const porPersona = personasHogar().map(nombre=>{
+    const g = gastos.filter(x=>x.miembro===nombre);
+    const i = ingresos.filter(x=>x.miembro===nombre);
+    const gasto = g.reduce((a,b)=>a+b.monto,0);
+    const ingreso = i.reduce((a,b)=>a+b.monto,0);
+    const porCatP = {};
+    g.forEach(x=>{ porCatP[x.categoria]=(porCatP[x.categoria]||0)+x.monto; });
+    const top = Object.entries(porCatP).sort((a,b)=>b[1]-a[1])[0];
+    const registrados = S.movimientos.filter(x=>mesDe(x.fecha)===mes && nombreDe(x.uid)===nombre).length;
+    return {
+      nombre, gasto, ingreso, neto:ingreso-gasto, n:g.length, registrados,
+      ticket: g.length? gasto/g.length : 0,
+      pct: totalGasto>0? gasto/totalGasto : 0,
+      prescindible: g.filter(x=>!x.esencial).reduce((a,b)=>a+b.monto,0),
+      topCat: top? {cod:top[0], monto:top[1]} : null,
+      color: colorPersona(nombre),
+    };
+  }).filter(p=>p.gasto>0||p.ingreso>0).sort((a,b)=>b.gasto-a.gasto);
+  const sinAsignar = gastos.filter(x=>!personasHogar().includes(x.miembro)).reduce((a,b)=>a+b.monto,0);
+
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
     gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
+    ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
     deudaTotal,pagoMinTotal,deudasCalc,metasCalc};
@@ -1214,7 +1309,10 @@ function vPanel(R){
   return `
   <section class="cinta">
     <div class="cinta-cab"><span>Corte del mes</span><span>${R.esMesActual?`día ${R.diaHoy} de ${R.dias}`:"mes cerrado"}</span></div>
-    <div class="renglon"><span>Ingresos</span><i></i><b>+${fmt(R.ingresoBase)}</b></div>
+    <div class="renglon ${R.baseUsada==="registrado"?"":"tenue"}"><span>Ingresos registrados${R.baseUsada==="registrado"?' <i class="marca-base">base</i>':""}</span><i></i><b>+${fmt(R.ingresoRegistrado)}</b></div>
+    ${R.ingresoEstimado>0 && R.ingresoEstimado!==R.ingresoRegistrado
+      ? `<div class="renglon ${R.baseUsada==="estimado"?"":"tenue"}"><span>Ingreso estimado${R.baseUsada==="estimado"?' <i class="marca-base">base</i>':""}</span><i></i><b>${fmt(R.ingresoEstimado)}</b></div>`
+      : ""}
     <div class="renglon"><span>Gastos</span><i></i><b>−${fmt(R.totalGasto)}</b></div>
     <div class="renglon tenue"><span>Presupuesto asignado</span><i></i><b>${fmt(R.presupuestoTotal)}</b></div>
     ${R.deudaTotal>0?`<div class="renglon tenue"><span>Deuda pendiente</span><i></i><b>${fmt(R.deudaTotal)}</b></div>`:""}
@@ -1271,29 +1369,38 @@ const consejoHTML = r=>`<div class="consejo ${r.nivel}">
 function vMovimientos(R){
   const lista = R.delMes
     .filter(m=>S.filtroCat==="TODAS"||m.categoria===S.filtroCat)
+    .filter(m=>S.filtroPersona==="TODAS"||m.miembro===S.filtroPersona)
     .filter(m=>!S.filtroTexto||(m.nota||"").toLowerCase().includes(S.filtroTexto.toLowerCase()))
     .sort((a,b)=>a.fecha<b.fecha?1:-1);
   const porFecha = {};
   lista.forEach(m=>{(porFecha[m.fecha]=porFecha[m.fecha]||[]).push(m)});
+  const suma = lista.filter(m=>m.tipo==="gasto").reduce((a,b)=>a+b.monto,0);
   return `<section class="tarjeta">
-    <div class="cab"><h2>Movimientos</h2><span class="cod">${lista.length} registros</span></div>
+    <div class="cab"><h2>Movimientos</h2><span class="cod">${cuenta(lista.length,"registro","registros")} · ${fmt(suma)}</span></div>
     <div class="filtros">
       <input id="f-texto" placeholder="Buscar concepto" value="${esc(S.filtroTexto)}">
       <select id="f-cat"><option value="TODAS">Todas</option>
         ${CATEGORIAS.map(c=>`<option value="${c.cod}" ${S.filtroCat===c.cod?"selected":""}>${c.cod} · ${c.nombre}</option>`).join("")}</select>
     </div>
+    ${personasHogar().length>1?`<div class="chips filtro-personas">
+      <button class="chip ${S.filtroPersona==="TODAS"?"activo":""}" data-persona="TODAS">Todos</button>
+      ${personasHogar().map(p=>`<button class="chip ${S.filtroPersona===p?"activo":""}" data-persona="${esc(p)}"
+        style="${S.filtroPersona===p?`border-color:${colorPersona(p)};color:${colorPersona(p)}`:""}">${esc(p)}</button>`).join("")}
+    </div>`:""}
     ${lista.length?"":`<p class="nota">No hay movimientos con estos filtros.</p>`}
     <div class="libro">${Object.entries(porFecha).map(([f,ms])=>`
       <div class="dia">
         <div class="dia-cab"><span>${DIAS[aDate(f).getDay()]} ${f.slice(8)}</span>
           <span>${fmt(ms.filter(m=>m.tipo==="gasto").reduce((a,b)=>a+b.monto,0))}</span></div>
-        ${ms.map(m=>`<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
+        ${ms.map(m=>{
+          const autor = nombreDe(m.uid)||m.autor||"";
+          return `<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
           <span class="cod" style="color:${CAT[m.categoria]?.color||"#8A9099"}">${esc(m.categoria)}</span>
           <div class="mov-txt"><b>${esc(m.nota||CAT[m.categoria]?.nombre||"Movimiento")}</b>
-            <small>${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:""} · ${esc(m.miembro)}${m.esencial?"":" · prescindible"}</small></div>
+            <small><span class="quien" style="color:${colorPersona(m.miembro)}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
           <span class="mov-monto ${m.tipo==="ingreso"?"verde":""}">${m.tipo==="ingreso"?"+":"−"}${fmt(m.monto,2)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
-        </div>`).join("")}
+        </div>`;}).join("")}
       </div>`).join("")}</div>
   </section>`;
 }
@@ -1331,9 +1438,36 @@ function vEstadisticas(R){
       <div><em>Compras hormiga</em><b>${R.micro.length}</b></div>
     </div></section>
 
-  <section class="tarjeta dos">
-    <div><div class="cab"><h2>Medio de pago</h2></div>${listaBarras(R.porMetodo,R.totalGasto,"#5A5F6B")}</div>
-    <div><div class="cab"><h2>Por miembro</h2></div>${listaBarras(R.porMiembro,R.totalGasto,"#6B6BA8")}</div>
+  <section class="tarjeta">
+    <div class="cab"><h2>Por persona</h2><span class="cod">${cuenta(R.porPersona.length,"integrante","integrantes")}</span></div>
+    ${R.porPersona.length? `
+    <div class="split" style="margin-bottom:12px">
+      ${R.porPersona.map(p=>`<span style="width:${p.pct*100}%;background:${p.color}" title="${esc(p.nombre)}"></span>`).join("")}
+      ${R.sinAsignar>0?`<span style="width:${R.sinAsignar/R.totalGasto*100}%;background:#B9C0B6"></span>`:""}
+    </div>
+    <ul class="personas">${R.porPersona.map(p=>`
+      <li>
+        <div class="persona-cab">
+          <span class="punto-p" style="background:${p.color}"></span>
+          <span class="persona-nom">${esc(p.nombre)}</span>
+          <span class="persona-cifra">${fmt(p.gasto)}<em>${Math.round(p.pct*100)}%</em></span>
+        </div>
+        <div class="persona-datos">
+          <div><em>Ingresos</em><b class="verde">+${fmt(p.ingreso)}</b></div>
+          <div><em>Aporte neto</em><b class="${p.neto<0?"rojo":"verde"}">${p.neto>=0?"+":""}${fmt(p.neto)}</b></div>
+          <div><em>Compras</em><b>${p.n}</b></div>
+          <div><em>Ticket</em><b>${fmt(p.ticket)}</b></div>
+          <div><em>Prescindible</em><b>${p.gasto>0?Math.round(p.prescindible/p.gasto*100):0}%</b></div>
+          <div><em>Más gasta en</em><b>${p.topCat? esc(CAT[p.topCat.cod]?.nombre||p.topCat.cod) : "—"}</b></div>
+        </div>
+        ${p.registrados>0?`<p class="persona-pie">Registró ${cuenta(p.registrados,"movimiento","movimientos")} este mes</p>`:""}
+      </li>`).join("")}
+      ${R.sinAsignar>0?`<li class="persona-suelta">Sin asignar a nadie · ${fmt(R.sinAsignar)}</li>`:""}
+    </ul>` : `<p class="nota">Aún no hay movimientos atribuidos a ninguna persona.</p>`}
+  </section>
+
+  <section class="tarjeta">
+    <div class="cab"><h2>Medio de pago</h2></div>${listaBarras(R.porMetodo,R.totalGasto,"#5A5F6B")}
   </section>
 
   <section class="tarjeta"><div class="cab"><h2>Conceptos más frecuentes</h2></div>
@@ -1486,6 +1620,14 @@ function vAjustes(R){
       <label class="campo"><span>Meta de ahorro mensual</span>
         <input type="number" inputmode="decimal" data-cfg="metaAhorro" value="${S.config.metaAhorro||""}" placeholder="0"></label>
     </div>
+    <div class="campo"><span class="campo-tit">¿Sobre qué ingreso se calcula el mes?</span>
+      <div class="chips" id="base-ingreso">
+        <button class="chip ${(S.config.baseIngreso||"auto")==="auto"?"activo":""}" data-base="auto"><b>AUT</b> El mayor de los dos</button>
+        <button class="chip ${S.config.baseIngreso==="registrado"?"activo":""}" data-base="registrado"><b>REG</b> Solo lo registrado</button>
+        <button class="chip ${S.config.baseIngreso==="estimado"?"activo":""}" data-base="estimado"><b>EST</b> Solo lo estimado</button>
+      </div>
+      <p class="nota ayuda">Este mes llevas ${fmt(R.ingresoRegistrado)} registrados y estimas ${fmt(R.ingresoEstimado)}. Con <b>el mayor de los dos</b>, a mitad de mes se usa la estimación —porque parte del sueldo aún no ha entrado— y al final se impone lo realmente recibido.</p>
+    </div>
     <label class="campo"><span>Moneda</span><select data-cfg="moneda">
       ${MONEDAS.map(([c])=>`<option ${S.config.moneda===c?"selected":""}>${c}</option>`).join("")}</select></label>
     <div class="campo"><span class="campo-tit">Miembros</span>
@@ -1610,6 +1752,9 @@ function conectar(R){
       const b=opf.parentElement.querySelector("b"); if(b) b.textContent=e.target.value+"%"; };
     opf.onchange=()=>guardarFondo(S.fondo,S.fondoOpacidad);
   }
+  document.querySelectorAll("[data-persona]").forEach(b=>b.onclick=()=>{S.filtroPersona=b.dataset.persona;render()});
+  document.querySelectorAll("#base-ingreso [data-base]").forEach(b=>b.onclick=()=>
+    DB.guardarHogar({config:{...S.config,baseIngreso:b.dataset.base}}));
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
   document.querySelectorAll("[data-tipo-sel]").forEach(b=>b.onclick=()=>{
     aplicarTipo(b.dataset.tipoSel); render(); avisar(`Tipografía ${NOMBRE_TIPO[S.tipo]}`);
@@ -1718,8 +1863,11 @@ function modalMovimiento(id=null){
   const fecha = m? m.fecha : (mesDe(hoyISO())===S.mes? hoyISO() : `${S.mes}-01`);
   const tipoIni = m?.tipo || "gasto";
   const catIni = (m && m.tipo==="gasto")? m.categoria : "ALM";
-  const miembros = m && !S.config.miembros.includes(m.miembro)
-    ? [m.miembro,...S.config.miembros] : S.config.miembros;
+  const yo = miNombre();
+  const miembroIni = m? m.miembro : yo;
+  const personas = personasHogar();
+  const miembros = miembroIni && !personas.includes(miembroIni) ? [miembroIni,...personas] : personas;
+  const registrador = m? (nombreDe(m.uid) || m.autor || "") : yo;
 
   modal(m? "Editar movimiento":"Registrar movimiento",`
     ${m?`<p class="nota migaja">Registrado el ${esc(m.fecha)} · corrige lo que esté mal asignado y guarda.</p>`:""}
@@ -1747,7 +1895,9 @@ function modalMovimiento(id=null){
         <p class="nota aviso-credito">El monto se suma al saldo de la tarjeta. La compra cuenta como gasto del mes; el pago posterior de la tarjeta no vuelve a contar.</p>`
       : `<p class="nota aviso-credito">No tienes tarjetas registradas. Créalas en <b>Deudas → Añadir deuda o tarjeta</b> para que las compras a crédito se sumen solas a su saldo.</p>`}
     </div>
-    <label class="campo"><span>Miembro</span><select id="m-miembro">${miembros.map(x=>`<option ${m?.miembro===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+    <label class="campo"><span>¿De quién es el gasto?</span>
+      <select id="m-miembro">${miembros.map(x=>`<option ${miembroIni===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+    ${registrador?`<p class="nota firma">Registrado por <b>${esc(registrador)}</b>${m&&m.creado?` · ${new Date(m.creado).toLocaleDateString("es")}`:""}</p>`:""}
   `, async()=>{
     const monto = num($("#m-monto").value);
     if(monto<=0) return "Escribe un monto mayor que cero.";
@@ -1760,10 +1910,11 @@ function modalMovimiento(id=null){
       esencial: tipo==="ingreso"? true : $("#m-esencial").checked };
     if(m){
       await DB.actualizar("movimientos",id,datos);
-      await ajustarTarjeta(cargoDe(m), cargoDe(datos));
+      await ajustarTarjeta(cargoDe(m), cargoDe({...m,...datos}));
       avisar("Movimiento actualizado");
     }else{
-      await DB.agregar("movimientos",datos);
+      // Se estampa quién lo registra: el uid es el dato fiable, el nombre solo la etiqueta.
+      await DB.agregar("movimientos",{...datos, uid:S.uid||"", autor:miNombre(), creado:Date.now()});
       await ajustarTarjeta(null, cargoDe(datos));
       avisar(tarjetaId? "Compra cargada a la tarjeta" : (tipo==="gasto"?"Gasto registrado":"Ingreso registrado"));
     }
@@ -1964,10 +2115,11 @@ function sugerirPresupuestos(){
 }
 
 function exportarCSV(){
-  const filas=[["fecha","tipo","categoria","concepto","monto","metodo","tarjeta","miembro","esencial"]];
+  const filas=[["fecha","tipo","categoria","concepto","monto","metodo","tarjeta","persona","registrado_por","esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>filas.push(
     [m.fecha,m.tipo,m.categoria,(m.nota||"").replace(/;/g," "),m.monto,m.metodo,
-     (S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"").replace(/;/g," "),m.miembro,m.esencial?"si":"no"]));
+     (S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"").replace(/;/g," "),m.miembro,
+     (nombreDe(m.uid)||m.autor||""),m.esencial?"si":"no"]));
   S.csv = filas.map(f=>f.join(";")).join("\n");
   try{
     const url=URL.createObjectURL(new Blob(["\uFEFF"+S.csv],{type:"text/csv;charset=utf-8"}));

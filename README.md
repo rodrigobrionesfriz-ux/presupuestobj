@@ -142,11 +142,15 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 ## Qué incluye
 
-**Panel** — Corte del mes en formato de cinta de sumadora: ingresos, gastos, deuda pendiente y disponible. Ritmo de gasto variable, proyección a fin de mes con su desglose, y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
+**Panel** — Corte del mes en formato de cinta de sumadora: ingresos registrados, ingreso estimado, gastos, deuda pendiente y disponible. La etiqueta *base* señala cuál de los dos ingresos se está usando para calcular. Por omisión se toma el mayor de los dos: a mitad de mes manda la estimación, porque parte del sueldo aún no ha entrado, y al cerrar el mes se impone lo realmente recibido. En Ajustes se puede fijar a mano. Ritmo de gasto variable, proyección a fin de mes con su desglose, y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
 
 **Sobres propios** — Además de las once categorías de serie, la familia puede crear las suyas desde *Panel → + Otro sobre* o desde Ajustes. Cada sobre nuevo declara su **tipo de gasto** (esencial o prescindible, lo que decide si entra en las recomendaciones de recorte) y su **frecuencia** (variable día a día, o fijo una vez al mes, lo que decide cómo se proyecta el cierre). Se le asigna color y presupuesto, y aparece en todas las vistas y estadísticas como una más. Al eliminar un sobre propio, sus movimientos pasan automáticamente a *Otros* en lugar de perderse.
 
-**Movimientos** — Alta rápida con monto, categoría, medio de pago, miembro y marca de esencial. Libro diario agrupado por fecha, con búsqueda por concepto y filtro por categoría. Cada fila se toca para editarla o eliminarla.
+**Movimientos** — Alta rápida con monto, categoría, medio de pago, persona y marca de esencial. Libro diario agrupado por fecha, con búsqueda por concepto y filtros por categoría y por persona. Cada fila se toca para editarla o eliminarla.
+
+**Quién registra qué** — Cada movimiento guarda el identificador de la cuenta que lo creó (`uid`), no solo un nombre escrito a mano. El nombre puede cambiar; el identificador no. Eso permite distinguir dos cosas que no son lo mismo: **de quién es el gasto** (editable: puedes registrar una compra que hizo tu pareja) y **quién lo registró** (automático, se estampa al guardar). Al entrar por primera vez, cada persona queda inscrita en el hogar con su nombre, y todos ven los mismos nombres y colores.
+
+**Por persona** — En Estadísticas, el desglose de cada integrante: cuánto gastó y qué porcentaje del total representa, cuánto ingresó, su aporte neto, número de compras, ticket promedio, qué proporción de su gasto es prescindible, en qué categoría gasta más y cuántos movimientos registró en el mes. Con una barra comparativa arriba y un color fijo por persona que se repite en todo el libro.
 
 **Estadísticas** — Acumulado del mes contra la línea de presupuesto, reparto por categoría, comparativo de los últimos seis meses, gasto por día de la semana, ticket promedio, frecuencia de compra, medio de pago, gasto por miembro y conceptos más repetidos.
 
