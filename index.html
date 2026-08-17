@@ -162,6 +162,11 @@ svg.gr{width:100%;height:auto;display:block;overflow:visible}
 .etiqueta{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
 .chip-ahorro{font-family:'IBM Plex Mono',monospace;font-size:10.5px;background:var(--papel);border:1px solid var(--borde);
   border-radius:2px;padding:2px 7px}
+.chip-ahorro.alerta{border-color:var(--margen);color:var(--margen)}
+.desglose{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:11px;padding-top:10px;
+  border-top:1px dotted var(--rayado);font-size:10.5px;color:var(--suave);align-items:baseline}
+.desglose b{font-weight:500;color:var(--tinta);margin-left:4px}
+.desglose .total{margin-left:auto;font-size:11.5px;color:var(--tinta);font-weight:500}
 .consejo h3{font-size:16px;font-weight:700;margin:0 0 6px;line-height:1.25}
 .consejo p{margin:0;font-size:13.5px;line-height:1.55;color:#374A3D}
 .accion{margin-top:7px!important;font-weight:500;color:var(--tinta)!important}
@@ -425,6 +430,9 @@ const CATEGORIAS = [
   {cod:"OTR",nombre:"Otros",color:"#8A9099",esencial:false},
 ];
 const CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
+/* Categorías cuyo cargo es mensual y no se repite a diario: no deben promediarse
+   por día al proyectar el cierre del mes. */
+const CAT_FIJAS = ["HOG","EDU","SUS","DEU"];
 const METODOS = ["Efectivo","Débito","Crédito","Transferencia"];
 const MONEDAS = [["MXN","es-MX"],["EUR","es-ES"],["COP","es-CO"],["ARS","es-AR"],["CLP","es-CL"],["PEN","es-PE"],["USD","es-US"]];
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -705,7 +713,25 @@ function calcular(){
   const diaHoy = esMesActual? new Date().getDate() : dias;
   const restantes = Math.max(0,dias-diaHoy);
   const ritmoDiario = totalGasto/Math.max(1,diaHoy);
-  const proyectado = esMesActual? ritmoDiario*dias : totalGasto;
+
+  /* Proyección de cierre de mes.
+     Los cargos fijos (renta, servicios, colegiatura, suscripciones, cuotas de deuda)
+     ocurren una vez al mes: promediarlos por día y multiplicarlos por 31 los
+     multiplicaría varias veces. Se separan del gasto variable, se proyecta solo
+     este último, y se suman aparte los fijos que aún no se han pagado este mes. */
+  const gastoFijo = gastos.filter(g=>CAT_FIJAS.includes(g.categoria)).reduce((a,b)=>a+b.monto,0);
+  const gastoVariable = totalGasto-gastoFijo;
+  const ritmoVariable = gastoVariable/Math.max(1,diaHoy);
+  const conceptosMes = new Set(gastos.map(g=>(g.nota||"").trim().toLowerCase()).filter(Boolean));
+  const fijosPendientes = gastosAnt
+    .filter(g=>CAT_FIJAS.includes(g.categoria))
+    .filter(g=>{const k=(g.nota||"").trim().toLowerCase(); return k && !conceptosMes.has(k);})
+    .reduce((a,b)=>a+b.monto,0);
+  const proyectado = esMesActual
+    ? totalGasto + ritmoVariable*restantes + fijosPendientes
+    : totalGasto;
+  const margenRestante = presupuestoTotal - totalGasto - fijosPendientes;
+  const disponibleDiario = restantes>0? margenRestante/restantes : 0;
 
   const porCat = CATEGORIAS.map(c=>{
     const l = gastos.filter(g=>g.categoria===c.cod);
@@ -775,6 +801,7 @@ function calcular(){
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
+    gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
     deudaTotal,pagoMinTotal,deudasCalc,metasCalc};
@@ -793,33 +820,64 @@ const mesesHasta = f=>{
   return (y-hoy.getFullYear())*12 + (m-1-hoy.getMonth());
 };
 
-/* ==================== motor de recomendaciones ==================== */
+/* ==================== motor de recomendaciones ====================
+   Cada recomendación lleva un `grupo`, porque varias describen el mismo
+   dinero desde ángulos distintos y no se pueden sumar entre sí:
+     · presupuesto → excesos por categoría; son dinero distinto: se suman.
+     · habitos     → prescindible, compras hormiga, patrón semanal,
+                     suscripciones; unas están contenidas en otras: se toma
+                     la mayor, nunca la suma.
+     · alza        → aumentos contra el mes anterior: se suman.
+     · exceso      → avisos de desvío (ritmo, tarjeta que crece). NO son
+                     ahorro conseguible: quedan fuera del total.
+     · deuda       → intereses, que son cifra anual: quedan fuera del total.
+   ================================================================== */
+const MODO_GRUPO = {presupuesto:"suma", habitos:"max", alza:"suma"};
+
+function ahorroPotencial(rec,R){
+  const acum={};
+  rec.filter(r=>r.ahorro>0 && MODO_GRUPO[r.grupo]).forEach(r=>{
+    acum[r.grupo] = MODO_GRUPO[r.grupo]==="max"
+      ? Math.max(acum[r.grupo]||0, r.ahorro)
+      : (acum[r.grupo]||0) + r.ahorro;
+  });
+  const total = Object.values(acum).reduce((a,b)=>a+b,0);
+  // Techo lógico: no se puede ahorrar más que lo prescindible más los excesos.
+  const excesos = R.porCat.filter(c=>c.pres>0&&c.total>c.pres).reduce((a,c)=>a+(c.total-c.pres),0);
+  return Math.min(total, R.prescindibles + excesos);
+}
+const cuenta = (n,sing,plur)=>`${n} ${n===1?sing:plur}`;
+
 function recomendar(R){
   const out=[]; const push=o=>out.push({id:uid(),nivel:"info",ahorro:0,...o});
   if(R.gastos.length<3 && S.deudas.length===0 && S.metas.length===0) return out;
 
   R.porCat.filter(c=>c.pres>0&&c.total>c.pres).sort((a,b)=>(b.total-b.pres)-(a.total-a.pres)).slice(0,3).forEach(c=>{
     const ex=c.total-c.pres;
-    push({nivel:"alto",etiqueta:`${c.cod} · presupuesto excedido`,ahorro:ex,
+    const n=Math.ceil(ex/Math.max(c.ticket,1));
+    push({nivel:"alto",grupo:"presupuesto",etiqueta:`${c.cod} · presupuesto excedido`,ahorro:ex,
       titulo:`${c.nombre} superó su sobre en ${fmt(ex)}`,
-      detalle:`Llevas ${fmt(c.total)} contra un presupuesto de ${fmt(c.pres)} (${Math.round(c.uso*100)}%). Con ${c.n} compras, el ticket promedio es ${fmt(c.ticket)}.`,
-      accion:`Recortar ${Math.ceil(ex/Math.max(c.ticket,1))} compras de este tipo al mes devuelve el sobre a su límite.`});
+      detalle:`Llevas ${fmt(c.total)} contra un presupuesto de ${fmt(c.pres)} (${Math.round(c.uso*100)}%). Con ${cuenta(c.n,"compra","compras")}, el ticket promedio es ${fmt(c.ticket)}.`,
+      accion:`Recortar ${cuenta(n,"compra","compras")} de este tipo al mes devuelve el sobre a su límite.`});
   });
 
   if(R.esMesActual && R.presupuestoTotal>0 && R.proyectado>R.presupuestoTotal*1.02){
     const ex=R.proyectado-R.presupuestoTotal;
-    const diario=R.restantes>0? Math.max(0,(R.presupuestoTotal-R.totalGasto)/R.restantes):0;
-    push({nivel:"alto",etiqueta:"Ritmo de gasto",ahorro:ex,
+    push({nivel:"alto",grupo:"exceso",etiqueta:"Ritmo de gasto",ahorro:ex,cifra:"exceso proyectado",
       titulo:`Vas camino a cerrar el mes en ${fmt(R.proyectado)}`,
-      detalle:`Con el ritmo de ${fmt(R.ritmoDiario)} al día terminarías ${fmt(ex)} por encima del presupuesto de ${fmt(R.presupuestoTotal)}.`,
-      accion:R.restantes>0?`Limita el gasto a ${fmt(diario)} por día durante los ${R.restantes} días que quedan.`:"El mes ya cerró: ajusta los sobres del próximo con este dato."});
+      detalle:`Llevas ${fmt(R.totalGasto)} en ${R.diaHoy} días. Al ritmo variable de ${fmt(R.ritmoVariable)} al día`+
+        (R.fijosPendientes>0?`, más ${fmt(R.fijosPendientes)} de cargos fijos que aún faltan por pagar,`:"")+
+        ` cerrarías ${fmt(ex)} por encima del presupuesto de ${fmt(R.presupuestoTotal)}.`,
+      accion: R.margenRestante>0
+        ? `Te quedan ${fmt(R.margenRestante)} de margen: son ${fmt(R.disponibleDiario)} por día durante los ${R.restantes} días que faltan.`
+        : `Ya no queda margen: el presupuesto está superado en ${fmt(-R.margenRestante)}. A partir de aquí lo realista es contener el exceso, no cumplir el mes; revisa si los sobres están bien dimensionados en Ajustes.`});
   }
 
   if(R.totalGasto>0){
     const pct=R.prescindibles/R.totalGasto;
     if(pct>0.3){
       const ah=R.prescindibles*0.25;
-      push({nivel:"medio",etiqueta:"Composición del gasto",ahorro:ah,
+      push({nivel:"medio",grupo:"habitos",etiqueta:"Composición del gasto",ahorro:ah,
         titulo:`El ${Math.round(pct*100)}% de tu gasto es prescindible`,
         detalle:`${fmt(R.prescindibles)} fueron a restaurantes, ocio, compras o suscripciones. Por encima del 30% el margen de ahorro está aquí, no en lo esencial.`,
         accion:`Bajar esa bolsa un 25% libera ${fmt(ah)} al mes sin tocar comida, vivienda ni salud.`});
@@ -828,14 +886,14 @@ function recomendar(R){
 
   if(R.micro.length>=6){
     const ah=R.microTotal*0.4;
-    push({nivel:"medio",etiqueta:"Compras hormiga",ahorro:ah,
+    push({nivel:"medio",grupo:"habitos",etiqueta:"Compras hormiga",ahorro:ah,
       titulo:`${R.micro.length} compras pequeñas suman ${fmt(R.microTotal)}`,
       detalle:`Gastos no esenciales de menos de ${fmt(R.umbralMicro)} cada uno. Juntos equivalen al ${Math.round(R.microTotal/R.totalGasto*100)}% del gasto del mes.`,
       accion:`Fija un tope semanal en efectivo: recortarlas 40% deja ${fmt(ah)} al mes.`});
   }
 
   const crecio = R.porCat.filter(c=>c.totalAnt>0&&c.delta>0&&c.variacion>0.25&&c.delta>R.totalGasto*0.03).sort((a,b)=>b.delta-a.delta)[0];
-  if(crecio) push({nivel:"medio",etiqueta:`${crecio.cod} · en alza`,ahorro:crecio.delta,
+  if(crecio) push({nivel:"medio",grupo:"alza",etiqueta:`${crecio.cod} · en alza`,ahorro:crecio.delta,
     titulo:`${crecio.nombre} subió ${Math.round(crecio.variacion*100)}% respecto al mes pasado`,
     detalle:`Pasó de ${fmt(crecio.totalAnt)} a ${fmt(crecio.total)}, ${fmt(crecio.delta)} más. Es el aumento más grande del presupuesto.`,
     accion:`Volver al nivel del mes anterior recupera ${fmt(crecio.delta)}.`});
@@ -845,23 +903,24 @@ function recomendar(R){
     const totalPres = pres.reduce((a,b)=>a+b.monto,0);
     const top = DIAS.map((d,i)=>({dia:d,total:pres.filter(g=>aDate(g.fecha).getDay()===i).reduce((a,b)=>a+b.monto,0)}))
       .sort((a,b)=>b.total-a.total)[0];
-    if(top.total>totalPres*0.28) push({etiqueta:"Patrón semanal",ahorro:top.total*0.3,
+    if(top.total>totalPres*0.28) push({grupo:"habitos",etiqueta:"Patrón semanal",ahorro:top.total*0.3,
       titulo:`Los ${top.dia.toLowerCase()} concentran ${Math.round(top.total/totalPres*100)}% del gasto prescindible`,
       detalle:`Ese día suma ${fmt(top.total)} en salidas, restaurantes y compras. El hábito, no el precio, mueve la cifra.`,
       accion:`Planea ese día con presupuesto cerrado: reducirlo 30% ahorra ${fmt(top.total*0.3)} al mes.`});
   }
 
   const sus = R.porCat.find(c=>c.cod==="SUS");
-  if(sus&&sus.total>0) push({etiqueta:"SUS · suscripciones",ahorro:sus.total*0.3,
+  if(sus&&sus.total>0) push({grupo:"habitos",etiqueta:"SUS · suscripciones",ahorro:sus.total*0.3,
     titulo:`Pagas ${fmt(sus.total)} al mes en suscripciones`,
-    detalle:`Son ${fmt(sus.total*12)} al año en ${sus.n} cargos recurrentes. Es el gasto que más fácil se olvida y el más rápido de cancelar.`,
+    detalle:`Son ${fmt(sus.total*12)} al año en ${cuenta(sus.n,"cargo recurrente","cargos recurrentes")}. Es el gasto que más fácil se olvida y el más rápido de cancelar.`,
     accion:"Revisa cuáles usaste en las últimas dos semanas y cancela el resto; suele sobrar un tercio."});
 
   /* tarjetas: gastar más de lo que se abona */
   tarjetas().forEach(t=>{
     const compras = comprasDelMes(t.id,R.mes);
     if(compras>0 && compras > (t.pagoMensual||0)*1.05){
-      push({nivel:"alto",etiqueta:"Tarjeta en aumento",ahorro:compras-(t.pagoMensual||0),
+      push({nivel:"alto",grupo:"exceso",cifra:"aumenta la deuda",ahorro:compras-(t.pagoMensual||0),
+        etiqueta:"Tarjeta en aumento",
         titulo:`${t.nombre} crece: cargas ${fmt(compras)} y pagas ${fmt(t.pagoMensual||0)}`,
         detalle:`Este mes le sumaste ${fmt(compras)} en compras y el pago mensual es de ${fmt(t.pagoMensual||0)}. La diferencia se queda como deuda y empieza a generar intereses al ${t.tasaAnual||0}% anual.`,
         accion:`Para no crecer el saldo tendrías que pagar al menos ${fmt(compras)} este mes, o bajar las compras a crédito en ${fmt(compras-(t.pagoMensual||0))}.`});
@@ -1010,9 +1069,18 @@ function vPanel(R){
     ${R.deudaTotal>0?`<div class="renglon tenue"><span>Deuda pendiente</span><i></i><b>${fmt(R.deudaTotal)}</b></div>`:""}
     <div class="cinta-total"><span>Disponible</span><strong class="${R.disponible<0?"rojo":""}">${fmt(R.disponible)}</strong></div>
     ${R.esMesActual?`<div class="cinta-pie">
-      <div><em>Ritmo actual</em><b>${fmt(R.ritmoDiario)}/día</b></div>
+      <div><em>Ritmo variable</em><b>${fmt(R.ritmoVariable)}/día</b></div>
       <div><em>Proyección fin de mes</em><b class="${alta?"rojo":"verde"}">${fmt(R.proyectado)}</b></div>
-      <div><em>Puedes gastar</em><b>${R.restantes>0?fmt(Math.max(0,(R.presupuestoTotal-R.totalGasto)/R.restantes))+"/día":"—"}</b></div>
+      <div><em>Puedes gastar</em><b class="${R.margenRestante<=0?"rojo":""}">${
+        R.presupuestoTotal<=0? "—"
+        : R.margenRestante<=0? "sin margen"
+        : R.restantes>0? fmt(R.disponibleDiario)+"/día" : fmt(R.margenRestante)}</b></div>
+    </div>
+    <div class="desglose">
+      <span>Ya gastado <b>${fmt(R.totalGasto)}</b></span>
+      <span>+ variable ${R.restantes} días <b>${fmt(R.ritmoVariable*R.restantes)}</b></span>
+      ${R.fijosPendientes>0?`<span>+ fijos por pagar <b>${fmt(R.fijosPendientes)}</b></span>`:""}
+      <span class="total">= ${fmt(R.proyectado)}</span>
     </div>`:""}
   </section>
 
@@ -1044,7 +1112,7 @@ function vPanel(R){
 
 const consejoHTML = r=>`<div class="consejo ${r.nivel}">
   <div class="consejo-cab"><span class="etiqueta">${esc(r.etiqueta)}</span>
-    ${r.ahorro>0?`<span class="chip-ahorro">ahorro ≈ ${fmt(r.ahorro)}/mes</span>`:""}</div>
+    ${r.ahorro>0?`<span class="chip-ahorro ${r.grupo==="exceso"?"alerta":""}">${r.cifra?esc(r.cifra):"ahorro"} ≈ ${fmt(r.ahorro)}/mes</span>`:""}</div>
   <h3>${esc(r.titulo)}</h3><p>${esc(r.detalle)}</p>${r.accion?`<p class="accion">${esc(r.accion)}</p>`:""}</div>`;
 
 function vMovimientos(R){
@@ -1209,13 +1277,14 @@ function vMetas(R){
 
 function vAhorro(R){
   const rec = recomendar(R);
-  const potencial = rec.reduce((a,r)=>a+(r.ahorro||0),0);
+  const potencial = ahorroPotencial(rec,R);
+  const conCifra = rec.filter(r=>r.ahorro>0 && MODO_GRUPO[r.grupo]).length;
   const ahorroReal = R.ingresoBase-R.totalGasto;
   const meta = S.config.metaAhorro||0;
   return `
   <section class="tarjeta destacado">
     <em>Ahorro potencial detectado</em><strong>${fmt(potencial)}</strong>
-    <span>al mes, aplicando las ${rec.filter(r=>r.ahorro>0).length} acciones con cifra</span>
+    <span>al mes${conCifra?`, a partir de ${cuenta(conCifra,"acción con cifra","acciones con cifra")}`:""}. Las que se solapan no se suman: de cada grupo se cuenta la mayor.</span>
     ${meta>0?`<div style="margin-top:16px">
       <div class="lista-cab"><span>Meta mensual</span><b>${fmt(ahorroReal)} / ${fmt(meta)}</b></div>
       <div class="barra"><div class="fill ${ahorroReal>=meta?"":ahorroReal>0?"ambar":"rojo"}" style="width:${clamp(ahorroReal/meta*100,0,100)}%"></div></div>
