@@ -116,7 +116,17 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .dia{margin-bottom:15px}
 .dia-cab{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
   letter-spacing:.1em;text-transform:uppercase;color:var(--suave);padding-bottom:5px;border-bottom:1px solid var(--rayado)}
-.mov{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dotted var(--rayado)}
+.mov{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dotted var(--rayado);
+  cursor:pointer;transition:background .15s}
+.mov:hover,.mov:focus-visible{background:var(--papel)}
+.lapiz{font-size:13px;color:#A3AC9C;flex:none;opacity:0;transition:opacity .15s}
+.mov:hover .lapiz,.mov:focus-visible .lapiz{opacity:1}
+@media(hover:none){.lapiz{opacity:.55}}
+.pie-modal{margin-top:8px;padding-top:14px;border-top:1px dotted var(--rayado)}
+.pie-modal .empuje{flex:1}
+.aviso-credito{background:var(--papel);border-left:3px solid var(--ambar);padding:9px 11px;border-radius:2px;
+  margin:-4px 0 13px;font-size:12.5px;line-height:1.5}
+.migaja{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-bottom:14px}
 .mov-txt{flex:1;min-width:0}
 .mov-txt b{display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mov-txt small{font-size:11px;color:var(--suave)}
@@ -201,6 +211,9 @@ textarea.csv{height:130px;font-family:'IBM Plex Mono',monospace;font-size:11px;w
 .hoja-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .hoja-cab h2{font-size:17px;font-weight:700}
 .hoja .icono{border-color:var(--borde);color:var(--tinta)}
+.cerrar-modal{width:36px;height:36px;font-size:16px;font-weight:600;border-width:1.5px;flex:none}
+.cerrar-modal:hover{background:var(--margen);border-color:var(--margen);color:var(--hoja)}
+html[data-tema="claro"] .cerrar-modal{border-width:2px}
 .toggle{display:flex;border:1px solid var(--tinta);border-radius:2px;overflow:hidden;margin-bottom:16px}
 .toggle button{flex:1;background:none;border:none;padding:10px;font-family:'Karla',sans-serif;font-size:13.5px;
   cursor:pointer;color:var(--tinta)}
@@ -230,6 +243,10 @@ nav button.activo{color:var(--papel);border-top-color:var(--margen)}
 .separador{display:flex;align-items:center;gap:10px;margin:16px 0;font-family:'IBM Plex Mono',monospace;
   font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
 .separador::before,.separador::after{content:"";flex:1;border-top:1px dotted var(--rayado)}
+.paleta{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:13px;border-top:1px dotted var(--rayado)}
+.muestra{display:flex;flex-direction:column;gap:3px;font-size:10.5px;color:var(--suave);min-width:62px}
+.muestra i{display:block;height:26px;border-radius:3px;border:1px solid var(--borde)}
+.muestra b{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:var(--tinta)}
 
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--margen);outline-offset:2px}
 @media(min-width:640px){
@@ -280,6 +297,71 @@ html[data-tema="claro"] header{border-bottom-width:4px}
 html[data-tema="claro"] nav{border-top:2px solid var(--borde)}
 html[data-tema="claro"] .fab{border:2px solid var(--tinta)}
 html[data-tema="claro"] .gr line{stroke:#B9C4BB}
+
+/* ==================================================================
+   TEMA SAP FIORI — paleta Quartz/Horizon con colores semánticos.
+   Azul de marca para acciones, y verde/naranja/rojo con el significado
+   que tienen en Fiori: positivo, crítico y negativo.
+   ================================================================== */
+html[data-tema="fiori"]{
+  --papel:#F5F6F7;   /* sapBackgroundColor */
+  --hoja:#FFFFFF;    /* sapTile_Background  */
+  --tinta:#32363A;   /* sapTextColor        */
+  --suave:#6A6D70;   /* sapContent_LabelColor */
+  --rayado:#E5E5E5;  /* sapList_BorderColor */
+  --borde:#C6CBD0;   /* sapGroup_ContentBorderColor */
+  --margen:#BB0000;  /* sapNegativeColor    */
+  --verde:#107E3E;   /* sapPositiveColor    */
+  --ambar:#E9730C;   /* sapCriticalColor    */
+  --azul:#0A6ED1;    /* sapBrandColor       */
+  --shell:#354A5F;   /* sapShellColor       */
+}
+html[data-tema="fiori"] body{
+  background-image:none;
+  font-family:"72","72full",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+html[data-tema="fiori"] h1,html[data-tema="fiori"] h2,html[data-tema="fiori"] h3,
+html[data-tema="fiori"] .btn,html[data-tema="fiori"] input,html[data-tema="fiori"] select,
+html[data-tema="fiori"] textarea,html[data-tema="fiori"] .chip,html[data-tema="fiori"] .enlace{
+  font-family:"72","72full",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;letter-spacing:0}
+html[data-tema="fiori"] .tarjeta{border-radius:8px;box-shadow:0 0 8px 0 rgba(0,0,0,.08);border-color:var(--borde)}
+html[data-tema="fiori"] .cinta{border-radius:8px 8px 0 0;box-shadow:0 0 8px 0 rgba(0,0,0,.08)}
+html[data-tema="fiori"] header{background:var(--shell);border-bottom:none;box-shadow:0 1px 4px rgba(0,0,0,.16)}
+html[data-tema="fiori"] header .sub{color:#C6D2DC}
+html[data-tema="fiori"] .estado-conn{color:#C6D2DC}
+html[data-tema="fiori"] .logo{border-color:#8FA5B8}
+html[data-tema="fiori"] nav{background:#FFFFFF;border-top:1px solid var(--borde);box-shadow:0 -1px 4px rgba(0,0,0,.08)}
+html[data-tema="fiori"] nav button{color:var(--suave)}
+html[data-tema="fiori"] nav button.activo{color:var(--azul);border-top-color:var(--azul)}
+html[data-tema="fiori"] .fab{background:var(--azul);border-radius:50%;box-shadow:0 4px 12px rgba(10,110,209,.4)}
+html[data-tema="fiori"] .fab:hover{background:#0854A0}
+html[data-tema="fiori"] .btn{border-radius:4px;border-color:var(--azul);color:var(--azul);background:#FFFFFF}
+html[data-tema="fiori"] .btn:hover{background:#EBF5FE}
+html[data-tema="fiori"] .btn.primario{background:var(--azul);border-color:var(--azul);color:#FFFFFF}
+html[data-tema="fiori"] .btn.primario:hover{background:#0854A0;border-color:#0854A0}
+html[data-tema="fiori"] .btn.peligro{border-color:var(--margen);color:var(--margen)}
+html[data-tema="fiori"] .btn.peligro:hover{background:#FFEBEB}
+html[data-tema="fiori"] .btn-google{border-color:var(--borde);color:var(--tinta)}
+html[data-tema="fiori"] input,html[data-tema="fiori"] select,html[data-tema="fiori"] textarea{
+  border-radius:4px;border-color:#89919A}
+html[data-tema="fiori"] input:focus,html[data-tema="fiori"] select:focus,html[data-tema="fiori"] textarea:focus{
+  outline:2px solid var(--azul);outline-offset:0;border-color:var(--azul)}
+html[data-tema="fiori"] .chip{border-radius:4px}
+html[data-tema="fiori"] .chip.activo{background:#EBF5FE;border-color:var(--azul);color:var(--azul)}
+html[data-tema="fiori"] .toggle{border-radius:4px;border-color:var(--azul)}
+html[data-tema="fiori"] .toggle button{color:var(--azul)}
+html[data-tema="fiori"] .toggle button.activo{background:var(--azul);color:#FFFFFF}
+html[data-tema="fiori"] .barra{border-radius:4px;border-color:var(--rayado);background:#EDEEF0}
+html[data-tema="fiori"] .split{border-radius:4px;border-color:var(--rayado)}
+html[data-tema="fiori"] .enlace{color:var(--azul)}
+html[data-tema="fiori"] .cinta-total strong{color:var(--tinta)}
+html[data-tema="fiori"] .destacado strong{color:var(--verde)}
+html[data-tema="fiori"] .hoja{border-radius:8px 8px 0 0;border-top:4px solid var(--azul)}
+html[data-tema="fiori"] .aviso{background:var(--shell);border-radius:4px}
+html[data-tema="fiori"] .codigo-hogar{border:1px dashed var(--azul);background:#EBF5FE;color:var(--azul)}
+html[data-tema="fiori"] .libro{border-left-color:var(--azul)}
+html[data-tema="fiori"] .gr line{stroke:var(--rayado)}
+html[data-tema="fiori"] .cerrar-modal:hover{background:#FFEBEB;border-color:var(--margen);color:var(--margen)}
 </style>
 </head>
 <body>
@@ -392,8 +474,8 @@ const DB = {
   },
   async agregar(col,obj){
     const doc = {...obj, id:obj.id||uid(), creado:Date.now()};
-    if(S.modo==="nube") await FB.agregar(col,doc);
-    else { S[col] = [...S[col],doc]; render(); }
+    if(S.modo==="nube") return await FB.agregar(col,doc);
+    S[col] = [...S[col],doc]; render();
     return doc;
   },
   async actualizar(col,id,patch){
@@ -490,7 +572,8 @@ async function iniciarFirebase(){
     },
     async agregar(col,obj){
       const {id,...resto}=obj;
-      await addDoc(collection(db,"hogares",S.hogarId,col),resto);
+      const ref = await addDoc(collection(db,"hogares",S.hogarId,col),resto);
+      return {...resto, id:ref.id};
     },
     actualizar:(col,id,patch)=>updateDoc(doc(db,"hogares",S.hogarId,col,id),patch),
     borrar:(col,id)=>deleteDoc(doc(db,"hogares",S.hogarId,col,id)),
@@ -774,6 +857,17 @@ function recomendar(R){
     detalle:`Son ${fmt(sus.total*12)} al año en ${sus.n} cargos recurrentes. Es el gasto que más fácil se olvida y el más rápido de cancelar.`,
     accion:"Revisa cuáles usaste en las últimas dos semanas y cancela el resto; suele sobrar un tercio."});
 
+  /* tarjetas: gastar más de lo que se abona */
+  tarjetas().forEach(t=>{
+    const compras = comprasDelMes(t.id,R.mes);
+    if(compras>0 && compras > (t.pagoMensual||0)*1.05){
+      push({nivel:"alto",etiqueta:"Tarjeta en aumento",ahorro:compras-(t.pagoMensual||0),
+        titulo:`${t.nombre} crece: cargas ${fmt(compras)} y pagas ${fmt(t.pagoMensual||0)}`,
+        detalle:`Este mes le sumaste ${fmt(compras)} en compras y el pago mensual es de ${fmt(t.pagoMensual||0)}. La diferencia se queda como deuda y empieza a generar intereses al ${t.tasaAnual||0}% anual.`,
+        accion:`Para no crecer el saldo tendrías que pagar al menos ${fmt(compras)} este mes, o bajar las compras a crédito en ${fmt(compras-(t.pagoMensual||0))}.`});
+    }
+  });
+
   /* deudas */
   if(R.deudasCalc.length){
     const cara = R.deudasCalc[0];
@@ -972,12 +1066,12 @@ function vMovimientos(R){
       <div class="dia">
         <div class="dia-cab"><span>${DIAS[aDate(f).getDay()]} ${f.slice(8)}</span>
           <span>${fmt(ms.filter(m=>m.tipo==="gasto").reduce((a,b)=>a+b.monto,0))}</span></div>
-        ${ms.map(m=>`<div class="mov">
+        ${ms.map(m=>`<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
           <span class="cod" style="color:${CAT[m.categoria]?.color||"#8A9099"}">${esc(m.categoria)}</span>
           <div class="mov-txt"><b>${esc(m.nota||CAT[m.categoria]?.nombre||"Movimiento")}</b>
-            <small>${esc(m.metodo)} · ${esc(m.miembro)}${m.esencial?"":" · prescindible"}</small></div>
+            <small>${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:""} · ${esc(m.miembro)}${m.esencial?"":" · prescindible"}</small></div>
           <span class="mov-monto ${m.tipo==="ingreso"?"verde":""}">${m.tipo==="ingreso"?"+":"−"}${fmt(m.monto,2)}</span>
-          <button class="borrar" data-borrar="movimientos" data-id="${m.id}" aria-label="Eliminar">×</button>
+          <span class="lapiz" aria-hidden="true">✎</span>
         </div>`).join("")}
       </div>`).join("")}</div>
   </section>`;
@@ -1052,9 +1146,12 @@ function vDeudas(R){
           <span>${esc(x.tipo||"Préstamo")} · pago ${fmt(x.pagoMensual)}</span>
           <span>${x.viable? (x.meses?`${x.meses} meses · ${fmt(x.interes)} de intereses`:"liquidada") : "el pago no cubre intereses"}</span>
         </div>
+        ${esTarjeta(x)&&comprasDelMes(x.id,S.mes)>0
+          ? `<div class="sobre-pie"><span class="cod">compras de ${mesCorto(S.mes)}</span><span class="ambar mono">+${fmt(comprasDelMes(x.id,S.mes))}</span></div>`
+          : ""}
         <div class="fila-btns" style="margin-top:8px">
           <button class="btn mini" data-abonar-deuda="${x.id}">Registrar pago</button>
-          <button class="btn mini peligro" data-borrar="deudas" data-id="${x.id}">Eliminar</button>
+          <button class="btn mini" data-editar-deuda="${x.id}">Editar</button>
         </div>
       </li>`).join("")}</ul>
     <div class="metricas">
@@ -1105,7 +1202,7 @@ function vMetas(R){
       <div><em>Aporte sugerido</em><b>${x.requerido?fmt(x.requerido/4.3)+"/sem":"—"}</b></div>
     </div>
     <div class="fila-btns"><button class="btn mini" data-abonar-meta="${x.id}">Abonar</button>
-      <button class="btn mini peligro" data-borrar="metas" data-id="${x.id}">Eliminar</button></div>
+      <button class="btn mini" data-editar-meta="${x.id}">Editar</button></div>
   </section>`).join("")
   : `<section class="tarjeta"><p class="nota">Define objetivos concretos (fondo de emergencia, vacaciones, enganche) y la app calcula cuánto necesitas apartar cada mes.</p></section>`}`;
 }
@@ -1175,12 +1272,17 @@ function vAjustes(R){
   </section>
 
   <section class="tarjeta">
-    <div class="cab"><h2>Apariencia</h2><span class="cod">${S.tema==="claro"?"claro":"papel"}</span></div>
+    <div class="cab"><h2>Apariencia</h2><span class="cod">${NOMBRE_TEMA[S.tema]||"papel"}</span></div>
     <div class="chips">
-      <button class="chip ${S.tema!=="claro"?"activo":""}" data-tema-sel="papel"><b>PAP</b> Papel de contabilidad</button>
+      <button class="chip ${S.tema==="papel"?"activo":""}" data-tema-sel="papel"><b>PAP</b> Papel de contabilidad</button>
       <button class="chip ${S.tema==="claro"?"activo":""}" data-tema-sel="claro"><b>CLA</b> Claro con bordes marcados</button>
+      <button class="chip ${S.tema==="fiori"?"activo":""}" data-tema-sel="fiori"><b>SAP</b> Fiori</button>
     </div>
-    <p class="nota" style="margin-top:10px">El tema claro quita el rayado del fondo y remarca los bordes en tono oscuro: se lee mejor a plena luz y en pantallas pequeñas.</p>
+    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori para los estados — verde positivo, naranja crítico, rojo negativo.</p>
+    <div class="paleta">
+      ${[["#354A5F","Shell"],["#0A6ED1","Marca"],["#107E3E","Positivo"],["#E9730C","Crítico"],["#BB0000","Negativo"],["#6A6D70","Neutro"],["#F5F6F7","Fondo"]]
+        .map(([c,n])=>`<span class="muestra"><i style="background:${c}"></i>${n}<b>${c}</b></span>`).join("")}
+    </div>
   </section>
 
   <section class="tarjeta">
@@ -1227,6 +1329,12 @@ function conectar(R){
     const n=$("#f-texto"); if(n){n.focus();n.setSelectionRange(p,p)}};
   const fc=$("#f-cat"); if(fc) fc.onchange=e=>{S.filtroCat=e.target.value;render()};
   const ex=$("#extra-deuda"); if(ex) ex.onchange=e=>DB.guardarHogar({config:{...S.config,extraDeuda:num(e.target.value)}});
+  document.querySelectorAll("[data-editar-mov]").forEach(el=>{
+    el.onclick=()=>modalMovimiento(el.dataset.editarMov);
+    el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();modalMovimiento(el.dataset.editarMov)}};
+  });
+  document.querySelectorAll("[data-editar-deuda]").forEach(b=>b.onclick=()=>modalDeuda(b.dataset.editarDeuda));
+  document.querySelectorAll("[data-editar-meta]").forEach(b=>b.onclick=()=>modalMeta(b.dataset.editarMeta));
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
   const ca=$("#chk-alertas"); if(ca) ca.onchange=e=>DB.guardarHogar({config:{...S.config,alertas:e.target.checked}});
   document.querySelectorAll("[data-quitar-miembro]").forEach(b=>b.onclick=()=>
@@ -1267,55 +1375,132 @@ function avisar(t){
 }
 const cerrarModal = ()=>{$("#modal-host").innerHTML=""};
 
-function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar"){
+/* ============ compras a crédito: cargo a la tarjeta ================ */
+const esTarjeta = d=>(d?.tipo||"")==="Tarjeta de crédito";
+const tarjetas = ()=>S.deudas.filter(esTarjeta);
+const cargoDe = mov => (mov && mov.tipo==="gasto" && mov.tarjetaId)
+  ? {tarjetaId:mov.tarjetaId, monto:mov.monto} : null;
+
+/* Aplica la diferencia entre el cargo anterior y el nuevo.
+   Sirve igual para crear (antes=null), editar y eliminar (despues=null). */
+async function ajustarTarjeta(antes,despues){
+  const cambios={};
+  if(antes?.tarjetaId)   cambios[antes.tarjetaId]   = (cambios[antes.tarjetaId]||0)   - antes.monto;
+  if(despues?.tarjetaId) cambios[despues.tarjetaId] = (cambios[despues.tarjetaId]||0) + despues.monto;
+  for(const [idT,delta] of Object.entries(cambios)){
+    if(!delta) continue;
+    const d = S.deudas.find(x=>x.id===idT); if(!d) continue;
+    const saldo = Math.max(0,(d.saldo||0)+delta);
+    await DB.actualizar("deudas",idT,{saldo, original:Math.max(d.original||0,saldo)});
+  }
+}
+const comprasDelMes = (idT,mes)=>S.movimientos
+  .filter(m=>m.tarjetaId===idT && m.tipo==="gasto" && mesDe(m.fecha)===mes)
+  .reduce((a,b)=>a+b.monto,0);
+
+function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
   const h=$("#modal-host");
-  h.innerHTML=`<div class="modal"><div class="hoja">
-    <div class="hoja-cab"><h2>${esc(titulo)}</h2><button class="icono" id="m-x" aria-label="Cerrar">×</button></div>
+  h.innerHTML=`<div class="modal"><div class="hoja" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+    <div class="hoja-cab"><h2>${esc(titulo)}</h2>
+      <button class="icono cerrar-modal" id="m-x" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>
     ${cuerpo}<p class="error oculto" id="m-error"></p>
-    <div class="fila-btns"><button class="btn" id="m-cancel">Cancelar</button>
+    <div class="fila-btns pie-modal">
+      ${extra?`<button class="btn peligro" id="m-extra">${esc(extra.texto)}</button>`:""}
+      <span class="empuje"></span>
+      <button class="btn" id="m-cancel">Cancelar</button>
       <button class="btn primario" id="m-ok">${esc(textoBoton)}</button></div>
   </div></div>`;
-  h.querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)cerrarModal()};
+  // La ventana NO se cierra al hacer clic fuera ni al pasar el cursor:
+  // así no se pierde lo que llevas escrito por un roce accidental.
+  // Solo cierran la X, el botón Cancelar y la tecla Esc.
+  h.querySelector(".modal").onclick=e=>{ e.stopPropagation(); };
   $("#m-x").onclick=cerrarModal; $("#m-cancel").onclick=cerrarModal;
+  if(extra){
+    const b=$("#m-extra"); let armado=false;
+    b.onclick=async()=>{
+      if(!armado){ armado=true; b.textContent="Confirmar: "+extra.texto.toLowerCase(); b.classList.add("primario");
+        setTimeout(()=>{ if(armado){armado=false;b.textContent=extra.texto;b.classList.remove("primario")} },4000);
+        return; }
+      await extra.accion(); cerrarModal();
+    };
+  }
   $("#m-ok").onclick=async()=>{
     const err = await onGuardar();
     if(err){const e=$("#m-error");e.textContent=err;e.classList.remove("oculto")}
     else cerrarModal();
   };
+  setTimeout(()=>h.querySelector("input,select")?.focus(),40);
 }
 
-function modalMovimiento(){
-  const fecha = mesDe(hoyISO())===S.mes? hoyISO() : `${S.mes}-01`;
-  modal("Registrar movimiento",`
-    <div class="toggle"><button class="activo" id="t-gasto">Gasto</button><button id="t-ingreso">Ingreso</button></div>
-    <label class="campo"><span>Monto</span><input class="grande" id="m-monto" type="number" inputmode="decimal" step="0.01" placeholder="0.00" autofocus></label>
-    <div id="bloque-cat">
+function modalMovimiento(id=null){
+  const m = id? S.movimientos.find(x=>x.id===id) : null;
+  const fecha = m? m.fecha : (mesDe(hoyISO())===S.mes? hoyISO() : `${S.mes}-01`);
+  const tipoIni = m?.tipo || "gasto";
+  const catIni = (m && m.tipo==="gasto")? m.categoria : "ALM";
+  const miembros = m && !S.config.miembros.includes(m.miembro)
+    ? [m.miembro,...S.config.miembros] : S.config.miembros;
+
+  modal(m? "Editar movimiento":"Registrar movimiento",`
+    ${m?`<p class="nota migaja">Registrado el ${esc(m.fecha)} · corrige lo que esté mal asignado y guarda.</p>`:""}
+    <div class="toggle"><button class="${tipoIni==="gasto"?"activo":""}" id="t-gasto">Gasto</button>
+      <button class="${tipoIni==="ingreso"?"activo":""}" id="t-ingreso">Ingreso</button></div>
+    <label class="campo"><span>Monto</span><input class="grande" id="m-monto" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${m?m.monto:""}"></label>
+    <div id="bloque-cat" class="${tipoIni==="ingreso"?"oculto":""}">
       <div class="campo"><span class="campo-tit">Categoría</span><div class="chips" id="m-cats">
-        ${CATEGORIAS.map((c,i)=>`<button class="chip ${i===0?"activo":""}" data-cat="${c.cod}" style="${i===0?`border-color:${c.color};color:${c.color}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
+        ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${c.color};color:${c.color}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
       </div></div>
-      <label class="check"><input type="checkbox" id="m-esencial" checked><span>Gasto esencial</span></label>
+      <label class="check"><input type="checkbox" id="m-esencial" ${(m? m.esencial : CAT[catIni].esencial)?"checked":""}><span>Gasto esencial</span></label>
     </div>
-    <label class="campo"><span>Concepto</span><input id="m-nota" placeholder="Supermercado, gasolina, sueldo…"></label>
+    <label class="campo"><span>Concepto</span><input id="m-nota" placeholder="Supermercado, gasolina, sueldo…" value="${esc(m?.nota||"")}"></label>
     <div class="campos-2">
       <label class="campo"><span>Fecha</span><input id="m-fecha" type="date" value="${fecha}"></label>
-      <label class="campo"><span>Medio de pago</span><select id="m-metodo">${METODOS.map(m=>`<option>${m}</option>`).join("")}</select></label>
+      <label class="campo"><span>Medio de pago</span><select id="m-metodo">${METODOS.map(x=>`<option ${m?.metodo===x?"selected":""}>${x}</option>`).join("")}</select></label>
     </div>
-    <label class="campo"><span>Miembro</span><select id="m-miembro">${S.config.miembros.map(m=>`<option>${esc(m)}</option>`).join("")}</select></label>
+    <div id="bloque-tarjeta" class="${(tipoIni==="gasto"&&(m?.metodo||METODOS[0])==="Crédito")?"":"oculto"}">
+      ${tarjetas().length? `
+        <label class="campo"><span>¿A qué tarjeta se carga?</span>
+          <select id="m-tarjeta">
+            <option value="">Sin asignar</option>
+            ${tarjetas().map(t=>`<option value="${t.id}" ${m?.tarjetaId===t.id?"selected":""}>${esc(t.nombre)} · saldo ${fmt(t.saldo)}</option>`).join("")}
+          </select></label>
+        <p class="nota aviso-credito">El monto se suma al saldo de la tarjeta. La compra cuenta como gasto del mes; el pago posterior de la tarjeta no vuelve a contar.</p>`
+      : `<p class="nota aviso-credito">No tienes tarjetas registradas. Créalas en <b>Deudas → Añadir deuda o tarjeta</b> para que las compras a crédito se sumen solas a su saldo.</p>`}
+    </div>
+    <label class="campo"><span>Miembro</span><select id="m-miembro">${miembros.map(x=>`<option ${m?.miembro===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
   `, async()=>{
     const monto = num($("#m-monto").value);
     if(monto<=0) return "Escribe un monto mayor que cero.";
     const tipo = $("#t-gasto").classList.contains("activo")?"gasto":"ingreso";
     const cat = document.querySelector("#m-cats .activo")?.dataset.cat||"OTR";
-    await DB.agregar("movimientos",{
-      tipo, monto, categoria: tipo==="ingreso"?"OTR":cat, fecha:$("#m-fecha").value,
-      metodo:$("#m-metodo").value, miembro:$("#m-miembro").value, nota:$("#m-nota").value.trim(),
-      esencial: tipo==="ingreso"? true : $("#m-esencial").checked });
-    avisar(tipo==="gasto"?"Gasto registrado":"Ingreso registrado");
-  },"Guardar movimiento");
+    const metodo = $("#m-metodo").value;
+    const tarjetaId = (tipo==="gasto" && metodo==="Crédito") ? ($("#m-tarjeta")?.value||"") : "";
+    const datos = { tipo, monto, categoria: tipo==="ingreso"?"OTR":cat, fecha:$("#m-fecha").value,
+      metodo, tarjetaId, miembro:$("#m-miembro").value, nota:$("#m-nota").value.trim(),
+      esencial: tipo==="ingreso"? true : $("#m-esencial").checked };
+    if(m){
+      await DB.actualizar("movimientos",id,datos);
+      await ajustarTarjeta(cargoDe(m), cargoDe(datos));
+      avisar("Movimiento actualizado");
+    }else{
+      await DB.agregar("movimientos",datos);
+      await ajustarTarjeta(null, cargoDe(datos));
+      avisar(tarjetaId? "Compra cargada a la tarjeta" : (tipo==="gasto"?"Gasto registrado":"Ingreso registrado"));
+    }
+  }, m? "Guardar cambios":"Guardar movimiento",
+     m? {texto:"Eliminar", accion:async()=>{
+          await DB.borrar("movimientos",id);
+          await ajustarTarjeta(cargoDe(m), null);
+          avisar("Movimiento eliminado");
+        }} : null);
 
   const g=$("#t-gasto"), ing=$("#t-ingreso");
-  g.onclick=()=>{g.classList.add("activo");ing.classList.remove("activo");$("#bloque-cat").classList.remove("oculto")};
-  ing.onclick=()=>{ing.classList.add("activo");g.classList.remove("activo");$("#bloque-cat").classList.add("oculto")};
+  const verTarjeta = ()=>{
+    const esGasto = g.classList.contains("activo");
+    $("#bloque-tarjeta").classList.toggle("oculto", !(esGasto && $("#m-metodo").value==="Crédito"));
+  };
+  $("#m-metodo").onchange = verTarjeta;
+  g.onclick=()=>{g.classList.add("activo");ing.classList.remove("activo");$("#bloque-cat").classList.remove("oculto");verTarjeta()};
+  ing.onclick=()=>{ing.classList.add("activo");g.classList.remove("activo");$("#bloque-cat").classList.add("oculto");verTarjeta()};
   document.querySelectorAll("#m-cats [data-cat]").forEach(b=>b.onclick=()=>{
     document.querySelectorAll("#m-cats [data-cat]").forEach(x=>{x.classList.remove("activo");x.style.borderColor="";x.style.color=""});
     b.classList.add("activo"); const c=CAT[b.dataset.cat];
@@ -1323,44 +1508,51 @@ function modalMovimiento(){
   });
 }
 
-function modalDeuda(){
-  modal("Nueva deuda o tarjeta",`
-    <label class="campo"><span>Nombre</span><input id="d-nombre" placeholder="Tarjeta banco, crédito auto…"></label>
+function modalDeuda(id=null){
+  const d = id? S.deudas.find(x=>x.id===id) : null;
+  const tipos = ["Tarjeta de crédito","Préstamo personal","Crédito automotriz","Hipoteca","Otro"];
+  modal(d? "Editar deuda":"Nueva deuda o tarjeta",`
+    <label class="campo"><span>Nombre</span><input id="d-nombre" placeholder="Tarjeta banco, crédito auto…" value="${esc(d?.nombre||"")}"></label>
     <div class="campos-2">
-      <label class="campo"><span>Saldo actual</span><input id="d-saldo" type="number" inputmode="decimal" placeholder="0"></label>
-      <label class="campo"><span>Tasa anual %</span><input id="d-tasa" type="number" inputmode="decimal" placeholder="36"></label>
+      <label class="campo"><span>Saldo actual</span><input id="d-saldo" type="number" inputmode="decimal" placeholder="0" value="${d?.saldo??""}"></label>
+      <label class="campo"><span>Tasa anual %</span><input id="d-tasa" type="number" inputmode="decimal" placeholder="36" value="${d?.tasaAnual??""}"></label>
     </div>
     <div class="campos-2">
-      <label class="campo"><span>Pago mensual</span><input id="d-pago" type="number" inputmode="decimal" placeholder="0"></label>
-      <label class="campo"><span>Tipo</span><select id="d-tipo"><option>Tarjeta de crédito</option><option>Préstamo personal</option>
-        <option>Crédito automotriz</option><option>Hipoteca</option><option>Otro</option></select></label>
+      <label class="campo"><span>Pago mensual</span><input id="d-pago" type="number" inputmode="decimal" placeholder="0" value="${d?.pagoMensual??""}"></label>
+      <label class="campo"><span>Tipo</span><select id="d-tipo">${tipos.map(t=>`<option ${d?.tipo===t?"selected":""}>${t}</option>`).join("")}</select></label>
     </div>
+    ${d?`<label class="campo"><span>Deuda inicial (para la barra de avance)</span>
+      <input id="d-original" type="number" inputmode="decimal" value="${d.original??d.saldo}"></label>`:""}
   `, async()=>{
     const nombre=$("#d-nombre").value.trim(), saldo=num($("#d-saldo").value);
     if(!nombre) return "Ponle un nombre para identificarla.";
-    if(saldo<=0) return "El saldo debe ser mayor que cero.";
-    await DB.agregar("deudas",{nombre,saldo,original:saldo,tasaAnual:num($("#d-tasa").value),
-      pagoMensual:num($("#d-pago").value),tipo:$("#d-tipo").value});
-    avisar("Deuda registrada");
-  },"Guardar deuda");
+    if(saldo<0) return "El saldo no puede ser negativo.";
+    const datos={nombre,saldo,tasaAnual:num($("#d-tasa").value),pagoMensual:num($("#d-pago").value),tipo:$("#d-tipo").value};
+    if(d){ datos.original=Math.max(num($("#d-original").value),saldo); await DB.actualizar("deudas",id,datos); avisar("Deuda actualizada"); }
+    else { datos.original=saldo; await DB.agregar("deudas",datos); avisar("Deuda registrada"); }
+  }, d? "Guardar cambios":"Guardar deuda",
+     d? {texto:"Eliminar", accion:async()=>{await DB.borrar("deudas",id); avisar("Deuda eliminada")}} : null);
 }
 
-function modalMeta(){
+function modalMeta(id=null){
+  const g = id? S.metas.find(x=>x.id===id) : null;
   const prox = sumaMes(mesDe(hoyISO()),6);
-  modal("Nueva meta de ahorro",`
-    <label class="campo"><span>Nombre</span><input id="g-nombre" placeholder="Fondo de emergencia, vacaciones…"></label>
+  modal(g? "Editar meta":"Nueva meta de ahorro",`
+    <label class="campo"><span>Nombre</span><input id="g-nombre" placeholder="Fondo de emergencia, vacaciones…" value="${esc(g?.nombre||"")}"></label>
     <div class="campos-2">
-      <label class="campo"><span>Objetivo</span><input id="g-obj" type="number" inputmode="decimal" placeholder="0"></label>
-      <label class="campo"><span>Ya ahorrado</span><input id="g-ini" type="number" inputmode="decimal" placeholder="0"></label>
+      <label class="campo"><span>Objetivo</span><input id="g-obj" type="number" inputmode="decimal" placeholder="0" value="${g?.objetivo??""}"></label>
+      <label class="campo"><span>${g?"Acumulado":"Ya ahorrado"}</span><input id="g-ini" type="number" inputmode="decimal" placeholder="0" value="${g?.ahorrado??""}"></label>
     </div>
-    <label class="campo"><span>Fecha límite</span><input id="g-fecha" type="month" value="${prox}"></label>
+    <label class="campo"><span>Fecha límite</span><input id="g-fecha" type="month" value="${g?.fechaLimite||prox}"></label>
   `, async()=>{
     const nombre=$("#g-nombre").value.trim(), objetivo=num($("#g-obj").value);
     if(!nombre) return "Ponle nombre a la meta.";
     if(objetivo<=0) return "El objetivo debe ser mayor que cero.";
-    await DB.agregar("metas",{nombre,objetivo,ahorrado:num($("#g-ini").value),fechaLimite:$("#g-fecha").value});
-    avisar("Meta creada");
-  },"Crear meta");
+    const datos={nombre,objetivo,ahorrado:num($("#g-ini").value),fechaLimite:$("#g-fecha").value};
+    if(g){ await DB.actualizar("metas",id,datos); avisar("Meta actualizada"); }
+    else { await DB.agregar("metas",datos); avisar("Meta creada"); }
+  }, g? "Guardar cambios":"Crear meta",
+     g? {texto:"Eliminar", accion:async()=>{await DB.borrar("metas",id); avisar("Meta eliminada")}} : null);
 }
 
 function abonarMeta(id){
@@ -1378,16 +1570,21 @@ function abonarMeta(id){
 
 function abonarDeuda(id){
   const d = S.deudas.find(x=>x.id===id); if(!d) return;
+  const compras = esTarjeta(d)? comprasDelMes(id,S.mes) : 0;
+  const yaContado = esTarjeta(d) && S.movimientos.some(m=>m.tarjetaId===id);
   modal(`Pago a ${d.nombre}`,`
-    <label class="campo"><span>Monto del pago</span><input class="grande" id="pg-monto" type="number" inputmode="decimal" value="${d.pagoMensual||""}" autofocus></label>
-    <label class="check"><input type="checkbox" id="pg-mov" checked><span>Registrarlo también como gasto del mes</span></label>
-    <p class="nota">Saldo actual: ${fmt(d.saldo)}.</p>
+    <label class="campo"><span>Monto del pago</span><input class="grande" id="pg-monto" type="number" inputmode="decimal" value="${d.pagoMensual||""}"></label>
+    <label class="check"><input type="checkbox" id="pg-mov" ${yaContado?"":"checked"}><span>Registrarlo también como gasto del mes</span></label>
+    ${yaContado
+      ? `<p class="nota aviso-credito">Las compras de esta tarjeta ya contaron como gasto cuando las registraste${compras>0?` (${fmt(compras)} este mes)`:""}. Si marcas la casilla, ese dinero contaría dos veces: lo normal es dejarla sin marcar y que el pago solo baje el saldo.</p>`
+      : `<p class="nota">Saldo actual: ${fmt(d.saldo)}.</p>`}
   `, async()=>{
     const v=num($("#pg-monto").value);
     if(v<=0) return "Escribe un monto mayor que cero.";
     await DB.actualizar("deudas",id,{saldo:Math.max(0,(d.saldo||0)-v)});
     if($("#pg-mov").checked) await DB.agregar("movimientos",{tipo:"gasto",monto:v,categoria:"DEU",
-      fecha:hoyISO(),metodo:"Transferencia",miembro:S.config.miembros[0]||"Yo",nota:`Pago ${d.nombre}`,esencial:true});
+      fecha:hoyISO(),metodo:"Transferencia",tarjetaId:"",miembro:S.config.miembros[0]||"Yo",
+      nota:`Pago ${d.nombre}`,esencial:true});
     avisar("Pago registrado");
   },"Registrar pago");
 }
@@ -1408,9 +1605,10 @@ function sugerirPresupuestos(){
 }
 
 function exportarCSV(){
-  const filas=[["fecha","tipo","categoria","concepto","monto","metodo","miembro","esencial"]];
+  const filas=[["fecha","tipo","categoria","concepto","monto","metodo","tarjeta","miembro","esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>filas.push(
-    [m.fecha,m.tipo,m.categoria,(m.nota||"").replace(/;/g," "),m.monto,m.metodo,m.miembro,m.esencial?"si":"no"]));
+    [m.fecha,m.tipo,m.categoria,(m.nota||"").replace(/;/g," "),m.monto,m.metodo,
+     (S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"").replace(/;/g," "),m.miembro,m.esencial?"si":"no"]));
   S.csv = filas.map(f=>f.join(";")).join("\n");
   try{
     const url=URL.createObjectURL(new Blob(["\uFEFF"+S.csv],{type:"text/csv;charset=utf-8"}));
@@ -1460,17 +1658,21 @@ async function cargarEjemplo(){
     }
   }
   if(S.modo==="local"){
-    S.movimientos=[...S.movimientos,...nuevos.map(m=>({...m,id:uid()}))];
-    S.deudas=[{id:uid(),nombre:"Tarjeta banco",saldo:18500,original:22000,tasaAnual:42,pagoMensual:1800,tipo:"Tarjeta de crédito"},
+    const idTarjeta = uid();
+    S.deudas=[{id:idTarjeta,nombre:"Tarjeta banco",saldo:18500,original:22000,tasaAnual:42,pagoMensual:1800,tipo:"Tarjeta de crédito"},
               {id:uid(),nombre:"Crédito auto",saldo:64000,original:90000,tasaAnual:14,pagoMensual:3200,tipo:"Crédito automotriz"}];
+    S.movimientos=[...S.movimientos,...nuevos.map(m=>({...m,id:uid(),
+      tarjetaId: m.metodo==="Crédito"&&m.tipo==="gasto"? idTarjeta : ""}))];
     S.metas=[{id:uid(),nombre:"Fondo de emergencia",objetivo:60000,ahorrado:18000,fechaLimite:sumaMes(mesDe(hoyISO()),10)},
              {id:uid(),nombre:"Vacaciones",objetivo:25000,ahorrado:7500,fechaLimite:sumaMes(mesDe(hoyISO()),7)}];
     render();
   }else{
     avisar("Cargando ejemplo…");
-    for(const m of nuevos) await DB.agregar("movimientos",m);
-    await DB.agregar("deudas",{nombre:"Tarjeta banco",saldo:18500,original:22000,tasaAnual:42,pagoMensual:1800,tipo:"Tarjeta de crédito"});
+    const tarjeta = await DB.agregar("deudas",{nombre:"Tarjeta banco",saldo:18500,original:22000,tasaAnual:42,pagoMensual:1800,tipo:"Tarjeta de crédito"});
     await DB.agregar("deudas",{nombre:"Crédito auto",saldo:64000,original:90000,tasaAnual:14,pagoMensual:3200,tipo:"Crédito automotriz"});
+    const idTarjeta = tarjeta.id;
+    for(const m of nuevos) await DB.agregar("movimientos",{...m,
+      tarjetaId: m.metodo==="Crédito"&&m.tipo==="gasto"? idTarjeta : ""});
     await DB.agregar("metas",{nombre:"Fondo de emergencia",objetivo:60000,ahorrado:18000,fechaLimite:sumaMes(mesDe(hoyISO()),10)});
     await DB.agregar("metas",{nombre:"Vacaciones",objetivo:25000,ahorrado:7500,fechaLimite:sumaMes(mesDe(hoyISO()),7)});
   }
@@ -1481,13 +1683,20 @@ async function cargarEjemplo(){
 const guardarLocal=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
 const leerLocal=k=>{try{return localStorage.getItem(k)}catch{return null}};
 
+const TEMAS = ["papel","claro","fiori"];
+const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", fiori:"#354A5F"};
+const NOMBRE_TEMA = {papel:"papel", claro:"claro", fiori:"fiori"};
+
 function aplicarTema(t){
-  S.tema = (t==="claro")?"claro":"papel";
+  S.tema = TEMAS.includes(t)? t : "papel";
   document.documentElement.dataset.tema = S.tema;
   guardarLocal("pf-tema",S.tema);
-  const meta=$("#meta-tema"); if(meta) meta.setAttribute("content", S.tema==="claro"?"#101A14":"#16241C");
+  const meta=$("#meta-tema"); if(meta) meta.setAttribute("content", COLOR_BARRA[S.tema]);
 }
-const alternarTema = ()=>{ aplicarTema(S.tema==="claro"?"papel":"claro"); render(); };
+const alternarTema = ()=>{
+  aplicarTema(TEMAS[(TEMAS.indexOf(S.tema)+1)%TEMAS.length]);
+  render(); avisar(`Tema ${NOMBRE_TEMA[S.tema]}`);
+};
 
 /* ================= alertas cuando un sobre llega al 90% =========== */
 const alertadas = new Set((leerLocal("pf-alertas-vistas")||"").split(",").filter(Boolean));

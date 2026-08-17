@@ -99,12 +99,27 @@ Cada aviso se envía una sola vez por categoría y por mes, así que no se vuelv
 
 Las alertas se calculan en el dispositivo: no hace falta servidor ni Cloud Messaging. Eso significa que llegan cuando la app está abierta o en segundo plano reciente. En iPhone solo funcionan si la app está instalada en la pantalla de inicio (requisito de Safari desde iOS 16.4).
 
-## 8. Tema
+## 8. Temas
 
-El botón **◐** de la cabecera alterna entre dos temas, y la elección se recuerda en cada dispositivo:
+El botón **◐** de la cabecera va rotando entre tres temas, y la elección se recuerda en cada dispositivo (también se eligen en Ajustes → Apariencia):
 
 - **Papel de contabilidad** — fondo verde claro con rayado de libro contable.
-- **Claro** — fondo limpio sin rayado y bordes remarcados en tono oscuro, con mayor contraste. Se lee mejor a plena luz y en pantallas pequeñas.
+- **Claro** — fondo limpio sin rayado y bordes remarcados en tono oscuro, con mayor contraste. Se lee mejor a plena luz.
+- **SAP Fiori** — paleta corporativa de SAP: shell `#354A5F`, azul de marca `#0A6ED1` para las acciones y los colores semánticos de Fiori aplicados con su significado real: `#107E3E` positivo cuando el sobre va bien, `#E9730C` crítico al acercarse al límite, `#BB0000` negativo al excederlo y `#6A6D70` neutro. Tarjetas con esquinas de 8px y sombra suave, botones con el estilo *emphasized* y *transparent* de Fiori.
+
+## 9. Corregir registros
+
+Todo lo que se registra se puede corregir después:
+
+- **Movimientos** — toca cualquier fila del libro para abrirla. Puedes cambiar monto, categoría, si es esencial, concepto, fecha, medio de pago, miembro, e incluso convertir un gasto en ingreso. Útil cuando algo quedó mal asignado: cambiar la categoría recalcula al instante los sobres, las estadísticas y las recomendaciones.
+- **Deudas** — botón *Editar*: saldo, tasa, pago mensual y tipo. También la deuda inicial, que es la referencia de la barra de avance.
+- **Metas** — botón *Editar*: objetivo, acumulado y fecha límite.
+
+Eliminar está dentro de la propia ventana de edición y pide confirmación en dos pasos, así no se borra nada de un toque accidental en el teléfono.
+
+## 10. Comportamiento de las ventanas
+
+Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para que un roce accidental no borre lo que llevas escrito. Se cierran solo con la **✕** de la esquina, el botón **Cancelar** o la tecla **Esc**.
 
 ---
 
@@ -112,11 +127,13 @@ El botón **◐** de la cabecera alterna entre dos temas, y la elección se recu
 
 **Panel** — Corte del mes en formato de cinta de sumadora: ingresos, gastos, deuda pendiente y disponible. Ritmo de gasto diario, proyección a fin de mes y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
 
-**Movimientos** — Alta rápida con monto, categoría, medio de pago, miembro y marca de esencial. Libro diario agrupado por fecha, con búsqueda por concepto y filtro por categoría.
+**Movimientos** — Alta rápida con monto, categoría, medio de pago, miembro y marca de esencial. Libro diario agrupado por fecha, con búsqueda por concepto y filtro por categoría. Cada fila se toca para editarla o eliminarla.
 
 **Estadísticas** — Acumulado del mes contra la línea de presupuesto, reparto por categoría, comparativo de los últimos seis meses, gasto por día de la semana, ticket promedio, frecuencia de compra, medio de pago, gasto por miembro y conceptos más repetidos.
 
-**Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes. Los pagos se registran como gasto del mes automáticamente.
+**Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
+
+**Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector de tarjeta, y el monto se suma solo al saldo de esa tarjeta. El criterio contable es el de devengo: la compra cuenta como gasto del mes en que la haces, y el pago posterior de la tarjeta solo baja la deuda, sin volver a contar como gasto — por eso esa casilla viene desmarcada cuando la tarjeta ya tiene compras registradas. Si corriges un movimiento (cambias el monto, lo pasas a otra tarjeta o a efectivo) o lo eliminas, el saldo se reajusta solo. Y si en un mes cargas más de lo que pagas, aparece una recomendación avisando de cuánto está creciendo la deuda.
 
 **Metas** — Objetivos con monto y fecha límite. Calcula cuánto necesitas apartar cada mes y cada semana, y lleva el progreso acumulado.
 
@@ -129,7 +146,7 @@ El botón **◐** de la cabecera alterna entre dos temas, y la elección se recu
 ```
 usuarios/{uid}                     → { hogarId, nombre }
 hogares/{codigo}                   → { nombre, config, presupuestos, miembrosUid[] }
-hogares/{codigo}/movimientos/{id}  → { tipo, monto, categoria, fecha, metodo, miembro, nota, esencial }
+hogares/{codigo}/movimientos/{id}  → { tipo, monto, categoria, fecha, metodo, tarjetaId, miembro, nota, esencial }
 hogares/{codigo}/deudas/{id}       → { nombre, tipo, saldo, original, tasaAnual, pagoMensual }
 hogares/{codigo}/metas/{id}        → { nombre, objetivo, ahorrado, fechaLimite }
 ```
