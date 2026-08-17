@@ -225,6 +225,11 @@ nav button.activo{color:var(--papel);border-top-color:var(--margen)}
 .acceso h2{font-size:22px;margin-bottom:6px}
 .codigo-hogar{font-family:'IBM Plex Mono',monospace;font-size:22px;letter-spacing:.22em;background:var(--papel);
   border:1px dashed var(--borde);padding:12px;text-align:center;border-radius:2px;margin:10px 0}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px}
+.btn-google svg{flex:none}
+.separador{display:flex;align-items:center;gap:10px;margin:16px 0;font-family:'IBM Plex Mono',monospace;
+  font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
+.separador::before,.separador::after{content:"";flex:1;border-top:1px dotted var(--rayado)}
 
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--margen);outline-offset:2px}
 @media(min-width:640px){
@@ -404,7 +409,8 @@ const DB = {
 /* ============================ Firebase ============================ */
 async function iniciarFirebase(){
   const [{initializeApp},
-         {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signInAnonymously,signOut},
+         {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signInAnonymously,signOut,
+          GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult},
          {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,doc,getDoc,setDoc,updateDoc,
           collection,addDoc,deleteDoc,onSnapshot,arrayUnion,serverTimestamp}] = await Promise.all([
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
@@ -422,6 +428,22 @@ async function iniciarFirebase(){
     registrar:(e,p)=>createUserWithEmailAndPassword(auth,e,p),
     anonimo:()=>signInAnonymously(auth),
     salir:()=>signOut(auth),
+    async google(){
+      const prov = new GoogleAuthProvider();
+      prov.setCustomParameters({prompt:"select_account"});
+      // La ventana emergente falla en apps instaladas y en algunos navegadores
+      // móviles: en ese caso se cae a la redirección de página completa.
+      try{
+        return await signInWithPopup(auth,prov);
+      }catch(e){
+        const c = String(e?.code||"");
+        if(c.includes("popup-blocked")||c.includes("operation-not-supported")||
+           c.includes("cancelled-popup-request")||c.includes("web-storage-unsupported")){
+          return signInWithRedirect(auth,prov);
+        }
+        throw e;
+      }
+    },
     async crearHogar(nombre){
       const codigo = codigoHogar();
       await setDoc(doc(db,"hogares",codigo),{
@@ -474,9 +496,12 @@ async function iniciarFirebase(){
     borrar:(col,id)=>deleteDoc(doc(db,"hogares",S.hogarId,col,id)),
   };
 
+  // Si volvemos de una redirección de Google, recogemos el resultado
+  getRedirectResult(auth).catch(e=>console.warn("redirect:",e));
+
   onAuthStateChanged(auth, async u=>{
     if(!u){ FB.cortar(); S.uid=null; S.hogarId=null; pantallaAcceso(); return; }
-    S.uid=u.uid; S.nombreUsuario=u.email||"Invitado";
+    S.uid=u.uid; S.nombreUsuario=u.displayName||u.email||"Invitado"; S.foto=u.photoURL||"";
     const h = await FB.hogarDeUsuario(u.uid);
     if(!h){ pantallaHogar(); return; }
     S.hogarId=h; FB.escuchar(h); mostrarApp();
@@ -502,6 +527,8 @@ function pantallaAcceso(){
     <span class="cod">Presupuesto familiar</span>
     <h2>Entra a tu libro de cuentas</h2>
     <p class="nota">Usa la misma cuenta en todos los teléfonos de la familia, o entra con un código de hogar compartido.</p>
+    <button class="btn btn-google" id="ac-google">${LOGO_GOOGLE}<span>Continuar con Google</span></button>
+    <div class="separador"><span>o con tu correo</span></div>
     <label class="campo"><span>Correo</span><input id="ac-mail" type="email" autocomplete="email" placeholder="tu@correo.com"></label>
     <label class="campo"><span>Contraseña</span><input id="ac-pass" type="password" autocomplete="current-password" placeholder="mínimo 6 caracteres"></label>
     <p class="error oculto" id="ac-error"></p>
@@ -515,12 +542,23 @@ function pantallaAcceso(){
   </div>`;
   const err = m=>{const e=$("#ac-error");e.textContent=m;e.classList.remove("oculto")};
   const cred = ()=>[$("#ac-mail").value.trim(), $("#ac-pass").value];
+  $("#ac-google").onclick  = async()=>{try{await FB.google()}catch(e){err(traduce(e))}};
   $("#ac-entrar").onclick = async()=>{try{await FB.entrar(...cred())}catch(e){err(traduce(e))}};
   $("#ac-crear").onclick  = async()=>{try{await FB.registrar(...cred())}catch(e){err(traduce(e))}};
   $("#ac-anon").onclick   = async()=>{try{await FB.anonimo()}catch(e){err(traduce(e))}};
 }
+const LOGO_GOOGLE = `<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+  <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/>
+  <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.3z"/>
+  <path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8l7.8-6.1z"/>
+  <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.4 0-11.7-3.7-13.6-9.8l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>
+  <path fill="none" d="M0 0h48v48H0z"/></svg>`;
+
 function traduce(e){
   const m = String(e?.code||e?.message||e);
+  if(m.includes("popup-closed-by-user")||m.includes("cancelled-popup")) return "Cerraste la ventana de Google antes de terminar.";
+  if(m.includes("account-exists-with-different-credential")) return "Ese correo ya tiene cuenta con contraseña. Entra con tu contraseña y luego vincula Google.";
+  if(m.includes("unauthorized-domain")) return "Este dominio no está autorizado. Añádelo en Firebase → Authentication → Settings → Dominios autorizados.";
   if(m.includes("invalid-email")) return "El correo no tiene un formato válido.";
   if(m.includes("weak-password")) return "La contraseña necesita al menos 6 caracteres.";
   if(m.includes("email-already-in-use")) return "Ese correo ya tiene cuenta. Entra con tu contraseña.";
@@ -538,7 +576,7 @@ function pantallaHogar(){
     <span class="cod">Paso 2 de 2</span>
     <h2>Crea o únete a un hogar</h2>
     <p class="nota">El hogar es el libro compartido: todos los que entren con el mismo código ven los movimientos en tiempo real.</p>
-    <label class="campo"><span>Nombre del hogar</span><input id="hg-nombre" placeholder="Casa Martínez"></label>
+    <label class="campo"><span>Nombre del hogar</span><input id="hg-nombre" placeholder="Casa Martínez" value="${esc(S.nombreUsuario&&!S.nombreUsuario.includes("@")?"Casa "+S.nombreUsuario.split(" ").slice(-1)[0]:"")}"></label>
     <button class="btn primario" id="hg-crear">Crear hogar nuevo</button>
     <hr style="border:none;border-top:1px dotted var(--rayado);margin:18px 0">
     <label class="campo"><span>Ya tengo un código</span><input id="hg-codigo" placeholder="ABCD1234" style="text-transform:uppercase"></label>

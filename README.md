@@ -17,7 +17,7 @@ iconos/             iconos de la app
 ## 1. Crear el proyecto en Firebase
 
 1. Entra a [console.firebase.google.com](https://console.firebase.google.com) y crea un proyecto.
-2. **Authentication → Sign-in method**: activa **Correo electrónico/contraseña**. Si quieres permitir el botón "Entrar sin cuenta", activa también **Anónimo**.
+2. **Authentication → Sign-in method**: activa **Google** (elige un correo de soporte del proyecto) y **Correo electrónico/contraseña**. Si quieres permitir el botón "Entrar sin cuenta", activa también **Anónimo**.
 3. **Firestore Database → Crear base de datos** → modo producción → elige la región más cercana.
 4. **Configuración del proyecto → Tus apps → Web (`</>`)**: registra la app y copia el objeto `firebaseConfig`.
 
@@ -63,9 +63,15 @@ En el repo: **Settings → Pages → Source: Deploy from a branch → main / (ro
 
 ## 5. Usarla en familia
 
-1. La primera persona entra, crea una cuenta y elige **Crear hogar nuevo**.
+Puedes entrar de tres formas: **Continuar con Google** (lo más cómodo en el teléfono, sin contraseñas que recordar), correo y contraseña, o sin cuenta en un solo dispositivo.
+
+1. La primera persona entra y elige **Crear hogar nuevo**.
 2. En **Ajustes → Sincronización** aparece el código del hogar (por ejemplo `K7M2QF9B`).
-3. Las demás personas crean su propia cuenta y eligen **Ya tengo un código**.
+3. Las demás personas entran con **su propia cuenta de Google** y eligen **Ya tengo un código**.
+
+Cada quien usa su cuenta: el hogar es lo compartido, no la sesión. Así los movimientos quedan atribuidos a quien los registra.
+
+En la app instalada, el acceso con Google se abre en ventana emergente; si el navegador la bloquea, la app cae automáticamente a redirección de página completa y vuelve sola.
 
 Todos ven los mismos movimientos en tiempo real, cada uno desde su teléfono.
 
