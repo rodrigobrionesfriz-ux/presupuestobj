@@ -13,15 +13,24 @@
 <link rel="icon" href="./iconos/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="./iconos/apple-touch-icon.png">
 <script>
-  /* Tema antes de pintar, para que no haya parpadeo al abrir */
-  try { document.documentElement.dataset.tema = localStorage.getItem("pf-tema") || "papel"; }
-  catch (e) { document.documentElement.dataset.tema = "papel"; }
+  /* Tema y tipografía antes de pintar, para que no haya parpadeo al abrir */
+  try {
+    document.documentElement.dataset.tema = localStorage.getItem("pf-tema") || "papel";
+    document.documentElement.dataset.tipo = localStorage.getItem("pf-tipo") || "inter";
+  } catch (e) {
+    document.documentElement.dataset.tema = "papel";
+    document.documentElement.dataset.tipo = "inter";
+  }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
+  /* Tipografía: se elige en Ajustes y se guarda por dispositivo */
+  --tipo-ui:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --tipo-titulo:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --tipo-num:'IBM Plex Mono',ui-monospace,monospace;
   --papel:#E4E9DD; --hoja:#FBFCF9; --tinta:#16241C; --suave:#5B6B60;
   --rayado:#D3DBCB; --margen:#9E3B2E; --verde:#3F7D58; --ambar:#C7913A;
   --azul:#2E6E8E; --borde:#C9D2C0;
@@ -29,30 +38,30 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;overflow-x:hidden;max-width:100%}
 body{
-  font-family:'Karla',system-ui,sans-serif;color:var(--tinta);background:var(--papel);
+  font-family:var(--tipo-ui);color:var(--tinta);background:var(--papel);
   background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(107,128,110,.12) 27px 28px);
   min-height:100vh;padding-bottom:calc(96px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;
 }
-h1,h2,h3{font-family:'Bricolage Grotesque','Karla',sans-serif;letter-spacing:-.02em;margin:0}
+h1,h2,h3{font-family:var(--tipo-titulo);letter-spacing:-.02em;margin:0}
 .oculto{display:none!important}
-.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--tipo-num);font-variant-numeric:tabular-nums}
 .rojo{color:var(--margen)!important}.verde{color:var(--verde)!important}.ambar{color:var(--ambar)!important}
 
 /* ---------------- cabecera ---------------- */
 header{position:sticky;top:0;z-index:20;background:var(--tinta);color:var(--papel);
   padding:calc(12px + env(safe-area-inset-top)) 18px 12px;border-bottom:3px solid var(--margen)}
 .marca{display:flex;align-items:center;gap:11px}
-.logo{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;border:1.5px solid var(--papel);
+.logo{font-family:var(--tipo-num);font-weight:600;font-size:15px;border:1.5px solid var(--papel);
   border-radius:2px;padding:3px 6px}
 header h1{font-weight:800;font-size:19px;line-height:1.1}
 header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;text-transform:uppercase}
 .barra-mes{display:flex;align-items:center;justify-content:space-between;margin-top:12px;
   border-top:1px solid rgba(228,233,221,.22);padding-top:9px}
-.mes-txt{font-family:'IBM Plex Mono',monospace;font-size:13.5px;letter-spacing:.06em;text-transform:uppercase}
+.mes-txt{font-family:var(--tipo-num);font-size:13.5px;letter-spacing:.06em;text-transform:uppercase}
 .icono{background:none;border:1px solid rgba(228,233,221,.35);color:inherit;width:30px;height:30px;
   border-radius:2px;font-size:17px;line-height:1;cursor:pointer}
 .icono:hover{background:rgba(228,233,221,.12)}
-.estado-conn{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+.estado-conn{font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
   color:#A8B8A6;display:flex;align-items:center;gap:6px}
 .punto{width:7px;height:7px;border-radius:50%;background:var(--verde);display:inline-block}
 .punto.local{background:var(--ambar)}.punto.error{background:var(--margen)}
@@ -65,14 +74,14 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
   box-shadow:0 1px 0 rgba(22,36,28,.05)}
 .cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
 .cab h2{font-weight:700;font-size:15.5px}
-.cod{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
+.cod{font-family:var(--tipo-num);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
 .nota{font-size:13.5px;color:var(--suave);margin:0 0 10px;line-height:1.5}
-.enlace{background:none;border:none;color:var(--margen);font-family:'Karla',sans-serif;font-size:12.5px;
+.enlace{background:none;border:none;color:var(--margen);font-family:var(--tipo-ui);font-size:12.5px;
   text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}
 
 /* ---------------- cinta de sumadora ---------------- */
 .cinta{--z:11px;background:var(--hoja);border:1px solid var(--borde);border-bottom:none;
-  padding:15px 17px calc(var(--z) + 14px);font-family:'IBM Plex Mono',monospace;
+  padding:15px 17px calc(var(--z) + 14px);font-family:var(--tipo-num);
   -webkit-mask:linear-gradient(#000 0 0) top/100% calc(100% - var(--z)) no-repeat,
     conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/17px 100% repeat-x;
   mask:linear-gradient(#000 0 0) top/100% calc(100% - var(--z)) no-repeat,
@@ -86,7 +95,7 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .cinta-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:11px;padding-top:11px;
   border-top:2px solid var(--tinta)}
 .cinta-total span{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase}
-.cinta-total strong{font-family:'Bricolage Grotesque','Karla',sans-serif;font-size:31px;font-weight:800;
+.cinta-total strong{font-family:var(--tipo-titulo);font-size:31px;font-weight:800;
   letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
 .cinta-pie{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px;padding-top:11px;
   border-top:1px dotted var(--rayado)}
@@ -98,24 +107,24 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .sobres{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:13px}
 .sobre-cab{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
 .sobre-nom{flex:1;font-size:13.5px;font-weight:500}
-.sobre-cifra{font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums}
+.sobre-cifra{font-family:var(--tipo-num);font-size:13px;font-variant-numeric:tabular-nums}
 .barra{height:9px;background:var(--papel);border:1px solid var(--rayado);border-radius:1px;overflow:hidden}
 .barra.fina{height:6px}
 .fill{height:100%;background:var(--verde);transition:width .35s ease}
 .fill.ambar{background:var(--ambar)}.fill.rojo{background:var(--margen)}
-.sobre-pie{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+.sobre-pie{display:flex;justify-content:space-between;font-family:var(--tipo-num);font-size:10.5px;
   color:var(--suave);margin-top:4px}
 .split{display:flex;height:16px;border:1px solid var(--rayado);border-radius:2px;overflow:hidden}
 .split .e{background:var(--verde)}.split .p{background:var(--ambar)}
 .leyenda{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12.5px;color:var(--suave)}
 .leyenda i{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:6px}
-.leyenda b{font-family:'IBM Plex Mono',monospace;color:var(--tinta);margin-left:5px}
+.leyenda b{font-family:var(--tipo-num);color:var(--tinta);margin-left:5px}
 
 /* ---------------- libro de movimientos ---------------- */
 .filtros{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px}
 .libro{border-left:2px solid var(--margen);padding-left:12px}
 .dia{margin-bottom:15px}
-.dia-cab{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+.dia-cab{display:flex;justify-content:space-between;font-family:var(--tipo-num);font-size:10.5px;
   letter-spacing:.1em;text-transform:uppercase;color:var(--suave);padding-bottom:5px;border-bottom:1px solid var(--rayado)}
 .mov{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dotted var(--rayado);
   cursor:pointer;transition:background .15s}
@@ -127,22 +136,22 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .pie-modal .empuje{flex:1}
 .aviso-credito{background:var(--papel);border-left:3px solid var(--ambar);padding:9px 11px;border-radius:2px;
   margin:-4px 0 13px;font-size:12.5px;line-height:1.5}
-.migaja{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-bottom:14px}
+.migaja{font-family:var(--tipo-num);font-size:11px;margin-bottom:14px}
 .mov-txt{flex:1;min-width:0}
 .mov-txt b{display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mov-txt small{font-size:11px;color:var(--suave)}
-.mov-monto{font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mov-monto{font-family:var(--tipo-num);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .borrar{background:none;border:none;color:#A3AC9C;font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
 .borrar:hover{color:var(--margen)}
 
 /* ---------------- tablas, listas, métricas ---------------- */
 table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;table-layout:auto}
-th{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--suave);
+th{font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--suave);
   text-align:left;font-weight:500;padding:0 7px 7px 0;border-bottom:1px solid var(--rayado)}
 td{padding:7px 7px 7px 0;border-bottom:1px dotted var(--rayado);overflow-wrap:anywhere}
 td:last-child,th:last-child{padding-right:0}
 td.num,th.num{text-align:right;white-space:nowrap}
-td.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+td.num{font-family:var(--tipo-num);font-variant-numeric:tabular-nums}
 
 /* En pantallas estrechas la tabla deja de ser rejilla: cada fila pasa a ser
    un bloque con su título y sus datos etiquetados, sin desbordar a lo ancho. */
@@ -154,7 +163,7 @@ td.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
   table.resp tr:last-child{border-bottom:none}
   table.resp td{border:none;padding:3px 0;display:flex;justify-content:space-between;
     align-items:baseline;gap:14px;text-align:right}
-  table.resp td::before{content:attr(data-etq);font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+  table.resp td::before{content:attr(data-etq);font-family:var(--tipo-num);font-size:9.5px;
     letter-spacing:.1em;text-transform:uppercase;color:var(--suave);text-align:left;flex:none}
   table.resp td.principal{display:block;text-align:left;font-size:14px;font-weight:500;
     padding:0 0 6px;line-height:1.3}
@@ -164,13 +173,13 @@ td.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
 .metricas{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-top:14px;padding-top:13px;
   border-top:1px dotted var(--rayado)}
 .metricas em{display:block;font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--suave)}
-.metricas b{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500}
+.metricas b{font-family:var(--tipo-num);font-size:16px;font-weight:500}
 .lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
 .lista-cab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
-.lista-cab b{font-family:'IBM Plex Mono',monospace;font-weight:500}
+.lista-cab b{font-family:var(--tipo-num);font-weight:500}
 .dos{display:grid;gap:22px}
 svg.gr{width:100%;height:auto;display:block;overflow:visible}
-.gr text{font-family:'IBM Plex Mono',monospace;fill:var(--suave)}
+.gr text{font-family:var(--tipo-num);fill:var(--suave)}
 .gr-leyenda{display:flex;gap:16px;justify-content:center;font-size:11.5px;color:var(--suave);margin-top:6px}
 .gr-leyenda i{display:inline-block;width:14px;height:2px;margin-right:5px;vertical-align:middle}
 
@@ -179,8 +188,8 @@ svg.gr{width:100%;height:auto;display:block;overflow:visible}
 .consejo.alto{border-color:var(--margen)}.consejo.medio{border-color:var(--ambar)}
 .consejo.info{border-color:var(--azul)}.consejo.bien{border-color:var(--verde)}
 .consejo-cab{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:7px}
-.etiqueta{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
-.chip-ahorro{font-family:'IBM Plex Mono',monospace;font-size:10.5px;background:var(--papel);border:1px solid var(--borde);
+.etiqueta{font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
+.chip-ahorro{font-family:var(--tipo-num);font-size:10.5px;background:var(--papel);border:1px solid var(--borde);
   border-radius:2px;padding:2px 7px}
 .chip-ahorro.alerta{border-color:var(--margen);color:var(--margen)}
 .desglose{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:11px;padding-top:10px;
@@ -190,31 +199,31 @@ svg.gr{width:100%;height:auto;display:block;overflow:visible}
 .consejo h3{font-size:16px;font-weight:700;margin:0 0 6px;line-height:1.25}
 .consejo p{margin:0;font-size:13.5px;line-height:1.55;color:#374A3D}
 .accion{margin-top:7px!important;font-weight:500;color:var(--tinta)!important}
-.destacado em{display:block;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+.destacado em{display:block;font-style:normal;font-family:var(--tipo-num);font-size:10.5px;
   letter-spacing:.12em;text-transform:uppercase;color:var(--suave)}
-.destacado strong{display:block;font-family:'Bricolage Grotesque','Karla',sans-serif;font-size:34px;font-weight:800;
+.destacado strong{display:block;font-family:var(--tipo-titulo);font-size:34px;font-weight:800;
   letter-spacing:-.03em;margin:5px 0 3px;color:var(--verde)}
 .destacado>span{font-size:12.5px;color:var(--suave)}
 
 /* ---------------- formularios ---------------- */
 label.campo{display:block;margin-bottom:13px}
-label.campo>span,.campo-tit{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.11em;
+label.campo>span,.campo-tit{display:block;font-family:var(--tipo-num);font-size:10px;letter-spacing:.11em;
   text-transform:uppercase;color:var(--suave);margin-bottom:6px}
 .campos-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 input,select,textarea{width:100%;background:var(--hoja);border:1px solid var(--borde);border-radius:2px;
-  padding:10px 11px;font-family:'Karla',sans-serif;font-size:14.5px;color:var(--tinta)}
+  padding:10px 11px;font-family:var(--tipo-ui);font-size:14.5px;color:var(--tinta)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--tinta);outline-offset:1px}
-input.grande{font-family:'IBM Plex Mono',monospace;font-size:29px;font-weight:500;padding:11px}
-input.mini{width:104px;text-align:right;font-family:'IBM Plex Mono',monospace;padding:7px 9px;font-size:13px}
-textarea.csv{height:130px;font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:pre}
+input.grande{font-family:var(--tipo-num);font-size:29px;font-weight:500;padding:11px}
+input.mini{width:104px;text-align:right;font-family:var(--tipo-num);padding:7px 9px;font-size:13px}
+textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space:pre}
 .check{display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:13px}
 .check input{width:auto}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--hoja);border:1px solid var(--borde);border-radius:2px;
-  padding:6px 9px;font-family:'Karla',sans-serif;font-size:12px;color:var(--suave);cursor:pointer}
-.chip b{font-family:'IBM Plex Mono',monospace;font-size:10.5px}
+  padding:6px 9px;font-family:var(--tipo-ui);font-size:12px;color:var(--suave);cursor:pointer}
+.chip b{font-family:var(--tipo-num);font-size:10.5px}
 .chip.activo{border-width:1.5px;background:var(--papel);font-weight:500;color:var(--tinta)}
-.btn{background:var(--hoja);border:1px solid var(--tinta);border-radius:2px;padding:11px 15px;font-family:'Karla',sans-serif;
+.btn{background:var(--hoja);border:1px solid var(--tinta);border-radius:2px;padding:11px 15px;font-family:var(--tipo-ui);
   font-size:13.5px;font-weight:500;color:var(--tinta);cursor:pointer;width:auto}
 .btn:hover{background:var(--papel)}
 .btn.primario{background:var(--tinta);color:var(--hoja)}
@@ -232,7 +241,7 @@ textarea.csv{height:130px;font-family:'IBM Plex Mono',monospace;font-size:11px;w
 .tono.activo{border-color:var(--tinta);transform:scale(1.06)}
 .lapiz-cat{background:none;border:none;color:#A3AC9C;font-size:12px;cursor:pointer;padding:0 4px}
 .lapiz-cat:hover{color:var(--margen)}
-.marca-fija{font-family:'IBM Plex Mono',monospace;font-style:normal;font-size:9px;letter-spacing:.08em;
+.marca-fija{font-family:var(--tipo-num);font-style:normal;font-size:9px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--suave);border:1px solid var(--rayado);border-radius:2px;padding:1px 4px;margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
 
@@ -248,7 +257,7 @@ textarea.csv{height:130px;font-family:'IBM Plex Mono',monospace;font-size:11px;w
 .cerrar-modal:hover{background:var(--margen);border-color:var(--margen);color:var(--hoja)}
 html[data-tema="claro"] .cerrar-modal{border-width:2px}
 .toggle{display:flex;border:1px solid var(--tinta);border-radius:2px;overflow:hidden;margin-bottom:16px}
-.toggle button{flex:1;background:none;border:none;padding:10px;font-family:'Karla',sans-serif;font-size:13.5px;
+.toggle button{flex:1;background:none;border:none;padding:10px;font-family:var(--tipo-ui);font-size:13.5px;
   cursor:pointer;color:var(--tinta)}
 .toggle button.activo{background:var(--tinta);color:var(--hoja);font-weight:600}
 
@@ -257,30 +266,30 @@ nav{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:va
   padding-bottom:env(safe-area-inset-bottom);scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav button{flex:1 0 auto;min-width:72px;background:none;border:none;color:#93A594;padding:13px 8px 15px;cursor:pointer;
-  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border-top:2px solid transparent}
+  font-family:var(--tipo-num);font-size:10px;letter-spacing:.06em;text-transform:uppercase;border-top:2px solid transparent}
 nav button.activo{color:var(--papel);border-top-color:var(--margen)}
 .fab{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:31;width:54px;height:54px;
   border-radius:50%;background:var(--margen);color:#FBFCF9;border:none;font-size:29px;line-height:1;cursor:pointer;
   box-shadow:0 4px 14px rgba(22,36,28,.28);transition:transform .25s ease,opacity .25s ease}
 .fab.recogido{transform:translateY(96px);opacity:0}
 .aviso{position:fixed;bottom:calc(142px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:40;
-  background:var(--tinta);color:var(--papel);padding:9px 15px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+  background:var(--tinta);color:var(--papel);padding:9px 15px;border-radius:2px;font-family:var(--tipo-num);font-size:12px}
 
 /* ---------------- acceso ---------------- */
 .acceso{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px}
 .acceso .tarjeta{max-width:420px;width:100%}
 .acceso h2{font-size:22px;margin-bottom:6px}
-.codigo-hogar{font-family:'IBM Plex Mono',monospace;font-size:22px;letter-spacing:.22em;background:var(--papel);
+.codigo-hogar{font-family:var(--tipo-num);font-size:22px;letter-spacing:.22em;background:var(--papel);
   border:1px dashed var(--borde);padding:12px;text-align:center;border-radius:2px;margin:10px 0}
 .btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px}
 .btn-google svg{flex:none}
-.separador{display:flex;align-items:center;gap:10px;margin:16px 0;font-family:'IBM Plex Mono',monospace;
+.separador{display:flex;align-items:center;gap:10px;margin:16px 0;font-family:var(--tipo-num);
   font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
 .separador::before,.separador::after{content:"";flex:1;border-top:1px dotted var(--rayado)}
 .paleta{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:13px;border-top:1px dotted var(--rayado)}
 .muestra{display:flex;flex-direction:column;gap:3px;font-size:10.5px;color:var(--suave);min-width:62px}
 .muestra i{display:block;height:26px;border-radius:3px;border:1px solid var(--borde)}
-.muestra b{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:var(--tinta)}
+.muestra b{font-family:var(--tipo-num);font-size:9.5px;font-weight:500;color:var(--tinta)}
 
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--margen);outline-offset:2px}
 @media(min-width:640px){
@@ -358,14 +367,14 @@ html[data-tema="fiori"]{
   --azul:#0A6ED1;    /* sapBrandColor       */
   --shell:#354A5F;   /* sapShellColor       */
 }
-html[data-tema="fiori"] body{
-  background-image:none;
-  font-family:"72","72full",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-}
+html[data-tema="fiori"] body{background-image:none}
 html[data-tema="fiori"] h1,html[data-tema="fiori"] h2,html[data-tema="fiori"] h3,
-html[data-tema="fiori"] .btn,html[data-tema="fiori"] input,html[data-tema="fiori"] select,
-html[data-tema="fiori"] textarea,html[data-tema="fiori"] .chip,html[data-tema="fiori"] .enlace{
-  font-family:"72","72full",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;letter-spacing:0}
+html[data-tema="fiori"] .btn,html[data-tema="fiori"] .chip,html[data-tema="fiori"] .enlace{letter-spacing:0}
+/* Con la tipografía original, Fiori usa la familia "72" de SAP si está instalada */
+html[data-tema="fiori"][data-tipo="original"]{
+  --tipo-ui:"72","72full",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --tipo-titulo:"72","72full",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
 html[data-tema="fiori"] .tarjeta{border-radius:8px;box-shadow:0 0 8px 0 rgba(0,0,0,.08);border-color:var(--borde)}
 html[data-tema="fiori"] .cinta{border-radius:8px 8px 0 0;box-shadow:0 0 8px 0 rgba(0,0,0,.08)}
 html[data-tema="fiori"] header{background:var(--shell);border-bottom:none;box-shadow:0 1px 4px rgba(0,0,0,.16)}
@@ -417,8 +426,11 @@ html[data-tema="femenino"]{
 }
 html[data-tema="femenino"] body{
   background-image:repeating-linear-gradient(115deg,transparent 0 22px,rgba(168,56,90,.045) 22px 23px)}
-html[data-tema="femenino"] h1,html[data-tema="femenino"] h2,html[data-tema="femenino"] h3,
-html[data-tema="femenino"] .cinta-total strong,html[data-tema="femenino"] .destacado strong{
+html[data-tema="femenino"][data-tipo="original"] h1,
+html[data-tema="femenino"][data-tipo="original"] h2,
+html[data-tema="femenino"][data-tipo="original"] h3,
+html[data-tema="femenino"][data-tipo="original"] .cinta-total strong,
+html[data-tema="femenino"][data-tipo="original"] .destacado strong{
   font-family:'Fraunces',Georgia,serif;font-weight:700;letter-spacing:-.01em}
 html[data-tema="femenino"] .tarjeta{border-radius:7px;box-shadow:0 2px 10px rgba(59,34,48,.07)}
 html[data-tema="femenino"] .cinta{border-radius:7px 7px 0 0}
@@ -455,7 +467,27 @@ main{position:relative;z-index:1}
   background-position:center;background-size:cover;background-color:var(--papel);margin-bottom:12px}
 .rango{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .rango input[type=range]{flex:1;padding:0;height:26px;background:none;border:none}
-.rango b{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;min-width:42px;text-align:right}
+.rango b{font-family:var(--tipo-num);font-size:12px;font-weight:500;min-width:42px;text-align:right}
+
+/* ================= tipografías seleccionables ===================== */
+html[data-tipo="roboto"]{
+  --tipo-ui:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --tipo-titulo:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --tipo-num:'Roboto Mono',ui-monospace,monospace;
+}
+html[data-tipo="roboto"] .cod,html[data-tipo="roboto"] .mono,
+html[data-tipo="roboto"] td.num,html[data-tipo="roboto"] .renglon b{font-variant-numeric:tabular-nums}
+html[data-tipo="original"]{
+  --tipo-ui:'Karla',system-ui,sans-serif;
+  --tipo-titulo:'Bricolage Grotesque','Karla',sans-serif;
+}
+/* Inter y Roboto son algo más anchas: se compensa el interletrado de los títulos */
+html[data-tipo="inter"] h1,html[data-tipo="inter"] h2,html[data-tipo="inter"] h3{letter-spacing:-.018em}
+html[data-tipo="roboto"] h1,html[data-tipo="roboto"] h2,html[data-tipo="roboto"] h3{letter-spacing:-.012em}
+.muestra-tipo{font-size:15px;line-height:1.35;margin:10px 0 0;padding:11px 12px;background:var(--papel);
+  border:1px solid var(--borde);border-radius:3px}
+.muestra-tipo b{display:block;font-family:var(--tipo-titulo);font-size:17px;font-weight:700;margin-bottom:3px}
+.muestra-tipo span{font-family:var(--tipo-num);font-variant-numeric:tabular-nums;color:var(--suave);font-size:13px}
 </style>
 </head>
 <body>
@@ -1492,6 +1524,21 @@ function vAjustes(R){
   </section>
 
   <section class="tarjeta">
+    <div class="cab"><h2>Tipografía</h2><span class="cod">${NOMBRE_TIPO[S.tipo]||"Inter"}</span></div>
+    <div class="chips">
+      <button class="chip ${S.tipo==="inter"?"activo":""}" data-tipo-sel="inter"><b>INT</b> Inter</button>
+      <button class="chip ${S.tipo==="roboto"?"activo":""}" data-tipo-sel="roboto"><b>ROB</b> Roboto</button>
+      <button class="chip ${S.tipo==="original"?"activo":""}" data-tipo-sel="original"><b>ORI</b> Original</button>
+    </div>
+    <p class="muestra-tipo">
+      <b>Alimentación superó su sobre</b>
+      Llevas gastado más de lo previsto este mes.
+      <span>$1.438.000 · 28% · 17/31</span>
+    </p>
+    <p class="nota" style="margin-top:10px">Inter y Roboto están pensadas para pantalla y se leen muy bien en tamaños pequeños. Las cifras se mantienen en ancho fijo para que las columnas queden alineadas.</p>
+  </section>
+
+  <section class="tarjeta">
     <div class="cab"><h2>Fondo personal</h2><span class="cod">${S.fondo?"con foto":"sin foto"}</span></div>
     <p class="nota">Sube una foto tuya —la familia, un viaje, lo que quieras— y aparecerá como marca de agua bajo la barra superior. Es tuya: cada persona del hogar ve la suya.</p>
     ${S.fondo?`<div class="previa-fondo" style="background-image:url(${S.fondo})"></div>
@@ -1564,6 +1611,9 @@ function conectar(R){
     opf.onchange=()=>guardarFondo(S.fondo,S.fondoOpacidad);
   }
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
+  document.querySelectorAll("[data-tipo-sel]").forEach(b=>b.onclick=()=>{
+    aplicarTipo(b.dataset.tipoSel); render(); avisar(`Tipografía ${NOMBRE_TIPO[S.tipo]}`);
+  });
   const ca=$("#chk-alertas"); if(ca) ca.onchange=e=>DB.guardarHogar({config:{...S.config,alertas:e.target.checked}});
   document.querySelectorAll("[data-quitar-miembro]").forEach(b=>b.onclick=()=>
     DB.guardarHogar({config:{...S.config,miembros:S.config.miembros.filter(m=>m!==b.dataset.quitarMiembro)}}));
@@ -2063,6 +2113,14 @@ async function elegirFondo(){
   input.click();
 }
 
+const TIPOS = ["inter","roboto","original"];
+const NOMBRE_TIPO = {inter:"Inter", roboto:"Roboto", original:"Bricolage + Karla"};
+function aplicarTipo(t){
+  S.tipo = TIPOS.includes(t)? t : "inter";
+  document.documentElement.dataset.tipo = S.tipo;
+  guardarLocal("pf-tipo",S.tipo);
+}
+
 function aplicarTema(t){
   S.tema = TEMAS.includes(t)? t : "papel";
   document.documentElement.dataset.tema = S.tema;
@@ -2163,6 +2221,7 @@ async function instalarApp(){
 
 /* ============================== arranque ========================== */
 aplicarTema(leerLocal("pf-tema")||"papel");
+aplicarTipo(leerLocal("pf-tipo")||"inter");
 cargarFondoLocal();
 registrarSW();
 $("#btn-tema").onclick=alternarTema;

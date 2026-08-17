@@ -108,13 +108,23 @@ El botón **◐** de la cabecera va rotando entre cuatro temas, y la elección s
 - **SAP Fiori** — paleta corporativa de SAP: shell `#354A5F`, azul de marca `#0A6ED1` para las acciones y los colores semánticos de Fiori aplicados con su significado real: `#107E3E` positivo cuando el sobre va bien, `#E9730C` crítico al acercarse al límite, `#BB0000` negativo al excederlo y `#6A6D70` neutro. Tarjetas con esquinas de 8px y sombra suave, botones con el estilo *emphasized* y *transparent* de Fiori.
 - **Femenino** — ciruela profunda `#3B2230`, granate `#A8385A`, oro viejo `#C9A227`, salvia y lavanda sobre fondo rosa empolvado, con los títulos en la serif Fraunces y la cabecera en degradado. Todos los pares de color cumplen contraste WCAG AA para texto.
 
-## 9. Fondo personal
+## 9. Tipografía
+
+En **Ajustes → Tipografía** se elige entre tres familias, con una muestra en vivo para comparar:
+
+- **Inter** (por defecto) — diseñada específicamente para pantalla, con alta legibilidad en tamaños pequeños.
+- **Roboto** — la del sistema Android, familiar y algo más estrecha.
+- **Original** — Bricolage Grotesque en los títulos y Karla en el texto, el emparejamiento con el que nació la app.
+
+Las cifras van siempre en una monoespaciada de ancho fijo (IBM Plex Mono, o Roboto Mono si eliges Roboto) para que las columnas de números queden alineadas. La elección se guarda por dispositivo, igual que el tema.
+
+## 10. Fondo personal
 
 En **Ajustes → Fondo personal** cada persona puede subir una foto que aparece como marca de agua bajo la barra superior, con un control de intensidad del 4% al 40%. La imagen se reduce a 900px y se comprime en el propio teléfono antes de guardarse, y se difumina arriba y abajo para no estorbar la lectura.
 
 Es personal, no del hogar: se guarda en el perfil de cada usuario (`usuarios/{uid}`), así que tu pareja ve la suya y tú la tuya, y la tuya te sigue si entras desde otro dispositivo.
 
-## 10. Corregir registros
+## 11. Corregir registros
 
 Todo lo que se registra se puede corregir después:
 
@@ -124,7 +134,7 @@ Todo lo que se registra se puede corregir después:
 
 Eliminar está dentro de la propia ventana de edición y pide confirmación en dos pasos, así no se borra nada de un toque accidental en el teléfono.
 
-## 11. Comportamiento de las ventanas
+## 12. Comportamiento de las ventanas
 
 Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para que un roce accidental no borre lo que llevas escrito. Se cierran solo con la **✕** de la esquina, el botón **Cancelar** o la tecla **Esc**.
 
