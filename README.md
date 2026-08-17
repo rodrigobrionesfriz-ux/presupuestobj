@@ -125,7 +125,9 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 ## Qué incluye
 
-**Panel** — Corte del mes en formato de cinta de sumadora: ingresos, gastos, deuda pendiente y disponible. Ritmo de gasto diario, proyección a fin de mes y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
+**Panel** — Corte del mes en formato de cinta de sumadora: ingresos, gastos, deuda pendiente y disponible. Ritmo de gasto variable, proyección a fin de mes con su desglose, y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
+
+**Sobres propios** — Además de las once categorías de serie, la familia puede crear las suyas desde *Panel → + Otro sobre* o desde Ajustes. Cada sobre nuevo declara su **tipo de gasto** (esencial o prescindible, lo que decide si entra en las recomendaciones de recorte) y su **frecuencia** (variable día a día, o fijo una vez al mes, lo que decide cómo se proyecta el cierre). Se le asigna color y presupuesto, y aparece en todas las vistas y estadísticas como una más. Al eliminar un sobre propio, sus movimientos pasan automáticamente a *Otros* en lugar de perderse.
 
 **Movimientos** — Alta rápida con monto, categoría, medio de pago, miembro y marca de esencial. Libro diario agrupado por fecha, con búsqueda por concepto y filtro por categoría. Cada fila se toca para editarla o eliminarla.
 

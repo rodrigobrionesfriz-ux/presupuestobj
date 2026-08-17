@@ -207,6 +207,14 @@ textarea.csv{height:130px;font-family:'IBM Plex Mono',monospace;font-size:11px;w
 .pres{list-style:none;margin:0 0 14px;padding:0}
 .pres li{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px dotted var(--rayado)}
 .pres-nom{flex:1;font-size:13.5px}
+.tono{width:34px;height:34px;border:2px solid transparent;border-radius:3px;cursor:pointer;padding:0;
+  box-shadow:inset 0 0 0 1px rgba(22,36,28,.15)}
+.tono.activo{border-color:var(--tinta);transform:scale(1.06)}
+.lapiz-cat{background:none;border:none;color:#A3AC9C;font-size:12px;cursor:pointer;padding:0 4px}
+.lapiz-cat:hover{color:var(--margen)}
+.marca-fija{font-family:'IBM Plex Mono',monospace;font-style:normal;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--suave);border:1px solid var(--rayado);border-radius:2px;padding:1px 4px;margin-left:5px}
+.ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
 
 /* ---------------- modal ---------------- */
 .modal{position:fixed;inset:0;background:rgba(22,36,28,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
@@ -416,7 +424,7 @@ const FIREBASE_CONFIG = {
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
 
 /* ============================ catálogo ============================ */
-const CATEGORIAS = [
+const CATEGORIAS_BASE = [
   {cod:"ALM",nombre:"Alimentación",color:"#3F7D58",esencial:true},
   {cod:"HOG",nombre:"Hogar y servicios",color:"#2E6E8E",esencial:true},
   {cod:"TRA",nombre:"Transporte",color:"#6B6BA8",esencial:true},
@@ -429,10 +437,23 @@ const CATEGORIAS = [
   {cod:"SUS",nombre:"Suscripciones",color:"#5A5F6B",esencial:false},
   {cod:"OTR",nombre:"Otros",color:"#8A9099",esencial:false},
 ];
-const CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
+/* CATEGORIAS y CAT se recalculan al vuelo: a las de serie se suman las que
+   crea la familia, guardadas en config.categorias y sincronizadas como todo
+   lo demás. */
+let CATEGORIAS = [...CATEGORIAS_BASE];
+let CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
+function sincronizarCategorias(){
+  const propias = (S?.config?.categorias||[]).filter(c=>c&&c.cod&&!CATEGORIAS_BASE.some(b=>b.cod===c.cod));
+  CATEGORIAS = [...CATEGORIAS_BASE, ...propias.map(c=>({...c,propia:true}))];
+  CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
+}
+const esPropia = cod=>!!CAT[cod]?.propia;
+const PALETA_CAT = ["#3F7D58","#2E6E8E","#6B6BA8","#C25B54","#8A6A3B","#A34E6B",
+                    "#D08A2C","#4F8C8C","#5A5F6B","#7A4A55","#8A9099","#B5651D"];
 /* Categorías cuyo cargo es mensual y no se repite a diario: no deben promediarse
    por día al proyectar el cierre del mes. */
-const CAT_FIJAS = ["HOG","EDU","SUS","DEU"];
+const CAT_FIJAS_BASE = ["HOG","EDU","SUS","DEU"];
+const esFijaCat = cod=>CAT_FIJAS_BASE.includes(cod) || !!CAT[cod]?.fija;
 const METODOS = ["Efectivo","Débito","Crédito","Transferencia"];
 const MONEDAS = [["MXN","es-MX"],["EUR","es-ES"],["COP","es-CO"],["ARS","es-AR"],["CLP","es-CL"],["PEN","es-PE"],["USD","es-US"]];
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -719,12 +740,12 @@ function calcular(){
      ocurren una vez al mes: promediarlos por día y multiplicarlos por 31 los
      multiplicaría varias veces. Se separan del gasto variable, se proyecta solo
      este último, y se suman aparte los fijos que aún no se han pagado este mes. */
-  const gastoFijo = gastos.filter(g=>CAT_FIJAS.includes(g.categoria)).reduce((a,b)=>a+b.monto,0);
+  const gastoFijo = gastos.filter(g=>esFijaCat(g.categoria)).reduce((a,b)=>a+b.monto,0);
   const gastoVariable = totalGasto-gastoFijo;
   const ritmoVariable = gastoVariable/Math.max(1,diaHoy);
   const conceptosMes = new Set(gastos.map(g=>(g.nota||"").trim().toLowerCase()).filter(Boolean));
   const fijosPendientes = gastosAnt
-    .filter(g=>CAT_FIJAS.includes(g.categoria))
+    .filter(g=>esFijaCat(g.categoria))
     .filter(g=>{const k=(g.nota||"").trim().toLowerCase(); return k && !conceptosMes.has(k);})
     .reduce((a,b)=>a+b.monto,0);
   const proyectado = esMesActual
@@ -1033,6 +1054,7 @@ const NAV = [["panel","Panel"],["movimientos","Movim."],["estadisticas","Estadí
 
 function render(){
   if($("#app").classList.contains("oculto")) return;
+  sincronizarCategorias();
   const R = calcular();
   $("#mes-txt").textContent = mesLargo(S.mes);
   $("#sub-hogar").textContent = S.modo==="nube"? `Hogar ${S.hogarId||""}` : "Modo local · sin sincronizar";
@@ -1085,15 +1107,17 @@ function vPanel(R){
   </section>
 
   <section class="tarjeta">
-    <div class="cab"><h2>Sobres del mes</h2><span class="cod">${sobres.length} cuentas</span></div>
-    ${sobres.length?"":`<p class="nota">Aún no hay presupuestos ni gastos. Asígnalos en Ajustes.</p>`}
+    <div class="cab"><h2>Sobres del mes</h2>
+      <button class="enlace" data-accion="nueva-categoria">+ Otro sobre</button></div>
+    ${sobres.length?"":`<p class="nota">Aún no hay presupuestos ni gastos. Asígnalos en Ajustes o crea un sobre propio.</p>`}
     <ul class="sobres">${sobres.map(c=>`
       <li>
         <div class="sobre-cab"><span class="cod" style="color:${c.color}">${c.cod}</span>
-          <span class="sobre-nom">${c.nombre}</span><span class="sobre-cifra">${fmt(c.total)}</span></div>
+          <span class="sobre-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre ${c.nombre}" title="Editar sobre">✎</button>`:""}</span>
+          <span class="sobre-cifra">${fmt(c.total)}</span></div>
         <div class="barra"><div class="fill ${est(c.uso)}" style="width:${Math.min(100,c.pres>0?c.total/c.pres*100:100)}%;${c.pres>0?"":`background:${c.color}`}"></div></div>
-        <div class="sobre-pie"><span>${c.pres>0?`de ${fmt(c.pres)}`:"sin presupuesto"}</span>
-          <span>${c.pres>0?(c.total>c.pres?`excedido en ${fmt(c.total-c.pres)}`:`quedan ${fmt(c.pres-c.total)}`):`${c.n} compras`}</span></div>
+        <div class="sobre-pie"><span>${c.pres>0?`de ${fmt(c.pres)}`:"sin presupuesto"}${c.fija?" · fijo":""}</span>
+          <span>${c.pres>0?(c.total>c.pres?`excedido en ${fmt(c.total-c.pres)}`:`quedan ${fmt(c.pres-c.total)}`):`${cuenta(c.n,"compra","compras")}`}</span></div>
       </li>`).join("")}</ul>
   </section>
 
@@ -1307,9 +1331,14 @@ function vAjustes(R){
     <div class="cab"><h2>Presupuesto por sobre</h2><span class="cod">total ${fmt(total)}</span></div>
     <p class="nota">Asigna cuánto puede gastar la familia al mes en cada cuenta.</p>
     <ul class="pres">${CATEGORIAS.map(c=>`<li>
-      <span class="cod" style="color:${c.color}">${c.cod}</span><span class="pres-nom">${c.nombre}</span>
+      <span class="cod" style="color:${c.color}">${c.cod}</span>
+      <span class="pres-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre">✎</button>`:""}
+        ${c.fija?`<em class="marca-fija">fijo</em>`:""}${c.esencial?"":`<em class="marca-fija">prescindible</em>`}</span>
       <input class="mini" type="number" inputmode="decimal" min="0" data-pres="${c.cod}" value="${S.presupuestos[c.cod]||""}" placeholder="0"></li>`).join("")}</ul>
-    <button class="btn" data-accion="sugerir">Sugerir según mis últimos 3 meses</button>
+    <div class="fila-btns">
+      <button class="btn" data-accion="sugerir">Sugerir según mis últimos 3 meses</button>
+      <button class="btn" data-accion="nueva-categoria">+ Añadir sobre propio</button>
+    </div>
   </section>
 
   <section class="tarjeta">
@@ -1402,6 +1431,9 @@ function conectar(R){
     el.onclick=()=>modalMovimiento(el.dataset.editarMov);
     el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();modalMovimiento(el.dataset.editarMov)}};
   });
+  document.querySelectorAll("[data-editar-cat]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); modalCategoria(b.dataset.editarCat);
+  });
   document.querySelectorAll("[data-editar-deuda]").forEach(b=>b.onclick=()=>modalDeuda(b.dataset.editarDeuda));
   document.querySelectorAll("[data-editar-meta]").forEach(b=>b.onclick=()=>modalMeta(b.dataset.editarMeta));
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
@@ -1417,6 +1449,7 @@ function acciones(a,R){
   const f = {
     nuevo:()=>modalMovimiento(),
     "nueva-deuda":()=>modalDeuda(),
+    "nueva-categoria":()=>modalCategoria(),
     "nueva-meta":()=>modalMeta(),
     ejemplo:()=>cargarEjemplo(),
     sugerir:()=>sugerirPresupuestos(),
@@ -1656,6 +1689,84 @@ function abonarDeuda(id){
       nota:`Pago ${d.nombre}`,esencial:true});
     avisar("Pago registrado");
   },"Registrar pago");
+}
+
+/* =============== sobres propios (categorías de la familia) ======== */
+function codigoLibre(nombre){
+  const limpio = nombre.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z]/g,"");
+  const base = (limpio.slice(0,3)||"XXX").padEnd(3,"X");
+  if(!CAT[base]) return base;
+  for(let i=1;i<100;i++){ const alt=base.slice(0,2)+i; if(!CAT[alt]) return alt; }
+  return base.slice(0,2)+Math.floor(Math.random()*90+10);
+}
+
+function modalCategoria(cod=null){
+  const c = cod? CAT[cod] : null;
+  const usados = cod? S.movimientos.filter(m=>m.categoria===cod).length : 0;
+  const colorIni = c?.color || PALETA_CAT[(S.config.categorias||[]).length % PALETA_CAT.length];
+
+  modal(c? `Editar sobre ${c.cod}` : "Nuevo sobre",`
+    ${c? `<p class="nota migaja">Código ${esc(c.cod)} · ${cuenta(usados,"movimiento asignado","movimientos asignados")}</p>`
+        : `<p class="nota">Crea una cuenta propia para gastos que no encajan en las de serie: mascotas, cuidado de mayores, un hobby, la cuota del club.</p>`}
+    <label class="campo"><span>Nombre del sobre</span>
+      <input id="ct-nombre" placeholder="Mascotas, jardín, apoyo familiar…" value="${esc(c?.nombre||"")}"></label>
+
+    <div class="campo"><span class="campo-tit">¿Qué tipo de gasto es?</span>
+      <div class="chips" id="ct-tipo">
+        <button class="chip ${!c||c.esencial?"activo":""}" data-esencial="1"><b>ESE</b> Esencial</button>
+        <button class="chip ${c&&!c.esencial?"activo":""}" data-esencial="0"><b>PRE</b> Prescindible</button>
+      </div>
+      <p class="nota ayuda">Lo esencial —comida, techo, salud— queda fuera de las recomendaciones de recorte. Lo prescindible sí entra: es donde la app busca margen de ahorro.</p>
+    </div>
+
+    <div class="campo"><span class="campo-tit">¿Con qué frecuencia se paga?</span>
+      <div class="chips" id="ct-frec">
+        <button class="chip ${c?.fija?"":"activo"}" data-fija="0"><b>VAR</b> Variable, día a día</button>
+        <button class="chip ${c?.fija?"activo":""}" data-fija="1"><b>FIJ</b> Fijo, una vez al mes</button>
+      </div>
+      <p class="nota ayuda">Los cargos fijos no se promedian por día al proyectar el cierre del mes; los variables sí.</p>
+    </div>
+
+    <div class="campo"><span class="campo-tit">Color</span>
+      <div class="chips" id="ct-color">
+        ${PALETA_CAT.map(col=>`<button class="tono ${col===colorIni?"activo":""}" data-color="${col}" style="background:${col}" aria-label="Color ${col}"></button>`).join("")}
+      </div>
+    </div>
+
+    <label class="campo"><span>Presupuesto mensual</span>
+      <input id="ct-pres" type="number" inputmode="decimal" placeholder="0" value="${cod?(S.presupuestos[cod]||""):""}"></label>
+  `, async()=>{
+    const nombre = $("#ct-nombre").value.trim();
+    if(!nombre) return "Ponle un nombre al sobre.";
+    const esencial = document.querySelector("#ct-tipo .activo")?.dataset.esencial==="1";
+    const fija = document.querySelector("#ct-frec .activo")?.dataset.fija==="1";
+    const color = document.querySelector("#ct-color .activo")?.dataset.color || colorIni;
+    const codigo = cod || codigoLibre(nombre);
+    const lista = [...(S.config.categorias||[])];
+    const i = lista.findIndex(x=>x.cod===codigo);
+    const datos = {cod:codigo,nombre,color,esencial,fija};
+    if(i>=0) lista[i]=datos; else lista.push(datos);
+    await DB.guardarHogar({
+      config:{...S.config,categorias:lista},
+      presupuestos:{...S.presupuestos,[codigo]:num($("#ct-pres").value)}
+    });
+    avisar(c? "Sobre actualizado" : `Sobre ${codigo} creado`);
+  }, c? "Guardar cambios":"Crear sobre",
+     c? {texto:"Eliminar sobre", accion:async()=>{
+          for(const m of S.movimientos.filter(m=>m.categoria===cod))
+            await DB.actualizar("movimientos",m.id,{categoria:"OTR",esencial:false});
+          const resto = {...S.presupuestos}; delete resto[cod];
+          await DB.guardarHogar({
+            config:{...S.config,categorias:(S.config.categorias||[]).filter(x=>x.cod!==cod)},
+            presupuestos:resto});
+          avisar(usados? `Sobre eliminado · ${cuenta(usados,"movimiento pasó","movimientos pasaron")} a Otros` : "Sobre eliminado");
+        }} : null);
+
+  const grupo = (sel,attr)=>document.querySelectorAll(`${sel} [data-${attr}]`).forEach(b=>b.onclick=()=>{
+    document.querySelectorAll(`${sel} [data-${attr}]`).forEach(x=>x.classList.remove("activo"));
+    b.classList.add("activo");
+  });
+  grupo("#ct-tipo","esencial"); grupo("#ct-frec","fija"); grupo("#ct-color","color");
 }
 
 function sugerirPresupuestos(){
