@@ -27,7 +27,7 @@
   --azul:#2E6E8E; --borde:#C9D2C0;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;overflow-x:hidden;max-width:100%}
 body{
   font-family:'Karla',system-ui,sans-serif;color:var(--tinta);background:var(--papel);
   background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(107,128,110,.12) 27px 28px);
@@ -57,10 +57,11 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
 .punto{width:7px;height:7px;border-radius:50%;background:var(--verde);display:inline-block}
 .punto.local{background:var(--ambar)}.punto.error{background:var(--margen)}
 
-main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:14px}
+main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:14px;
+  min-width:0;width:100%}
 
 /* ---------------- tarjetas ---------------- */
-.tarjeta{background:var(--hoja);border:1px solid var(--borde);border-radius:3px;padding:16px 15px;
+.tarjeta{background:var(--hoja);border:1px solid var(--borde);border-radius:3px;padding:16px 15px;min-width:0;
   box-shadow:0 1px 0 rgba(22,36,28,.05)}
 .cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
 .cab h2{font-weight:700;font-size:15.5px}
@@ -135,12 +136,31 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .borrar:hover{color:var(--margen)}
 
 /* ---------------- tablas, listas, métricas ---------------- */
-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;table-layout:auto}
 th{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--suave);
   text-align:left;font-weight:500;padding:0 7px 7px 0;border-bottom:1px solid var(--rayado)}
-td{padding:7px 7px 7px 0;border-bottom:1px dotted var(--rayado)}
-td.num,th.num{text-align:right}
+td{padding:7px 7px 7px 0;border-bottom:1px dotted var(--rayado);overflow-wrap:anywhere}
+td:last-child,th:last-child{padding-right:0}
+td.num,th.num{text-align:right;white-space:nowrap}
 td.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+
+/* En pantallas estrechas la tabla deja de ser rejilla: cada fila pasa a ser
+   un bloque con su título y sus datos etiquetados, sin desbordar a lo ancho. */
+@media(max-width:620px){
+  table.resp,table.resp tbody,table.resp tr,table.resp td{display:block;width:100%}
+  table.resp thead{display:none}
+  table.resp{margin-top:4px}
+  table.resp tr{padding:11px 0;border-bottom:1px solid var(--rayado)}
+  table.resp tr:last-child{border-bottom:none}
+  table.resp td{border:none;padding:3px 0;display:flex;justify-content:space-between;
+    align-items:baseline;gap:14px;text-align:right}
+  table.resp td::before{content:attr(data-etq);font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--suave);text-align:left;flex:none}
+  table.resp td.principal{display:block;text-align:left;font-size:14px;font-weight:500;
+    padding:0 0 6px;line-height:1.3}
+  table.resp td.principal::before{content:none}
+  table.resp td:empty{display:none}
+}
 .metricas{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-top:14px;padding-top:13px;
   border-top:1px dotted var(--rayado)}
 .metricas em{display:block;font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--suave)}
@@ -241,7 +261,8 @@ nav button{flex:1 0 auto;min-width:72px;background:none;border:none;color:#93A59
 nav button.activo{color:var(--papel);border-top-color:var(--margen)}
 .fab{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:31;width:54px;height:54px;
   border-radius:50%;background:var(--margen);color:#FBFCF9;border:none;font-size:29px;line-height:1;cursor:pointer;
-  box-shadow:0 4px 14px rgba(22,36,28,.28)}
+  box-shadow:0 4px 14px rgba(22,36,28,.28);transition:transform .25s ease,opacity .25s ease}
+.fab.recogido{transform:translateY(96px);opacity:0}
 .aviso{position:fixed;bottom:calc(142px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:40;
   background:var(--tinta);color:var(--papel);padding:9px 15px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:12px}
 
@@ -269,6 +290,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .sobres{display:grid;grid-template-columns:1fr 1fr;gap:15px 22px}
   .fab{right:calc(50% - 406px)}
   nav button{flex:1}
+}
+@media(max-width:420px){
+  header h1{font-size:16.5px;line-height:1.15}
+  header{padding-left:14px;padding-right:14px}
+  .marca{gap:9px}
+  .logo{font-size:13px;padding:2px 5px}
+  main{padding-left:11px;padding-right:11px}
+  .tarjeta{padding:14px 12px}
 }
 @media(max-width:400px){.cinta-pie{grid-template-columns:1fr}.campos-2{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -1246,13 +1275,15 @@ function vEstadisticas(R){
 
   <section class="tarjeta"><div class="cab"><h2>Reparto por categoría</h2></div>
     ${grDona(dona)}
-    <table><thead><tr><th>Cta.</th><th>Categoría</th><th class="num">Total</th><th class="num">%</th>
+    <table class="resp"><thead><tr><th>Categoría</th><th class="num">Total</th><th class="num">%</th>
       <th class="num">Compras</th><th class="num">Ticket</th><th class="num">vs ant.</th></tr></thead>
     <tbody>${dona.map(c=>`<tr>
-      <td><span class="cod" style="color:${c.color}">${c.cod}</span></td><td>${c.nombre}</td>
-      <td class="num">${fmt(c.total)}</td><td class="num">${Math.round(c.total/R.totalGasto*100)}%</td>
-      <td class="num">${c.n}</td><td class="num">${fmt(c.ticket)}</td>
-      <td class="num ${c.variacion===null?"":c.variacion>0.05?"rojo":c.variacion<-0.05?"verde":""}">
+      <td class="principal"><span class="cod" style="color:${c.color}">${c.cod}</span> ${c.nombre}</td>
+      <td class="num" data-etq="Total">${fmt(c.total)}</td>
+      <td class="num" data-etq="Participación">${Math.round(c.total/R.totalGasto*100)}%</td>
+      <td class="num" data-etq="Compras">${c.n}</td>
+      <td class="num" data-etq="Ticket promedio">${fmt(c.ticket)}</td>
+      <td class="num ${c.variacion===null?"":c.variacion>0.05?"rojo":c.variacion<-0.05?"verde":""}" data-etq="Vs. mes anterior">
         ${c.variacion===null?"—":`${c.variacion>0?"+":""}${Math.round(c.variacion*100)}%`}</td></tr>`).join("")}</tbody></table>
   </section>
 
@@ -1274,9 +1305,12 @@ function vEstadisticas(R){
   </section>
 
   <section class="tarjeta"><div class="cab"><h2>Conceptos más frecuentes</h2></div>
-    <table><thead><tr><th>Concepto</th><th class="num">Veces</th><th class="num">Total</th><th class="num">Promedio</th></tr></thead>
-    <tbody>${R.topConceptos.map(c=>`<tr><td><span class="cod" style="color:${CAT[c.cod]?.color||"#8A9099"}">${c.cod}</span> ${esc(c.nombre)}</td>
-      <td class="num">${c.n}</td><td class="num">${fmt(c.total)}</td><td class="num">${fmt(c.total/c.n)}</td></tr>`).join("")}</tbody></table>
+    <table class="resp"><thead><tr><th>Concepto</th><th class="num">Veces</th><th class="num">Total</th><th class="num">Promedio</th></tr></thead>
+    <tbody>${R.topConceptos.map(c=>`<tr>
+      <td class="principal"><span class="cod" style="color:${CAT[c.cod]?.color||"#8A9099"}">${c.cod}</span> ${esc(c.nombre)}</td>
+      <td class="num" data-etq="Veces">${c.n}</td>
+      <td class="num" data-etq="Total">${fmt(c.total)}</td>
+      <td class="num" data-etq="Promedio">${fmt(c.total/c.n)}</td></tr>`).join("")}</tbody></table>
   </section>`;
 }
 const listaBarras = (items,total,color)=> items.length?
@@ -1386,9 +1420,12 @@ function vAhorro(R){
    : `<section class="tarjeta"><p class="nota">Registra al menos un mes de movimientos para generar recomendaciones.</p></section>`}
   ${R.recurrentesNoEsenciales.length?`<section class="tarjeta">
     <div class="cab"><h2>Pagos recurrentes a revisar</h2><span class="cod">3+ meses seguidos</span></div>
-    <table><thead><tr><th>Concepto</th><th class="num">Meses</th><th class="num">Promedio</th><th class="num">Al año</th></tr></thead>
-    <tbody>${R.recurrentesNoEsenciales.map(r=>`<tr><td><span class="cod" style="color:${CAT[r.cod]?.color||"#8A9099"}">${r.cod}</span> ${esc(r.nombre)}</td>
-      <td class="num">${r.meses}</td><td class="num">${fmt(r.promedio)}</td><td class="num">${fmt(r.promedio*12)}</td></tr>`).join("")}</tbody></table>
+    <table class="resp"><thead><tr><th>Concepto</th><th class="num">Meses</th><th class="num">Promedio</th><th class="num">Al año</th></tr></thead>
+    <tbody>${R.recurrentesNoEsenciales.map(r=>`<tr>
+      <td class="principal"><span class="cod" style="color:${CAT[r.cod]?.color||"#8A9099"}">${r.cod}</span> ${esc(r.nombre)}</td>
+      <td class="num" data-etq="Meses seguidos">${r.meses}</td>
+      <td class="num" data-etq="Promedio">${fmt(r.promedio)}</td>
+      <td class="num" data-etq="Al año">${fmt(r.promedio*12)}</td></tr>`).join("")}</tbody></table>
   </section>`:""}`;
 }
 
@@ -2132,6 +2169,17 @@ $("#btn-tema").onclick=alternarTema;
 $("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);render()};
 $("#mes-sig").onclick=()=>{S.mes=sumaMes(S.mes,1);render()};
 $("#fab").onclick=()=>modalMovimiento();
+/* El botón flotante se aparta mientras se desplaza la pantalla, para no tapar
+   cifras, y vuelve al detenerse. */
+if(!matchMedia("(prefers-reduced-motion: reduce)").matches){
+  let tFab;
+  addEventListener("scroll",()=>{
+    const f=$("#fab"); if(!f) return;
+    f.classList.add("recogido");
+    clearTimeout(tFab);
+    tFab=setTimeout(()=>f.classList.remove("recogido"),520);
+  },{passive:true});
+}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")cerrarModal()});
 
 /* Accesos directos del icono: ?vista=estadisticas o ?accion=nuevo */
