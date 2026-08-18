@@ -193,6 +193,14 @@ Solo después vienen las **oportunidades detectadas**, que son otra cosa y así 
 
 **Reporte en Excel** — Un `.xlsx` con ocho hojas: *Resumen* del mes con la proyección y el presupuesto, *Movimientos* completos, *Por categoría* con presupuesto contra gasto y variación, *Por persona*, *Evolución* de los últimos seis meses, *Deudas* con meses hasta liquidar e intereses, *Metas*, y *Recomendaciones* con su cifra y si suma o no al ahorro potencial. Los importes llevan formato de moneda y los porcentajes formato de porcentaje, con anchos de columna ajustados: se puede armar una tabla dinámica sin tocar nada. La librería se descarga solo al pedir el reporte; sin conexión, la app cae a un CSV y avisa.
 
+## Botón atrás del móvil
+
+Android manda el botón atrás al historial del navegador, así que por defecto la primera pulsación cerraría la app aunque tuvieras una ventana abierta. La app lleva su propio historial:
+
+1. Si hay una ventana abierta, atrás la cierra —igual que la ✕, Cancelar o Esc, que están sincronizados con el mismo mecanismo—.
+2. Si no hay ventana, vuelve a la pestaña anterior: Ahorro → Estadísticas → Movimientos → Panel.
+3. Cuando ya no queda nada dentro de la app, avisa: *"Estás al principio · pulsa atrás otra vez para cerrar la app"*. Solo la segunda pulsación, dentro de los cuatro segundos siguientes, la cierra.
+
 ## Formato de los importes
 
 Todos los importes se muestran como enteros con separador de miles, sin decimales: en un presupuesto doméstico los céntimos solo añaden ruido. Los campos de captura usan teclado numérico y paso de 1, y lo que se escriba con decimales se redondea al guardar. La única excepción es la tasa anual de las deudas, que sí admite decimales porque un 42,5% no es lo mismo que un 42%.

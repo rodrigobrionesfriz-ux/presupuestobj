@@ -2032,7 +2032,7 @@ function vAjustes(R){
 
 /* ======================= eventos y acciones ======================= */
 function conectar(R){
-  document.querySelectorAll("[data-vista]").forEach(b=>b.onclick=()=>{S.vista=b.dataset.vista;render()});
+  document.querySelectorAll("[data-vista]").forEach(b=>b.onclick=()=>irAVista(b.dataset.vista));
   document.querySelectorAll("[data-borrar]").forEach(b=>b.onclick=()=>DB.borrar(b.dataset.borrar,b.dataset.id));
   document.querySelectorAll("[data-pres]").forEach(i=>i.onchange=()=>{
     DB.guardarHogar({presupuestos:{...S.presupuestos,[i.dataset.pres]:num(i.value)}});
@@ -2142,7 +2142,13 @@ function avisar(t){
   const h=$("#aviso-host"); h.innerHTML=`<div class="aviso">${esc(t)}</div>`;
   setTimeout(()=>h.innerHTML="",2400);
 }
-const cerrarModal = ()=>{$("#modal-host").innerHTML=""};
+const cerrarModalDOM = ()=>{ $("#modal-host").innerHTML=""; };
+/* Cerrar con ✕, Cancelar o Esc retrocede en el historial: así el botón
+   atrás del móvil y los controles de la ventana quedan sincronizados. */
+const cerrarModal = ()=>{
+  if(pilaApp.at(-1)?.tipo==="modal") history.back();
+  else cerrarModalDOM();
+};
 
 /* ============ compras a crédito: cargo a la tarjeta ================ */
 const esTarjeta = d=>(d?.tipo||"")==="Tarjeta de crédito";
@@ -2181,6 +2187,7 @@ function modalInfo(titulo,subtitulo,cuerpo){
   </div></div>`;
   h.querySelector(".modal").onclick=e=>e.stopPropagation();
   $("#m-x").onclick=cerrarModal; $("#m-cerrar").onclick=cerrarModal;
+  apilar({tipo:"modal"});
   // Desde el detalle se puede saltar a editar el movimiento
   h.querySelectorAll("[data-editar-mov]").forEach(el=>{
     el.onclick=()=>modalMovimiento(el.dataset.editarMov);
@@ -2249,6 +2256,57 @@ function detallePersona(nombre){
     resumenDetalle(gastos,R.totalGasto) + listaDetalle(movs));
 }
 
+/* ============ botón atrás del móvil ===============================
+   Android manda el botón atrás al historial del navegador. Sin hacer nada,
+   la primera pulsación cierra la app aunque tengas una ventana abierta.
+   Aquí se lleva una pila propia: atrás cierra la ventana, y si no hay
+   ventana vuelve a la pestaña anterior. Cuando ya no queda nada dentro de
+   la app, se avisa antes de dejar que se cierre. */
+let pilaApp = [];
+let salidaAvisada = false;
+
+function apilar(estado){
+  // Una ventana que reemplaza a otra no añade un paso nuevo
+  if(estado.tipo==="modal" && pilaApp.at(-1)?.tipo==="modal") return;
+  pilaApp.push(estado);
+  try{ history.pushState({pf:pilaApp.length}, ""); }catch{}
+}
+
+function irAVista(v){
+  if(S.vista===v) return;
+  apilar({tipo:"vista", vista:S.vista});
+  S.vista = v;
+  render();
+  window.scrollTo({top:0, behavior:"instant"});
+}
+
+addEventListener("popstate", ()=>{
+  const est = pilaApp.pop();
+  if(est){
+    salidaAvisada = false;
+    if(est.tipo==="modal"){ cerrarModalDOM(); return; }
+    if(est.tipo==="vista"){ S.vista = est.vista; render(); return; }
+    return;
+  }
+  // Ya no queda nada que deshacer dentro de la app
+  if(!salidaAvisada){
+    salidaAvisada = true;
+    avisar("Estás al principio · pulsa atrás otra vez para cerrar la app");
+    try{ history.pushState({pf:0}, ""); }catch{}   // reponemos el paso para no salir todavía
+    setTimeout(()=>{ salidaAvisada = false; }, 4000);
+  }else{
+    salidaAvisada = false;
+    history.back();                                // ahora sí, que se cierre
+  }
+});
+
+function iniciarHistorial(){
+  try{
+    history.replaceState({pf:"base"}, "");
+    history.pushState({pf:0}, "");   // colchón: la primera pulsación no cierra la app
+  }catch{}
+}
+
 function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
   const h=$("#modal-host");
   h.innerHTML=`<div class="modal"><div class="hoja" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
@@ -2280,6 +2338,7 @@ function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
     if(err){const e=$("#m-error");e.textContent=err;e.classList.remove("oculto")}
     else cerrarModal();
   };
+  apilar({tipo:"modal"});
   setTimeout(()=>h.querySelector("input,select")?.focus(),40);
 }
 
@@ -3187,6 +3246,7 @@ async function instalarApp(){
 }
 
 /* ============================== arranque ========================== */
+iniciarHistorial();
 aplicarTema(leerLocal("pf-tema")||"papel");
 aplicarTipo(leerLocal("pf-tipo")||"inter");
 cargarFondoLocal();
