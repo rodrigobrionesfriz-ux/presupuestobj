@@ -160,7 +160,9 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 **Metas** — Objetivos con monto y fecha límite. Calcula cuánto necesitas apartar cada mes y cada semana, y lleva el progreso acumulado.
 
-**Ahorro** — Motor de recomendaciones sobre tus propios datos: sobres excedidos, ritmo de gasto por encima del presupuesto, compras hormiga, categorías en alza contra el mes anterior, suscripciones, patrones de día de la semana, carga de deuda sobre el ingreso y avance de metas. Cada recomendación viene con una cifra estimada de ahorro mensual.
+**Ahorro** — Encabeza con el **ahorro real del hogar**: lo que entró menos lo que salió, sumando a las dos personas, con su tasa sobre los ingresos, la proyección a fin de mes y el avance de la meta. Debajo, *quién aporta qué*: ingresos, gastos y tasa de ahorro de cada integrante. Y el histórico de seis meses.
+
+Solo después vienen las **oportunidades detectadas**, que son otra cosa y así se explica en pantalla: no es lo que ahorras, sino cuánto más podrías ahorrar. El motor de recomendaciones trabaja sobre tus propios datos: sobres excedidos, ritmo de gasto por encima del presupuesto, compras hormiga, categorías en alza contra el mes anterior, suscripciones, patrones de día de la semana, carga de deuda sobre el ingreso y avance de metas. Cada recomendación viene con una cifra estimada de ahorro mensual.
 
 **Ajustes** — Presupuesto por sobre (con sugerencia automática según el promedio de tus últimos tres meses), ingreso, meta de ahorro, moneda, miembros, código de sincronización y exportación a CSV.
 

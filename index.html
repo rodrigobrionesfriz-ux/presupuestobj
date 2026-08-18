@@ -245,6 +245,14 @@ textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space
 .lapiz-cat:hover{color:var(--margen)}
 .marca-fija{font-family:var(--tipo-num);font-style:normal;font-size:9px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--suave);border:1px solid var(--rayado);border-radius:2px;padding:1px 4px;margin-left:5px}
+.total-ing{border-bottom:none!important;padding-top:11px!important;
+  border-top:1px solid var(--rayado)!important;font-weight:600}
+.total-ing b{font-family:var(--tipo-num);font-size:14px}
+.balanza{margin-top:16px}
+.balanza-barra{height:14px;background:var(--verde);border:1px solid var(--borde);border-radius:2px;overflow:hidden}
+.balanza-barra span{display:block;height:100%;background:var(--margen)}
+.balanza-pie{display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:var(--suave)}
+.balanza-pie b{font-family:var(--tipo-num);margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
 .firma{font-size:11.5px;margin:-4px 0 13px;color:var(--suave)}
 .filtro-personas{margin:-6px 0 14px}
@@ -954,6 +962,13 @@ function calcular(){
   const margenRestante = presupuestoTotal - totalGasto - fijosPendientes;
   const disponibleDiario = restantes>0? margenRestante/restantes : 0;
 
+  /* Ahorro real del hogar: lo que entra menos lo que sale, sumando a las dos
+     personas. Distinto del "ahorro potencial", que son oportunidades de recorte. */
+  const ahorroReal = ingresoBase - totalGasto;
+  const tasaAhorro = ingresoBase>0? ahorroReal/ingresoBase : 0;
+  const ahorroProyectado = ingresoBase - proyectado;
+  const tasaProyectada = ingresoBase>0? ahorroProyectado/ingresoBase : 0;
+
   const porCat = CATEGORIAS.map(c=>{
     const l = gastos.filter(g=>g.categoria===c.cod);
     const total = l.reduce((a,b)=>a+b.monto,0);
@@ -1047,6 +1062,7 @@ function calcular(){
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
     gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,
+    ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
     deudaTotal,pagoMinTotal,deudasCalc,metasCalc};
@@ -1102,7 +1118,7 @@ function recomendar(R){
     const n=Math.ceil(ex/Math.max(c.ticket,1));
     push({nivel:"alto",grupo:"presupuesto",etiqueta:`${c.cod} · presupuesto excedido`,ahorro:ex,
       titulo:`${c.nombre} superó su sobre en ${fmt(ex)}`,
-      detalle:`Llevas ${fmt(c.total)} contra un presupuesto de ${fmt(c.pres)} (${Math.round(c.uso*100)}%). Con ${cuenta(c.n,"compra","compras")}, el ticket promedio es ${fmt(c.ticket)}.`,
+      detalle:`El hogar lleva ${fmt(c.total)} contra un presupuesto de ${fmt(c.pres)} (${Math.round(c.uso*100)}%). Con ${cuenta(c.n,"compra","compras")}, el ticket promedio es ${fmt(c.ticket)}.`,
       accion:`Recortar ${cuenta(n,"compra","compras")} de este tipo al mes devuelve el sobre a su límite.`});
   });
 
@@ -1110,7 +1126,7 @@ function recomendar(R){
     const ex=R.proyectado-R.presupuestoTotal;
     push({nivel:"alto",grupo:"exceso",etiqueta:"Ritmo de gasto",ahorro:ex,cifra:"exceso proyectado",
       titulo:`Vas camino a cerrar el mes en ${fmt(R.proyectado)}`,
-      detalle:`Llevas ${fmt(R.totalGasto)} en ${R.diaHoy} días. Al ritmo variable de ${fmt(R.ritmoVariable)} al día`+
+      detalle:`El hogar lleva ${fmt(R.totalGasto)} en ${R.diaHoy} días. Al ritmo variable de ${fmt(R.ritmoVariable)} al día`+
         (R.fijosPendientes>0?`, más ${fmt(R.fijosPendientes)} de cargos fijos que aún faltan por pagar,`:"")+
         ` cerrarías ${fmt(ex)} por encima del presupuesto de ${fmt(R.presupuestoTotal)}.`,
       accion: R.margenRestante>0
@@ -1123,8 +1139,8 @@ function recomendar(R){
     if(pct>0.3){
       const ah=R.prescindibles*0.25;
       push({nivel:"medio",grupo:"habitos",etiqueta:"Composición del gasto",ahorro:ah,
-        titulo:`El ${Math.round(pct*100)}% de tu gasto es prescindible`,
-        detalle:`${fmt(R.prescindibles)} fueron a restaurantes, ocio, compras o suscripciones. Por encima del 30% el margen de ahorro está aquí, no en lo esencial.`,
+        titulo:`El ${Math.round(pct*100)}% del gasto del hogar es prescindible`,
+        detalle:`${fmt(R.prescindibles)} del gasto conjunto fueron a restaurantes, ocio, compras o suscripciones. Por encima del 30% el margen de ahorro está aquí, no en lo esencial.`,
         accion:`Bajar esa bolsa un 25% libera ${fmt(ah)} al mes sin tocar comida, vivienda ni salud.`});
     }
   }
@@ -1156,7 +1172,7 @@ function recomendar(R){
 
   const sus = R.porCat.find(c=>c.cod==="SUS");
   if(sus&&sus.total>0) push({grupo:"habitos",etiqueta:"SUS · suscripciones",ahorro:sus.total*0.3,
-    titulo:`Pagas ${fmt(sus.total)} al mes en suscripciones`,
+    titulo:`El hogar paga ${fmt(sus.total)} al mes en suscripciones`,
     detalle:`Son ${fmt(sus.total*12)} al año en ${cuenta(sus.n,"cargo recurrente","cargos recurrentes")}. Es el gasto que más fácil se olvida y el más rápido de cancelar.`,
     accion:"Revisa cuáles usaste en las últimas dos semanas y cancela el resto; suele sobrar un tercio."});
 
@@ -1571,17 +1587,66 @@ function vAhorro(R){
   const rec = recomendar(R);
   const potencial = ahorroPotencial(rec,R);
   const conCifra = rec.filter(r=>r.ahorro>0 && MODO_GRUPO[r.grupo]).length;
-  const ahorroReal = R.ingresoBase-R.totalGasto;
   const meta = S.config.metaAhorro||0;
+  const hist = R.historico.map(h=>({mes:h.mes,total:h.ingreso-h.gasto}));
+  const pctGasto = R.ingresoBase>0? Math.min(100,R.totalGasto/R.ingresoBase*100) : 0;
+
   return `
   <section class="tarjeta destacado">
-    <em>Ahorro potencial detectado</em><strong>${fmt(potencial)}</strong>
-    <span>al mes${conCifra?`, a partir de ${cuenta(conCifra,"acción con cifra","acciones con cifra")}`:""}. Las que se solapan no se suman: de cada grupo se cuenta la mayor.</span>
-    ${meta>0?`<div style="margin-top:16px">
-      <div class="lista-cab"><span>Meta mensual</span><b>${fmt(ahorroReal)} / ${fmt(meta)}</b></div>
-      <div class="barra"><div class="fill ${ahorroReal>=meta?"":ahorroReal>0?"ambar":"rojo"}" style="width:${clamp(ahorroReal/meta*100,0,100)}%"></div></div>
+    <em>Ahorro del hogar en ${mesLargo(R.mes).split(" ")[0].toLowerCase()}</em>
+    <strong class="${R.ahorroReal<0?"rojo":""}" style="${R.ahorroReal<0?"color:var(--margen)":""}">${fmt(R.ahorroReal)}</strong>
+    <span>${R.ingresoBase>0?`${Math.round(R.tasaAhorro*100)}% de los ingresos del hogar`:"define tus ingresos para ver la tasa"}</span>
+
+    <div class="balanza">
+      <div class="balanza-barra"><span style="width:${pctGasto}%"></span></div>
+      <div class="balanza-pie">
+        <span>Entró <b class="verde">+${fmt(R.ingresoBase)}</b></span>
+        <span>Salió <b class="rojo">−${fmt(R.totalGasto)}</b></span>
+      </div>
+    </div>
+
+    ${R.esMesActual?`<div class="metricas">
+      <div><em>Al día ${R.diaHoy} de ${R.dias}</em><b>${fmt(R.ahorroReal)}</b></div>
+      <div><em>Proyectado a fin de mes</em><b class="${R.ahorroProyectado<0?"rojo":"verde"}">${fmt(R.ahorroProyectado)}</b></div>
+      <div><em>Tasa proyectada</em><b>${Math.round(R.tasaProyectada*100)}%</b></div>
+      <div><em>Meta mensual</em><b>${meta>0?fmt(meta):"sin definir"}</b></div>
+    </div>`:""}
+
+    ${meta>0?`<div style="margin-top:14px">
+      <div class="lista-cab"><span>Avance de la meta</span><b>${fmt(R.ahorroReal)} / ${fmt(meta)}</b></div>
+      <div class="barra"><div class="fill ${R.ahorroReal>=meta?"":R.ahorroReal>0?"ambar":"rojo"}" style="width:${clamp(R.ahorroReal/meta*100,0,100)}%"></div></div>
     </div>`:""}
   </section>
+
+  ${R.porPersona.length>1?`<section class="tarjeta">
+    <div class="cab"><h2>Quién aporta qué</h2><span class="cod">${mesCorto(R.mes)}</span></div>
+    <p class="nota">Ingresos menos gastos de cada persona. El ahorro del hogar es la suma de los dos.</p>
+    <ul class="personas">${R.porPersona.map(p=>`
+      <li>
+        <div class="persona-cab">
+          <span class="punto-p" style="background:${p.color}"></span>
+          <span class="persona-nom">${esc(p.nombre)}</span>
+          <span class="persona-cifra ${p.neto<0?"rojo":"verde"}">${p.neto>=0?"+":""}${fmt(p.neto)}</span>
+        </div>
+        <div class="persona-datos">
+          <div><em>Aportó</em><b class="verde">+${fmt(p.ingreso)}</b></div>
+          <div><em>Gastó</em><b class="rojo">−${fmt(p.gasto)}</b></div>
+          <div><em>Tasa de ahorro</em><b>${p.ingreso>0?Math.round(p.neto/p.ingreso*100)+"%":"—"}</b></div>
+        </div>
+      </li>`).join("")}</ul>
+  </section>`:""}
+
+  <section class="tarjeta">
+    <div class="cab"><h2>Ahorro de los últimos 6 meses</h2></div>
+    ${grBarras(hist,{color:"#3F7D58"})}
+  </section>
+
+  <section class="tarjeta">
+    <div class="cab"><h2>Oportunidades detectadas</h2><span class="cod">${fmt(potencial)}/mes</span></div>
+    <p class="nota">Esto <b>no</b> es lo que ahorras: es cuánto más podrías ahorrar cada mes si aplicaras las acciones de abajo${conCifra?`, a partir de ${cuenta(conCifra,"acción con cifra","acciones con cifra")}`:""}. Las que se solapan no se suman: de cada grupo se cuenta la mayor.</p>
+    ${potencial>0&&R.ingresoBase>0?`<p class="nota">Aplicándolas, tu tasa de ahorro pasaría del ${Math.round(R.tasaAhorro*100)}% al ${Math.round((R.ahorroReal+potencial)/R.ingresoBase*100)}%.</p>`:""}
+  </section>
+
   ${rec.length? rec.map(r=>`<section class="tarjeta">${consejoHTML(r)}</section>`).join("")
    : `<section class="tarjeta"><p class="nota">Registra al menos un mes de movimientos para generar recomendaciones.</p></section>`}
   ${R.recurrentesNoEsenciales.length?`<section class="tarjeta">
@@ -1614,12 +1679,19 @@ function vAjustes(R){
 
   <section class="tarjeta">
     <div class="cab"><h2>Hogar</h2></div>
-    <div class="campos-2">
-      <label class="campo"><span>Ingreso mensual estimado</span>
-        <input type="number" inputmode="decimal" data-cfg="ingresoMensual" value="${S.config.ingresoMensual||""}" placeholder="0"></label>
-      <label class="campo"><span>Meta de ahorro mensual</span>
-        <input type="number" inputmode="decimal" data-cfg="metaAhorro" value="${S.config.metaAhorro||""}" placeholder="0"></label>
+    <div class="campo"><span class="campo-tit">Ingreso mensual estimado</span>
+      <p class="nota ayuda" style="margin:0 0 8px">Lo que espera recibir cada persona al mes. La suma es el ingreso del hogar.</p>
+      <ul class="pres">${personasHogar().map((p,i)=>`<li>
+        <span class="punto-p" style="background:${colorPersona(p)}"></span>
+        <span class="pres-nom">${esc(p)}</span>
+        <input class="mini" type="number" inputmode="decimal" min="0" data-ing-persona="${esc(p)}"
+          value="${(S.config.ingresosPersona||{})[p] ?? (i===0 && !S.config.ingresosPersona ? (S.config.ingresoMensual||"") : "")}" placeholder="0"></li>`).join("")}
+        <li class="total-ing"><span class="pres-nom">Total del hogar</span>
+          <b class="mono">${fmt(S.config.ingresoMensual||0)}</b></li>
+      </ul>
     </div>
+    <label class="campo"><span>Meta de ahorro mensual</span>
+      <input type="number" inputmode="decimal" data-cfg="metaAhorro" value="${S.config.metaAhorro||""}" placeholder="0"></label>
     <div class="campo"><span class="campo-tit">¿Sobre qué ingreso se calcula el mes?</span>
       <div class="chips" id="base-ingreso">
         <button class="chip ${(S.config.baseIngreso||"auto")==="auto"?"activo":""}" data-base="auto"><b>AUT</b> El mayor de los dos</button>
@@ -1752,6 +1824,17 @@ function conectar(R){
       const b=opf.parentElement.querySelector("b"); if(b) b.textContent=e.target.value+"%"; };
     opf.onchange=()=>guardarFondo(S.fondo,S.fondoOpacidad);
   }
+  document.querySelectorAll("[data-ing-persona]").forEach(i=>i.onchange=()=>{
+    const mapa = {...(S.config.ingresosPersona||{})};
+    // La primera vez, el total antiguo pasa a la primera persona si no hay detalle
+    if(!S.config.ingresosPersona){
+      const prim = personasHogar()[0];
+      if(prim) mapa[prim] = S.config.ingresoMensual||0;
+    }
+    mapa[i.dataset.ingPersona] = num(i.value);
+    const total = Object.values(mapa).reduce((a,b)=>a+(b||0),0);
+    DB.guardarHogar({config:{...S.config, ingresosPersona:mapa, ingresoMensual:total}});
+  });
   document.querySelectorAll("[data-persona]").forEach(b=>b.onclick=()=>{S.filtroPersona=b.dataset.persona;render()});
   document.querySelectorAll("#base-ingreso [data-base]").forEach(b=>b.onclick=()=>
     DB.guardarHogar({config:{...S.config,baseIngreso:b.dataset.base}}));
