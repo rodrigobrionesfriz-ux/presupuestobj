@@ -31,6 +31,7 @@
   --tipo-ui:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   --tipo-titulo:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   --tipo-num:'IBM Plex Mono',ui-monospace,monospace;
+  --azul:#2E6E8E;
   --papel:#E4E9DD; --hoja:#FBFCF9; --tinta:#16241C; --suave:#5B6B60;
   --rayado:#D3DBCB; --margen:#9E3B2E; --verde:#3F7D58; --ambar:#C7913A;
   --azul:#2E6E8E; --borde:#C9D2C0;
@@ -180,7 +181,7 @@ td.num{font-family:var(--tipo-num);font-variant-numeric:tabular-nums}
 .lista-cab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
 .lista-cab b{font-family:var(--tipo-num);font-weight:500}
 .dos{display:grid;gap:22px}
-svg.gr{width:100%;height:auto;display:block;overflow:visible}
+svg.gr{width:100%;height:auto;display:block;overflow:visible;color:var(--rayado)}
 .gr text{font-family:var(--tipo-num);fill:var(--suave)}
 .gr-leyenda{display:flex;gap:16px;justify-content:center;font-size:11.5px;color:var(--suave);margin-top:6px}
 .gr-leyenda i{display:inline-block;width:14px;height:2px;margin-right:5px;vertical-align:middle}
@@ -516,6 +517,80 @@ html[data-tipo="roboto"] h1,html[data-tipo="roboto"] h2,html[data-tipo="roboto"]
   border:1px solid var(--borde);border-radius:3px}
 .muestra-tipo b{display:block;font-family:var(--tipo-titulo);font-size:17px;font-weight:700;margin-bottom:3px}
 .muestra-tipo span{font-family:var(--tipo-num);font-variant-numeric:tabular-nums;color:var(--suave);font-size:13px}
+
+/* ==================================================================
+   TEMA OSCURO — paleta tipo GitHub Dark. Fondo casi negro azulado,
+   tarjetas elevadas con filo de color y acentos vivos para los datos.
+   ================================================================== */
+html[data-tema="oscuro"]{
+  --papel:#0D1117;   /* lienzo     */
+  --hoja:#161B22;    /* tarjeta    */
+  --tinta:#E6EDF3;   /* texto      */
+  --suave:#8B949E;   /* secundario */
+  --rayado:#21262D;  /* separador  */
+  --borde:#30363D;
+  --margen:#F85149;  /* negativo   */
+  --verde:#3FB950;   /* positivo   */
+  --ambar:#D29922;   /* atención   */
+  --azul:#58A6FF;    /* enlace     */
+  color-scheme:dark;
+}
+html[data-tema="oscuro"] body{background-image:none}
+html[data-tema="oscuro"] .tarjeta{border-radius:8px;box-shadow:0 1px 3px rgba(1,4,9,.85)}
+html[data-tema="oscuro"] .cinta{border-radius:8px 8px 0 0}
+html[data-tema="oscuro"] header{background:#161B22;border-bottom:1px solid var(--borde);color:var(--tinta)}
+html[data-tema="oscuro"] header h1{color:var(--tinta)}
+html[data-tema="oscuro"] .barra-mes{border-top-color:var(--borde)}
+html[data-tema="oscuro"] .mes-txt{color:var(--tinta)}
+html[data-tema="oscuro"] header .sub,html[data-tema="oscuro"] .estado-conn{color:var(--suave)}
+html[data-tema="oscuro"] .logo{border-color:var(--borde);color:var(--suave)}
+html[data-tema="oscuro"] .icono{border-color:var(--borde);color:var(--tinta)}
+html[data-tema="oscuro"] nav{background:#161B22;border-top:1px solid var(--borde)}
+html[data-tema="oscuro"] nav button{color:var(--suave)}
+html[data-tema="oscuro"] nav button.activo{color:var(--azul);border-top-color:var(--azul)}
+html[data-tema="oscuro"] .fab{background:#238636;color:#fff;box-shadow:0 0 0 1px #2EA043,0 4px 16px rgba(35,134,54,.45)}
+html[data-tema="oscuro"] .fab:hover{background:#2EA043}
+html[data-tema="oscuro"] .btn{background:#21262D;border-color:var(--borde);color:var(--tinta);border-radius:6px}
+html[data-tema="oscuro"] .btn:hover{background:#30363D}
+html[data-tema="oscuro"] .btn.primario{background:#238636;border-color:#2EA043;color:#fff}
+html[data-tema="oscuro"] .btn.primario:hover{background:#2EA043}
+html[data-tema="oscuro"] .btn.peligro{background:#21262D;border-color:#F8514966;color:var(--margen)}
+html[data-tema="oscuro"] .btn-google{background:#21262D;color:var(--tinta)}
+html[data-tema="oscuro"] input,html[data-tema="oscuro"] select,html[data-tema="oscuro"] textarea{
+  background:#0D1117;border-color:var(--borde);color:var(--tinta);border-radius:6px}
+html[data-tema="oscuro"] input::placeholder{color:#6E7681}
+html[data-tema="oscuro"] input:focus,html[data-tema="oscuro"] select:focus,html[data-tema="oscuro"] textarea:focus{
+  outline:2px solid var(--azul);outline-offset:0;border-color:var(--azul)}
+html[data-tema="oscuro"] .chip{background:#21262D;border-color:var(--borde);color:var(--suave);border-radius:6px}
+html[data-tema="oscuro"] .chip.activo{background:#0D419D40;border-color:var(--azul);color:var(--azul)}
+html[data-tema="oscuro"] .toggle{border-color:var(--borde);border-radius:6px}
+html[data-tema="oscuro"] .toggle button{color:var(--tinta)}
+html[data-tema="oscuro"] .toggle button.activo{background:#238636;color:#fff}
+html[data-tema="oscuro"] .barra{background:#0D1117;border-color:var(--borde);border-radius:6px}
+html[data-tema="oscuro"] .split{border-color:var(--borde);border-radius:6px}
+html[data-tema="oscuro"] .hoja{background:#161B22;border:1px solid var(--borde);border-top:3px solid var(--azul);
+  border-radius:10px 10px 0 0}
+html[data-tema="oscuro"] .modal{background:rgba(1,4,9,.75)}
+html[data-tema="oscuro"] .enlace{color:var(--azul)}
+html[data-tema="oscuro"] .libro{border-left-color:var(--azul)}
+html[data-tema="oscuro"] .aviso{background:#21262D;border:1px solid var(--borde);border-radius:6px}
+html[data-tema="oscuro"] .codigo-hogar{background:#0D1117;border-color:var(--azul);color:var(--azul)}
+html[data-tema="oscuro"] .chip-ahorro{background:#0D1117;border-color:var(--borde)}
+html[data-tema="oscuro"] .gr line{stroke:var(--rayado)}
+html[data-tema="oscuro"] .gr text{fill:var(--suave)}
+html[data-tema="oscuro"] .previa-fondo{border-color:var(--borde)}
+html[data-tema="oscuro"] .aviso-credito{background:#0D1117;border-left-color:var(--ambar)}
+html[data-tema="oscuro"] .marca-fija,html[data-tema="oscuro"] .marca-base{border-color:var(--borde)}
+html[data-tema="oscuro"] .cerrar-modal:hover{background:#F8514933;border-color:var(--margen);color:var(--margen)}
+html[data-tema="oscuro"] .muestra i{box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+/* Filo de color en cada tarjeta, como en un panel de indicadores */
+html[data-tema="oscuro"] [data-acento]{border-top:2px solid var(--acento-color)}
+html[data-tema="oscuro"] [data-acento] .cab h2{color:var(--acento-color)}
+html[data-tema="oscuro"] [data-acento="verde"]{--acento-color:#3FB950}
+html[data-tema="oscuro"] [data-acento="rojo"]{--acento-color:#F85149}
+html[data-tema="oscuro"] [data-acento="azul"]{--acento-color:#58A6FF}
+html[data-tema="oscuro"] [data-acento="ambar"]{--acento-color:#D29922}
+html[data-tema="oscuro"] [data-acento="lila"]{--acento-color:#A371F7}
 </style>
 </head>
 <body>
@@ -591,6 +666,17 @@ function sincronizarCategorias(){
   CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
 }
 const esPropia = cod=>!!CAT[cod]?.propia;
+/* Los colores de categoría están pensados sobre papel claro; sobre un fondo
+   oscuro pierden contraste, así que se aclaran y saturan al vuelo. */
+function aclarar(hex,luz=62,sat=68){
+  const m=/^#?([\da-f]{6})$/i.exec(hex||""); if(!m) return hex;
+  const n=parseInt(m[1],16), r=(n>>16)/255, g=((n>>8)&255)/255, b=(n&255)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b); let h=0;
+  const d=max-min;
+  if(d){ h = max===r? ((g-b)/d+(g<b?6:0)) : max===g? ((b-r)/d+2) : ((r-g)/d+4); h*=60; }
+  return `hsl(${Math.round(h)} ${sat}% ${luz}%)`;
+}
+const col = c => S.tema==="oscuro" ? aclarar(c) : c;
 const PALETA_CAT = ["#3F7D58","#2E6E8E","#6B6BA8","#C25B54","#8A6A3B","#A34E6B",
                     "#D08A2C","#4F8C8C","#5A5F6B","#7A4A55","#8A9099","#B5651D"];
 /* Categorías cuyo cargo es mensual y no se repite a diario: no deben promediarse
@@ -1245,15 +1331,15 @@ function grLinea(datos,{alto=150,ancho=320}={}){
     const pts = datos.filter(d=>d[campo]!=null).map((d,i)=>`${px(datos.indexOf(d))},${py(d[campo])}`);
     return pts.length? `<polyline fill="none" points="${pts.join(" ")}" ${extra}/>`:"";
   };
-  const ejes = [0,.5,1].map(f=>`<line x1="24" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}" stroke="#D3DBCB" stroke-dasharray="2 4"/>
+  const ejes = [0,.5,1].map(f=>`<line x1="24" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}" stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
     <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
   const etiquetas = datos.filter((d,i)=>i%5===0).map(d=>`<text x="${px(datos.indexOf(d))}" y="${alto-4}" font-size="8" text-anchor="middle">${d.dia}</text>`).join("");
   return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}
-    ${linea("limite",'stroke="#9E3B2E" stroke-width="1.2" stroke-dasharray="4 4"')}
-    ${linea("gasto",'stroke="#16241C" stroke-width="2"')}${etiquetas}</svg>
-    <div class="gr-leyenda"><span><i style="background:#16241C"></i>Gasto real</span><span><i style="background:#9E3B2E"></i>Presupuesto</span></div>`;
+    ${linea("limite",'stroke="var(--margen)" stroke-width="1.4" stroke-dasharray="4 4"')}
+    ${linea("gasto",'stroke="var(--tinta)" stroke-width="2.2"')}${etiquetas}</svg>
+    <div class="gr-leyenda"><span><i style="background:var(--tinta)"></i>Gasto real</span><span><i style="background:var(--margen)"></i>Presupuesto</span></div>`;
 }
-function grBarras(items,{alto=150,ancho=320,color="#2E6E8E",series=null}={}){
+function grBarras(items,{alto=150,ancho=320,color="var(--azul, #2E6E8E)",series=null}={}){
   const max = Math.max(1,...items.map(i=>series? Math.max(...series.map(s=>i[s.k])) : i.total));
   const n = items.length, w = (ancho-28)/n;
   const py = v=> alto-18-(v/max)*(alto-30);
@@ -1265,7 +1351,7 @@ function grBarras(items,{alto=150,ancho=320,color="#2E6E8E",series=null}={}){
     }
     return `<rect x="${x0+4}" y="${py(it.total)}" width="${w-8}" height="${Math.max(0,alto-18-py(it.total))}" fill="${color}"/>`;
   }).join("");
-  const ejes=[0,.5,1].map(f=>`<line x1="26" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}" stroke="#D3DBCB" stroke-dasharray="2 4"/>
+  const ejes=[0,.5,1].map(f=>`<line x1="26" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}" stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
     <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
   const et = items.map((it,i)=>`<text x="${26+i*w+w/2}" y="${alto-4}" font-size="8" text-anchor="middle">${esc(it.mes||it.dia||it.nombre||"")}</text>`).join("");
   const leyenda = series? `<div class="gr-leyenda">${series.map(s=>`<span><i style="background:${s.c};height:9px"></i>${s.n}</span>`).join("")}</div>`:"";
@@ -1279,7 +1365,7 @@ function grDona(items){
     const p = (r,t)=>[cx+r*Math.cos(t),cy+r*Math.sin(t)];
     const [x1,y1]=p(R1,ang),[x2,y2]=p(R1,fin),[x3,y3]=p(R0,fin),[x4,y4]=p(R0,ang);
     const big = a>Math.PI?1:0; ang=fin;
-    return `<path d="M${x1},${y1} A${R1},${R1} 0 ${big} 1 ${x2},${y2} L${x3},${y3} A${R0},${R0} 0 ${big} 0 ${x4},${y4} Z" fill="${it.color}" stroke="#FBFCF9" stroke-width="1.5"/>`;
+    return `<path d="M${x1},${y1} A${R1},${R1} 0 ${big} 1 ${x2},${y2} L${x3},${y3} A${R0},${R0} 0 ${big} 0 ${x4},${y4} Z" fill="${col(it.color)}" stroke="var(--hoja)" stroke-width="1.5"/>`;
   }).join("");
   return `<svg class="gr" viewBox="0 0 180 160" style="max-width:230px;margin:0 auto">${arcos}
     <text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="9" letter-spacing="1">TOTAL</text>
@@ -1349,22 +1435,22 @@ function vPanel(R){
     </div>`:""}
   </section>
 
-  <section class="tarjeta">
+  <section class="tarjeta" data-acento="verde">
     <div class="cab"><h2>Sobres del mes</h2>
       <button class="enlace" data-accion="nueva-categoria">+ Otro sobre</button></div>
     ${sobres.length?"":`<p class="nota">Aún no hay presupuestos ni gastos. Asígnalos en Ajustes o crea un sobre propio.</p>`}
     <ul class="sobres">${sobres.map(c=>`
       <li>
-        <div class="sobre-cab"><span class="cod" style="color:${c.color}">${c.cod}</span>
+        <div class="sobre-cab"><span class="cod" style="color:${col(c.color)}">${c.cod}</span>
           <span class="sobre-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre ${c.nombre}" title="Editar sobre">✎</button>`:""}</span>
           <span class="sobre-cifra">${fmt(c.total)}</span></div>
-        <div class="barra"><div class="fill ${est(c.uso)}" style="width:${Math.min(100,c.pres>0?c.total/c.pres*100:100)}%;${c.pres>0?"":`background:${c.color}`}"></div></div>
+        <div class="barra"><div class="fill ${est(c.uso)}" style="width:${Math.min(100,c.pres>0?c.total/c.pres*100:100)}%;${c.pres>0?"":`background:${col(c.color)}`}"></div></div>
         <div class="sobre-pie"><span>${c.pres>0?`de ${fmt(c.pres)}`:"sin presupuesto"}${c.fija?" · fijo":""}</span>
           <span>${c.pres>0?(c.total>c.pres?`excedido en ${fmt(c.total-c.pres)}`:`quedan ${fmt(c.pres-c.total)}`):`${cuenta(c.n,"compra","compras")}`}</span></div>
       </li>`).join("")}</ul>
   </section>
 
-  ${R.totalGasto>0?`<section class="tarjeta">
+  ${R.totalGasto>0?`<section class="tarjeta" data-acento="ambar">
     <div class="cab"><h2>En qué se va el dinero</h2></div>
     <div class="split"><span class="e" style="width:${R.esenciales/R.totalGasto*100}%"></span><span class="p" style="width:${R.prescindibles/R.totalGasto*100}%"></span></div>
     <div class="leyenda">
@@ -1391,7 +1477,7 @@ function vMovimientos(R){
   const porFecha = {};
   lista.forEach(m=>{(porFecha[m.fecha]=porFecha[m.fecha]||[]).push(m)});
   const suma = lista.filter(m=>m.tipo==="gasto").reduce((a,b)=>a+b.monto,0);
-  return `<section class="tarjeta">
+  return `<section class="tarjeta" data-acento="azul">
     <div class="cab"><h2>Movimientos</h2><span class="cod">${cuenta(lista.length,"registro","registros")} · ${fmt(suma)}</span></div>
     <div class="filtros">
       <input id="f-texto" placeholder="Buscar concepto" value="${esc(S.filtroTexto)}">
@@ -1401,7 +1487,7 @@ function vMovimientos(R){
     ${personasHogar().length>1?`<div class="chips filtro-personas">
       <button class="chip ${S.filtroPersona==="TODAS"?"activo":""}" data-persona="TODAS">Todos</button>
       ${personasHogar().map(p=>`<button class="chip ${S.filtroPersona===p?"activo":""}" data-persona="${esc(p)}"
-        style="${S.filtroPersona===p?`border-color:${colorPersona(p)};color:${colorPersona(p)}`:""}">${esc(p)}</button>`).join("")}
+        style="${S.filtroPersona===p?`border-color:${col(colorPersona(p))};color:${col(colorPersona(p))}`:""}">${esc(p)}</button>`).join("")}
     </div>`:""}
     ${lista.length?"":`<p class="nota">No hay movimientos con estos filtros.</p>`}
     <div class="libro">${Object.entries(porFecha).map(([f,ms])=>`
@@ -1411,9 +1497,9 @@ function vMovimientos(R){
         ${ms.map(m=>{
           const autor = nombreDe(m.uid)||m.autor||"";
           return `<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
-          <span class="cod" style="color:${CAT[m.categoria]?.color||"#8A9099"}">${esc(m.categoria)}</span>
+          <span class="cod" style="color:${col(CAT[m.categoria]?.color||"#8A9099")}">${esc(m.categoria)}</span>
           <div class="mov-txt"><b>${esc(m.nota||CAT[m.categoria]?.nombre||"Movimiento")}</b>
-            <small><span class="quien" style="color:${colorPersona(m.miembro)}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
+            <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
           <span class="mov-monto ${m.tipo==="ingreso"?"verde":""}">${m.tipo==="ingreso"?"+":"−"}${fmt(m.monto,2)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
         </div>`;}).join("")}
@@ -1425,15 +1511,15 @@ function vEstadisticas(R){
   if(R.totalGasto===0) return `<section class="tarjeta"><p class="nota">Sin gastos este mes. Registra movimientos para ver las estadísticas.</p></section>`;
   const dona = R.porCat.filter(c=>c.total>0);
   return `
-  <section class="tarjeta"><div class="cab"><h2>Ritmo del mes</h2><span class="cod">acumulado vs presupuesto</span></div>
+  <section class="tarjeta" data-acento="azul"><div class="cab"><h2>Ritmo del mes</h2><span class="cod">acumulado vs presupuesto</span></div>
     ${grLinea(R.acumulado)}</section>
 
-  <section class="tarjeta"><div class="cab"><h2>Reparto por categoría</h2></div>
+  <section class="tarjeta" data-acento="lila"><div class="cab"><h2>Reparto por categoría</h2></div>
     ${grDona(dona)}
     <table class="resp"><thead><tr><th>Categoría</th><th class="num">Total</th><th class="num">%</th>
       <th class="num">Compras</th><th class="num">Ticket</th><th class="num">vs ant.</th></tr></thead>
     <tbody>${dona.map(c=>`<tr>
-      <td class="principal"><span class="cod" style="color:${c.color}">${c.cod}</span> ${c.nombre}</td>
+      <td class="principal"><span class="cod" style="color:${col(c.color)}">${c.cod}</span> ${c.nombre}</td>
       <td class="num" data-etq="Total">${fmt(c.total)}</td>
       <td class="num" data-etq="Participación">${Math.round(c.total/R.totalGasto*100)}%</td>
       <td class="num" data-etq="Compras">${c.n}</td>
@@ -1442,11 +1528,11 @@ function vEstadisticas(R){
         ${c.variacion===null?"—":`${c.variacion>0?"+":""}${Math.round(c.variacion*100)}%`}</td></tr>`).join("")}</tbody></table>
   </section>
 
-  <section class="tarjeta"><div class="cab"><h2>Últimos 6 meses</h2></div>
-    ${grBarras(R.historico,{series:[{k:"ingreso",c:"#3F7D58",n:"Ingresos"},{k:"gasto",c:"#9E3B2E",n:"Gastos"}]})}</section>
+  <section class="tarjeta" data-acento="verde"><div class="cab"><h2>Últimos 6 meses</h2></div>
+    ${grBarras(R.historico,{series:[{k:"ingreso",c:"var(--verde)",n:"Ingresos"},{k:"gasto",c:"var(--margen)",n:"Gastos"}]})}</section>
 
-  <section class="tarjeta"><div class="cab"><h2>Comportamiento de compra</h2><span class="cod">hábitos</span></div>
-    ${grBarras(R.porDia,{color:"#2E6E8E"})}
+  <section class="tarjeta" data-acento="ambar"><div class="cab"><h2>Comportamiento de compra</h2><span class="cod">hábitos</span></div>
+    ${grBarras(R.porDia,{color:"var(--azul, #2E6E8E)"})}
     <div class="metricas">
       <div><em>Ticket promedio</em><b>${fmt(R.ticketGeneral)}</b></div>
       <div><em>Compras del mes</em><b>${R.gastos.length}</b></div>
@@ -1454,17 +1540,17 @@ function vEstadisticas(R){
       <div><em>Compras hormiga</em><b>${R.micro.length}</b></div>
     </div></section>
 
-  <section class="tarjeta">
+  <section class="tarjeta" data-acento="lila">
     <div class="cab"><h2>Por persona</h2><span class="cod">${cuenta(R.porPersona.length,"integrante","integrantes")}</span></div>
     ${R.porPersona.length? `
     <div class="split" style="margin-bottom:12px">
-      ${R.porPersona.map(p=>`<span style="width:${p.pct*100}%;background:${p.color}" title="${esc(p.nombre)}"></span>`).join("")}
+      ${R.porPersona.map(p=>`<span style="width:${p.pct*100}%;background:${col(p.color)}" title="${esc(p.nombre)}"></span>`).join("")}
       ${R.sinAsignar>0?`<span style="width:${R.sinAsignar/R.totalGasto*100}%;background:#B9C0B6"></span>`:""}
     </div>
     <ul class="personas">${R.porPersona.map(p=>`
       <li>
         <div class="persona-cab">
-          <span class="punto-p" style="background:${p.color}"></span>
+          <span class="punto-p" style="background:${col(p.color)}"></span>
           <span class="persona-nom">${esc(p.nombre)}</span>
           <span class="persona-cifra">${fmt(p.gasto)}<em>${Math.round(p.pct*100)}%</em></span>
         </div>
@@ -1483,13 +1569,13 @@ function vEstadisticas(R){
   </section>
 
   <section class="tarjeta">
-    <div class="cab"><h2>Medio de pago</h2></div>${listaBarras(R.porMetodo,R.totalGasto,"#5A5F6B")}
+    <div class="cab"><h2>Medio de pago</h2></div>${listaBarras(R.porMetodo,R.totalGasto,"var(--suave)")}
   </section>
 
-  <section class="tarjeta"><div class="cab"><h2>Conceptos más frecuentes</h2></div>
+  <section class="tarjeta" data-acento="azul"><div class="cab"><h2>Conceptos más frecuentes</h2></div>
     <table class="resp"><thead><tr><th>Concepto</th><th class="num">Veces</th><th class="num">Total</th><th class="num">Promedio</th></tr></thead>
     <tbody>${R.topConceptos.map(c=>`<tr>
-      <td class="principal"><span class="cod" style="color:${CAT[c.cod]?.color||"#8A9099"}">${c.cod}</span> ${esc(c.nombre)}</td>
+      <td class="principal"><span class="cod" style="color:${col(CAT[c.cod]?.color||"#8A9099")}">${c.cod}</span> ${esc(c.nombre)}</td>
       <td class="num" data-etq="Veces">${c.n}</td>
       <td class="num" data-etq="Total">${fmt(c.total)}</td>
       <td class="num" data-etq="Promedio">${fmt(c.total/c.n)}</td></tr>`).join("")}</tbody></table>
@@ -1510,7 +1596,7 @@ function vDeudas(R){
     <div class="fila-btns"><button class="btn primario" data-accion="nueva-deuda">Añadir deuda o tarjeta</button></div>
   </section>
 
-  ${d.length? `<section class="tarjeta">
+  ${d.length? `<section class="tarjeta" data-acento="rojo">
     <div class="cab"><h2>Plan de liquidación</h2><span class="cod">método avalancha</span></div>
     <p class="nota">Ordenadas por tasa: pagar primero la más cara es lo que menos intereses cuesta.</p>
     <ul class="sobres">${d.map(x=>`
@@ -1618,13 +1704,13 @@ function vAhorro(R){
     </div>`:""}
   </section>
 
-  ${R.porPersona.length>1?`<section class="tarjeta">
+  ${R.porPersona.length>1?`<section class="tarjeta" data-acento="lila">
     <div class="cab"><h2>Quién aporta qué</h2><span class="cod">${mesCorto(R.mes)}</span></div>
     <p class="nota">Ingresos menos gastos de cada persona. El ahorro del hogar es la suma de los dos.</p>
     <ul class="personas">${R.porPersona.map(p=>`
       <li>
         <div class="persona-cab">
-          <span class="punto-p" style="background:${p.color}"></span>
+          <span class="punto-p" style="background:${col(p.color)}"></span>
           <span class="persona-nom">${esc(p.nombre)}</span>
           <span class="persona-cifra ${p.neto<0?"rojo":"verde"}">${p.neto>=0?"+":""}${fmt(p.neto)}</span>
         </div>
@@ -1636,12 +1722,12 @@ function vAhorro(R){
       </li>`).join("")}</ul>
   </section>`:""}
 
-  <section class="tarjeta">
+  <section class="tarjeta" data-acento="verde">
     <div class="cab"><h2>Ahorro de los últimos 6 meses</h2></div>
-    ${grBarras(hist,{color:"#3F7D58"})}
+    ${grBarras(hist,{color:"var(--verde)"})}
   </section>
 
-  <section class="tarjeta">
+  <section class="tarjeta" data-acento="ambar">
     <div class="cab"><h2>Oportunidades detectadas</h2><span class="cod">${fmt(potencial)}/mes</span></div>
     <p class="nota">Esto <b>no</b> es lo que ahorras: es cuánto más podrías ahorrar cada mes si aplicaras las acciones de abajo${conCifra?`, a partir de ${cuenta(conCifra,"acción con cifra","acciones con cifra")}`:""}. Las que se solapan no se suman: de cada grupo se cuenta la mayor.</p>
     ${potencial>0&&R.ingresoBase>0?`<p class="nota">Aplicándolas, tu tasa de ahorro pasaría del ${Math.round(R.tasaAhorro*100)}% al ${Math.round((R.ahorroReal+potencial)/R.ingresoBase*100)}%.</p>`:""}
@@ -1649,11 +1735,11 @@ function vAhorro(R){
 
   ${rec.length? rec.map(r=>`<section class="tarjeta">${consejoHTML(r)}</section>`).join("")
    : `<section class="tarjeta"><p class="nota">Registra al menos un mes de movimientos para generar recomendaciones.</p></section>`}
-  ${R.recurrentesNoEsenciales.length?`<section class="tarjeta">
+  ${R.recurrentesNoEsenciales.length?`<section class="tarjeta" data-acento="rojo">
     <div class="cab"><h2>Pagos recurrentes a revisar</h2><span class="cod">3+ meses seguidos</span></div>
     <table class="resp"><thead><tr><th>Concepto</th><th class="num">Meses</th><th class="num">Promedio</th><th class="num">Al año</th></tr></thead>
     <tbody>${R.recurrentesNoEsenciales.map(r=>`<tr>
-      <td class="principal"><span class="cod" style="color:${CAT[r.cod]?.color||"#8A9099"}">${r.cod}</span> ${esc(r.nombre)}</td>
+      <td class="principal"><span class="cod" style="color:${col(CAT[r.cod]?.color||"#8A9099")}">${r.cod}</span> ${esc(r.nombre)}</td>
       <td class="num" data-etq="Meses seguidos">${r.meses}</td>
       <td class="num" data-etq="Promedio">${fmt(r.promedio)}</td>
       <td class="num" data-etq="Al año">${fmt(r.promedio*12)}</td></tr>`).join("")}</tbody></table>
@@ -1667,7 +1753,7 @@ function vAjustes(R){
     <div class="cab"><h2>Presupuesto por sobre</h2><span class="cod">total ${fmt(total)}</span></div>
     <p class="nota">Asigna cuánto puede gastar la familia al mes en cada cuenta.</p>
     <ul class="pres">${CATEGORIAS.map(c=>`<li>
-      <span class="cod" style="color:${c.color}">${c.cod}</span>
+      <span class="cod" style="color:${col(c.color)}">${c.cod}</span>
       <span class="pres-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre">✎</button>`:""}
         ${c.fija?`<em class="marca-fija">fijo</em>`:""}${c.esencial?"":`<em class="marca-fija">prescindible</em>`}</span>
       <input class="mini" type="number" inputmode="decimal" min="0" data-pres="${c.cod}" value="${S.presupuestos[c.cod]||""}" placeholder="0"></li>`).join("")}</ul>
@@ -1682,7 +1768,7 @@ function vAjustes(R){
     <div class="campo"><span class="campo-tit">Ingreso mensual estimado</span>
       <p class="nota ayuda" style="margin:0 0 8px">Lo que espera recibir cada persona al mes. La suma es el ingreso del hogar.</p>
       <ul class="pres">${personasHogar().map((p,i)=>`<li>
-        <span class="punto-p" style="background:${colorPersona(p)}"></span>
+        <span class="punto-p" style="background:${col(colorPersona(p))}"></span>
         <span class="pres-nom">${esc(p)}</span>
         <input class="mini" type="number" inputmode="decimal" min="0" data-ing-persona="${esc(p)}"
           value="${(S.config.ingresosPersona||{})[p] ?? (i===0 && !S.config.ingresosPersona ? (S.config.ingresoMensual||"") : "")}" placeholder="0"></li>`).join("")}
@@ -1725,14 +1811,15 @@ function vAjustes(R){
     <div class="chips">
       <button class="chip ${S.tema==="papel"?"activo":""}" data-tema-sel="papel"><b>PAP</b> Papel de contabilidad</button>
       <button class="chip ${S.tema==="claro"?"activo":""}" data-tema-sel="claro"><b>CLA</b> Claro con bordes marcados</button>
+      <button class="chip ${S.tema==="oscuro"?"activo":""}" data-tema-sel="oscuro"><b>OSC</b> Oscuro</button>
       <button class="chip ${S.tema==="fiori"?"activo":""}" data-tema-sel="fiori"><b>SAP</b> Fiori</button>
       <button class="chip ${S.tema==="femenino"?"activo":""}" data-tema-sel="femenino"><b>FEM</b> Femenino</button>
     </div>
-    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori — verde positivo, naranja crítico, rojo negativo. El tema <b>femenino</b> combina ciruela, rosa empolvado y oro viejo, con títulos en serif.</p>
+    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori — verde positivo, naranja crítico, rojo negativo. El tema <b>oscuro</b> sigue la paleta de GitHub Dark, con filo de color en cada tarjeta y los colores de categoría aclarados para que mantengan contraste sobre fondo negro. El tema <b>femenino</b> combina ciruela, rosa empolvado y oro viejo, con títulos en serif.</p>
     <div class="paleta">
-      ${(S.tema==="femenino"
-        ? [["#3B2230","Ciruela"],["#A8385A","Granate"],["#C9A227","Oro"],["#4E7C6A","Salvia"],["#8A6FA8","Lavanda"],["#DCC2CB","Rosa"],["#FAF2F3","Fondo"]]
-        : [["#354A5F","Shell"],["#0A6ED1","Marca"],["#107E3E","Positivo"],["#E9730C","Crítico"],["#BB0000","Negativo"],["#6A6D70","Neutro"],["#F5F6F7","Fondo"]])
+      ${({femenino:[["#3B2230","Ciruela"],["#A8385A","Granate"],["#C9A227","Oro"],["#4E7C6A","Salvia"],["#8A6FA8","Lavanda"],["#DCC2CB","Rosa"],["#FAF2F3","Fondo"]],
+          oscuro:[["#0D1117","Lienzo"],["#161B22","Tarjeta"],["#3FB950","Positivo"],["#F85149","Negativo"],["#D29922","Atención"],["#58A6FF","Enlace"],["#A371F7","Lila"]]}[S.tema]
+        || [["#354A5F","Shell"],["#0A6ED1","Marca"],["#107E3E","Positivo"],["#E9730C","Crítico"],["#BB0000","Negativo"],["#6A6D70","Neutro"],["#F5F6F7","Fondo"]])
         .map(([c,n])=>`<span class="muestra"><i style="background:${c}"></i>${n}<b>${c}</b></span>`).join("")}
     </div>
   </section>
@@ -1784,7 +1871,8 @@ function vAjustes(R){
   <section class="tarjeta">
     <div class="cab"><h2>Datos</h2><span class="cod">${S.movimientos.length} movimientos</span></div>
     <div class="fila-btns">
-      <button class="btn" data-accion="csv">Exportar a CSV</button>
+      <button class="btn primario" data-accion="excel">Descargar reporte Excel</button>
+      <button class="btn" data-accion="csv">CSV simple</button>
       <button class="btn" data-accion="ejemplo">Cargar ejemplo</button>
       <button class="btn peligro" data-accion="borrar-todo">Borrar movimientos</button>
     </div>
@@ -1864,6 +1952,7 @@ function acciones(a,R){
       const v=$("#nuevo-miembro").value.trim();
       if(v&&!S.config.miembros.includes(v)) DB.guardarHogar({config:{...S.config,miembros:[...S.config.miembros,v]}});
     },
+    excel:()=>exportarExcel(),
     csv:()=>exportarCSV(),
     "permiso-alertas":()=>pedirPermisoAlertas(),
     "probar-alerta":async()=>{
@@ -1959,7 +2048,7 @@ function modalMovimiento(id=null){
     <label class="campo"><span>Monto</span><input class="grande" id="m-monto" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${m?m.monto:""}"></label>
     <div id="bloque-cat" class="${tipoIni==="ingreso"?"oculto":""}">
       <div class="campo"><span class="campo-tit">Categoría</span><div class="chips" id="m-cats">
-        ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${c.color};color:${c.color}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
+        ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${col(c.color)};color:${col(c.color)}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
       </div></div>
       <label class="check"><input type="checkbox" id="m-esencial" ${(m? m.esencial : CAT[catIni].esencial)?"checked":""}><span>Gasto esencial</span></label>
     </div>
@@ -2019,7 +2108,7 @@ function modalMovimiento(id=null){
   document.querySelectorAll("#m-cats [data-cat]").forEach(b=>b.onclick=()=>{
     document.querySelectorAll("#m-cats [data-cat]").forEach(x=>{x.classList.remove("activo");x.style.borderColor="";x.style.color=""});
     b.classList.add("activo"); const c=CAT[b.dataset.cat];
-    b.style.borderColor=c.color; b.style.color=c.color; $("#m-esencial").checked=c.esencial;
+    b.style.borderColor=col(c.color); b.style.color=col(c.color); $("#m-esencial").checked=c.esencial;
   });
 }
 
@@ -2197,6 +2286,166 @@ function sugerirPresupuestos(){
   avisar("Presupuestos sugeridos");
 }
 
+/* ==================== reporte en Excel ============================
+   Se genera con SheetJS, que se carga solo cuando se pide el reporte.
+   Si no hay conexión para traer la librería, se cae a un CSV. */
+let XLSX = null;
+async function cargarXLSX(){
+  if(XLSX) return XLSX;
+  XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+  return XLSX;
+}
+
+function hojaDesde(X,filas,anchos,formatos){
+  const ws = X.utils.aoa_to_sheet(filas);
+  if(anchos) ws["!cols"] = anchos.map(w=>({wch:w}));
+  if(formatos){
+    const rango = X.utils.decode_range(ws["!ref"]);
+    for(let f=1; f<=rango.e.r; f++){
+      for(const [colStr,fmt] of Object.entries(formatos)){
+        const c = Number(colStr);
+        const cel = ws[X.utils.encode_cell({r:f,c})];
+        if(cel && typeof cel.v==="number") cel.z = fmt;
+      }
+    }
+  }
+  return ws;
+}
+
+async function exportarExcel(){
+  const R = calcular();
+  avisar("Generando el reporte…");
+  let X;
+  try{ X = await cargarXLSX(); }
+  catch(e){
+    console.warn("xlsx:",e);
+    exportarCSV();
+    avisar("Sin conexión para el Excel: se descargó un CSV");
+    return;
+  }
+
+  const MONEDA = '#,##0';
+  const PCT = '0%';
+  const lib = X.utils.book_new();
+
+  /* --- Resumen del mes --- */
+  const resumen = [
+    ["Presupuesto familiar — reporte del hogar"],
+    ["Hogar", S.hogarId||"local"],
+    ["Mes", mesLargo(R.mes)],
+    ["Generado", new Date().toLocaleString("es")],
+    ["Moneda", S.config.moneda],
+    [],
+    ["RESUMEN DEL MES"],
+    ["Concepto","Monto"],
+    ["Ingresos registrados", R.ingresoRegistrado],
+    ["Ingreso estimado", R.ingresoEstimado],
+    ["Base usada para el cálculo", R.baseUsada==="estimado"?"Ingreso estimado":"Ingresos registrados"],
+    ["Gastos", R.totalGasto],
+    ["  de los cuales fijos", R.gastoFijo],
+    ["  de los cuales variables", R.gastoVariable],
+    ["Gasto esencial", R.esenciales],
+    ["Gasto prescindible", R.prescindibles],
+    ["Ahorro del mes", R.ahorroReal],
+    ["Tasa de ahorro", R.tasaAhorro],
+    [],
+    ["PROYECCIÓN A FIN DE MES"],
+    ["Días transcurridos", R.diaHoy],
+    ["Días del mes", R.dias],
+    ["Ritmo variable diario", R.ritmoVariable],
+    ["Fijos aún por pagar", R.fijosPendientes],
+    ["Gasto proyectado", R.proyectado],
+    ["Ahorro proyectado", R.ahorroProyectado],
+    [],
+    ["PRESUPUESTO"],
+    ["Presupuesto asignado", R.presupuestoTotal],
+    ["Margen restante", R.margenRestante],
+    ["Deuda pendiente", R.deudaTotal],
+  ];
+  X.utils.book_append_sheet(lib, hojaDesde(X,resumen,[34,18],{1:MONEDA}), "Resumen");
+
+  /* --- Movimientos --- */
+  const movs = [["Fecha","Tipo","Cuenta","Categoría","Concepto","Monto","Medio de pago",
+                 "Tarjeta","Persona","Registrado por","Esencial"]];
+  [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>movs.push([
+    m.fecha, m.tipo, m.categoria, CAT[m.categoria]?.nombre||m.categoria, m.nota||"",
+    m.monto, m.metodo, S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"",
+    m.miembro||"", nombreDe(m.uid)||m.autor||"", m.esencial?"Sí":"No"
+  ]));
+  X.utils.book_append_sheet(lib, hojaDesde(X,movs,[11,9,8,20,28,14,15,18,14,16,9],{5:MONEDA}), "Movimientos");
+
+  /* --- Por categoría --- */
+  const cats = [["Cuenta","Categoría","Tipo","Frecuencia","Presupuesto","Gastado","Diferencia",
+                 "Uso","Compras","Ticket promedio","Mes anterior","Variación"]];
+  R.porCat.filter(c=>c.total>0||c.pres>0).forEach(c=>cats.push([
+    c.cod, c.nombre, c.esencial?"Esencial":"Prescindible", esFijaCat(c.cod)?"Fijo":"Variable",
+    c.pres, c.total, c.pres-c.total, c.uso??"", c.n, c.ticket, c.totalAnt, c.variacion??""
+  ]));
+  cats.push([]);
+  cats.push(["","TOTAL","","",R.presupuestoTotal,R.totalGasto,R.presupuestoTotal-R.totalGasto,"",R.gastos.length,R.ticketGeneral,"",""]);
+  X.utils.book_append_sheet(lib, hojaDesde(X,cats,[8,22,13,11,14,14,14,8,9,16,14,10],
+    {4:MONEDA,5:MONEDA,6:MONEDA,7:PCT,9:MONEDA,10:MONEDA,11:PCT}), "Por categoría");
+
+  /* --- Por persona --- */
+  const pers = [["Persona","Ingresos","Gastos","Aporte neto","Tasa de ahorro","Compras",
+                 "Ticket promedio","% del gasto","Prescindible","Registró"]];
+  R.porPersona.forEach(p=>pers.push([
+    p.nombre, p.ingreso, p.gasto, p.neto, p.ingreso>0?p.neto/p.ingreso:"", p.n, p.ticket,
+    p.pct, p.prescindible, p.registrados
+  ]));
+  X.utils.book_append_sheet(lib, hojaDesde(X,pers,[16,14,14,14,14,9,16,12,14,10],
+    {1:MONEDA,2:MONEDA,3:MONEDA,4:PCT,6:MONEDA,7:PCT,8:MONEDA}), "Por persona");
+
+  /* --- Evolución mensual --- */
+  const evo = [["Mes","Ingresos","Gastos","Ahorro","Tasa de ahorro"]];
+  R.historico.forEach(x=>evo.push([x.mes, x.ingreso, x.gasto, x.ingreso-x.gasto,
+    x.ingreso>0?(x.ingreso-x.gasto)/x.ingreso:""]));
+  X.utils.book_append_sheet(lib, hojaDesde(X,evo,[12,14,14,14,14],{1:MONEDA,2:MONEDA,3:MONEDA,4:PCT}), "Evolución");
+
+  /* --- Deudas --- */
+  if(S.deudas.length){
+    const deu = [["Deuda","Tipo","Saldo","Deuda inicial","Tasa anual","Pago mensual",
+                  "Meses para liquidar","Intereses totales","Compras del mes"]];
+    R.deudasCalc.forEach(d=>deu.push([
+      d.nombre, d.tipo||"", d.saldo, d.original||d.saldo, (d.tasaAnual||0)/100, d.pagoMensual,
+      isFinite(d.meses)?d.meses:"no se liquida", isFinite(d.interes)?d.interes:"",
+      esTarjeta(d)? comprasDelMes(d.id,R.mes) : ""
+    ]));
+    X.utils.book_append_sheet(lib, hojaDesde(X,deu,[22,20,14,14,11,14,18,16,16],
+      {2:MONEDA,3:MONEDA,4:'0.00%',5:MONEDA,7:MONEDA,8:MONEDA}), "Deudas");
+  }
+
+  /* --- Metas --- */
+  if(S.metas.length){
+    const met = [["Meta","Objetivo","Ahorrado","Falta","Progreso","Fecha límite",
+                  "Meses restantes","Aporte mensual necesario"]];
+    R.metasCalc.forEach(m=>met.push([
+      m.nombre, m.objetivo, m.ahorrado||0, m.faltan, m.progreso, m.fechaLimite||"",
+      m.meses??"", m.requerido??""
+    ]));
+    X.utils.book_append_sheet(lib, hojaDesde(X,met,[24,14,14,14,10,14,16,24],
+      {1:MONEDA,2:MONEDA,3:MONEDA,4:PCT,7:MONEDA}), "Metas");
+  }
+
+  /* --- Recomendaciones --- */
+  const rec = recomendar(R);
+  if(rec.length){
+    const rs = [["Prioridad","Tema","Recomendación","Detalle","Acción sugerida","Cifra","¿Suma al ahorro?"]];
+    const nivel = {alto:"Alta",medio:"Media",info:"Informativa",bien:"Logro"};
+    rec.forEach(r=>rs.push([
+      nivel[r.nivel]||r.nivel, r.etiqueta, r.titulo, r.detalle, r.accion||"",
+      r.ahorro||"", MODO_GRUPO[r.grupo]? "Sí" : "No, es un aviso"
+    ]));
+    rs.push([]);
+    rs.push(["","AHORRO POTENCIAL (sin solapamientos)","","","",ahorroPotencial(rec,R),""]);
+    X.utils.book_append_sheet(lib, hojaDesde(X,rs,[11,26,42,60,60,14,18],{5:MONEDA}), "Recomendaciones");
+  }
+
+  const nombre = `presupuesto-${R.mes}.xlsx`;
+  X.writeFile(lib, nombre, {compression:true});
+  avisar("Reporte descargado");
+}
+
 function exportarCSV(){
   const filas=[["fecha","tipo","categoria","concepto","monto","metodo","tarjeta","persona","registrado_por","esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>filas.push(
@@ -2277,9 +2526,9 @@ async function cargarEjemplo(){
 const guardarLocal=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
 const leerLocal=k=>{try{return localStorage.getItem(k)}catch{return null}};
 
-const TEMAS = ["papel","claro","fiori","femenino"];
-const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", fiori:"#354A5F", femenino:"#3B2230"};
-const NOMBRE_TEMA = {papel:"papel", claro:"claro", fiori:"fiori", femenino:"femenino"};
+const TEMAS = ["papel","claro","oscuro","fiori","femenino"];
+const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", oscuro:"#161B22", fiori:"#354A5F", femenino:"#3B2230"};
+const NOMBRE_TEMA = {papel:"papel", claro:"claro", oscuro:"oscuro", fiori:"fiori", femenino:"femenino"};
 
 /* ================= marca de agua personal ========================= 
    La foto es de cada persona, no del hogar: se guarda en su perfil

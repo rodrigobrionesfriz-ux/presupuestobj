@@ -106,6 +106,7 @@ El botón **◐** de la cabecera va rotando entre cuatro temas, y la elección s
 - **Papel de contabilidad** — fondo verde claro con rayado de libro contable.
 - **Claro** — fondo limpio sin rayado y bordes remarcados en tono oscuro, con mayor contraste. Se lee mejor a plena luz.
 - **SAP Fiori** — paleta corporativa de SAP: shell `#354A5F`, azul de marca `#0A6ED1` para las acciones y los colores semánticos de Fiori aplicados con su significado real: `#107E3E` positivo cuando el sobre va bien, `#E9730C` crítico al acercarse al límite, `#BB0000` negativo al excederlo y `#6A6D70` neutro. Tarjetas con esquinas de 8px y sombra suave, botones con el estilo *emphasized* y *transparent* de Fiori.
+- **Oscuro** — paleta tipo GitHub Dark: lienzo `#0D1117`, tarjetas `#161B22` con filo de color en la cabecera, y los semánticos `#3FB950` positivo, `#F85149` negativo, `#D29922` atención, `#58A6FF` enlace. Los colores de categoría se aclaran automáticamente para mantener contraste sobre fondo negro.
 - **Femenino** — ciruela profunda `#3B2230`, granate `#A8385A`, oro viejo `#C9A227`, salvia y lavanda sobre fondo rosa empolvado, con los títulos en la serif Fraunces y la cabecera en degradado. Todos los pares de color cumplen contraste WCAG AA para texto.
 
 ## 9. Tipografía
@@ -164,7 +165,9 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 Solo después vienen las **oportunidades detectadas**, que son otra cosa y así se explica en pantalla: no es lo que ahorras, sino cuánto más podrías ahorrar. El motor de recomendaciones trabaja sobre tus propios datos: sobres excedidos, ritmo de gasto por encima del presupuesto, compras hormiga, categorías en alza contra el mes anterior, suscripciones, patrones de día de la semana, carga de deuda sobre el ingreso y avance de metas. Cada recomendación viene con una cifra estimada de ahorro mensual.
 
-**Ajustes** — Presupuesto por sobre (con sugerencia automática según el promedio de tus últimos tres meses), ingreso, meta de ahorro, moneda, miembros, código de sincronización y exportación a CSV.
+**Ajustes** — Presupuesto por sobre (con sugerencia automática según el promedio de tus últimos tres meses), ingreso estimado por persona, meta de ahorro, moneda, miembros, código de sincronización y descarga del reporte.
+
+**Reporte en Excel** — Un `.xlsx` con ocho hojas: *Resumen* del mes con la proyección y el presupuesto, *Movimientos* completos, *Por categoría* con presupuesto contra gasto y variación, *Por persona*, *Evolución* de los últimos seis meses, *Deudas* con meses hasta liquidar e intereses, *Metas*, y *Recomendaciones* con su cifra y si suma o no al ahorro potencial. Los importes llevan formato de moneda y los porcentajes formato de porcentaje, con anchos de columna ajustados: se puede armar una tabla dinámica sin tocar nada. La librería se descarga solo al pedir el reporte; sin conexión, la app cae a un CSV y avisa.
 
 ## Estructura de datos
 
