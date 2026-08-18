@@ -1,46 +1,89 @@
 rules_version = '2';
 
 // Reglas para la app "Presupuesto familiar".
+//
 // Modelo: cada hogar es un documento con la lista de UIDs autorizados.
 // Solo los miembros leen y escriben; unirse requiere conocer el código exacto.
+//
+// Borrado: los miembros pueden crear, editar y borrar movimientos uno a uno
+// —la corrección del día a día—, pero eliminar deudas, metas o el hogar
+// entero queda reservado al administrador. Esta restricción vive aquí, en el
+// servidor: ocultar el botón en la interfaz no protege nada, porque cualquiera
+// con la consola del navegador podría llamar a la API igualmente.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Perfil mínimo: qué hogar le toca a cada usuario
+    // Correo del administrador. Debe coincidir con ADMIN_CORREO en index.html.
+    function correoAdmin() {
+      return 'rodrigo.briones.friz@gmail.com';
+    }
+
+    // Perfil de cada usuario: su hogar y su fondo personal
     match /usuarios/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     match /hogares/{hogarId} {
 
+      function datos() {
+        return get(/databases/$(database)/documents/hogares/$(hogarId)).data;
+      }
       function esMiembro() {
-        return request.auth != null
-          && request.auth.uid in resource.data.miembrosUid;
+        return request.auth != null && request.auth.uid in resource.data.miembrosUid;
+      }
+      function esMiembroDe() {
+        return request.auth != null && request.auth.uid in datos().miembrosUid;
+      }
+      // Administrador: el correo indicado arriba, o quien creó el hogar
+      function esAdmin() {
+        return request.auth != null && (
+          request.auth.token.email == correoAdmin() ||
+          request.auth.uid == datos().get('adminUid', '')
+        );
       }
 
       // Solo se puede leer el hogar del que ya eres miembro
       allow get, list: if esMiembro();
 
-      // Crear un hogar nuevo: te incluyes a ti mismo y a nadie más
+      // Crear un hogar: te incluyes a ti mismo y a nadie más, y quedas como admin
       allow create: if request.auth != null
-        && request.resource.data.miembrosUid == [request.auth.uid];
+        && request.resource.data.miembrosUid == [request.auth.uid]
+        && request.resource.data.adminUid == request.auth.uid;
 
-      // Actualizar: los miembros pueden todo.
+      // Actualizar: los miembros pueden todo, salvo cambiarse el administrador.
       // Un no miembro solo puede añadirse a sí mismo (unirse con el código),
       // sin quitar a nadie ni tocar otros campos en esa misma operación.
-      allow update: if esMiembro()
+      allow update: if (esMiembro()
+            && request.resource.data.get('adminUid','') == resource.data.get('adminUid',''))
         || (request.auth != null
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['miembrosUid'])
             && request.resource.data.miembrosUid.hasAll(resource.data.miembrosUid)
             && request.resource.data.miembrosUid.removeAll(resource.data.miembrosUid) == [request.auth.uid]);
 
-      allow delete: if esMiembro();
+      // Eliminar el hogar entero: solo el administrador
+      allow delete: if esAdmin();
 
-      // Movimientos, deudas y metas: solo miembros del hogar
+      // Movimientos: cualquier miembro los registra, corrige y borra uno a uno.
+      // Es la operación cotidiana y siempre puntual.
+      match /movimientos/{docId} {
+        allow read, create, update, delete: if esMiembroDe();
+      }
+
+      // Deudas y metas: cualquiera las crea y actualiza, pero eliminarlas
+      // borra un historial completo, así que queda para el administrador.
+      match /deudas/{docId} {
+        allow read, create, update: if esMiembroDe();
+        allow delete: if esAdmin();
+      }
+      match /metas/{docId} {
+        allow read, create, update: if esMiembroDe();
+        allow delete: if esAdmin();
+      }
+
+      // Cualquier otra subcolección futura: solo miembros
       match /{coleccion}/{docId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/hogares/$(hogarId)).data.miembrosUid;
+        allow read, write: if esMiembroDe();
       }
     }
   }

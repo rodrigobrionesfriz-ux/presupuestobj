@@ -687,6 +687,21 @@ const METODOS = ["Efectivo","Débito","Crédito","Transferencia"];
 const MONEDAS = [["MXN","es-MX"],["EUR","es-ES"],["COP","es-CO"],["ARS","es-AR"],["CLP","es-CL"],["PEN","es-PE"],["USD","es-US"]];
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
+/* ============ administración y borrado de datos ===================
+   El borrado masivo y la eliminación de deudas, metas y sobres quedan
+   reservados al administrador del hogar: quien lo creó, o el correo
+   indicado aquí. El resto puede corregir y borrar sus movimientos uno
+   a uno, que es la operación del día a día.
+   Esto se refuerza en las reglas de Firestore: la interfaz no basta. */
+const ADMIN_CORREO = "rodrigo.briones.friz@gmail.com";
+const esAdmin = ()=>{
+  if(S.modo!=="nube") return true;                   // en local no hay nadie más
+  if(!S.uid) return false;
+  if((S.correo||"").toLowerCase()===ADMIN_CORREO.toLowerCase()) return true;
+  return !!S.adminUid && S.uid===S.adminUid;         // quien creó el hogar
+};
+const correoAdmin = ()=> S.adminCorreo || ADMIN_CORREO;
+
 /* ============================ utilidades ========================== */
 const $ = s=>document.querySelector(s);
 const pad = n=>String(n).padStart(2,"0");
@@ -803,7 +818,8 @@ async function iniciarFirebase(){
       const codigo = codigoHogar();
       await setDoc(doc(db,"hogares",codigo),{
         config:configInicial(), presupuestos:presInicial(),
-        nombre:nombre||"Mi hogar", miembrosUid:[auth.currentUser.uid], creado:serverTimestamp()
+        nombre:nombre||"Mi hogar", miembrosUid:[auth.currentUser.uid],
+        adminUid:auth.currentUser.uid, adminCorreo:auth.currentUser.email||"", creado:serverTimestamp()
       });
       await setDoc(doc(db,"usuarios",auth.currentUser.uid),{hogarId:codigo,nombre:nombre||""});
       return codigo;
@@ -835,6 +851,7 @@ async function iniciarFirebase(){
         S.config = {...configInicial(),...(v.config||{})};
         S.presupuestos = {...presInicial(),...(v.presupuestos||{})};
         S.perfiles = v.perfiles||{};
+        S.adminUid = v.adminUid||""; S.adminCorreo = v.adminCorreo||"";
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
       }, err=>marcarError(err)));
@@ -867,7 +884,7 @@ async function iniciarFirebase(){
 
   onAuthStateChanged(auth, async u=>{
     if(!u){ FB.cortar(); S.uid=null; S.hogarId=null; pantallaAcceso(); return; }
-    S.uid=u.uid; S.nombreUsuario=u.displayName||u.email||"Invitado"; S.foto=u.photoURL||"";
+    S.uid=u.uid; S.correo=u.email||""; S.nombreUsuario=u.displayName||u.email||"Invitado"; S.foto=u.photoURL||"";
     cargarFondoLocal();
     const p = await FB.perfil(u.uid);
     if(p?.fondo && p.fondo!==S.fondo){
@@ -1800,7 +1817,8 @@ function vAjustes(R){
     ${S.modo==="nube"? `
       <p class="nota">Comparte este código para que otro teléfono vea el mismo libro en tiempo real.</p>
       <div class="codigo-hogar">${esc(S.hogarId||"")}</div>
-      <p class="nota">Sesión: ${esc(S.nombreUsuario||"")}</p>
+      <p class="nota">Sesión: ${esc(S.nombreUsuario||"")}${esAdmin()?' · <b>administrador</b>':""}</p>
+      <p class="nota">Administra este hogar <b>${esc(correoAdmin())}</b>. Solo esa cuenta puede borrar movimientos en bloque o eliminar deudas, metas y sobres. Cualquiera puede registrar, corregir y borrar movimientos uno a uno.</p>
       <div class="fila-btns"><button class="btn" data-accion="copiar-codigo">Copiar código</button>
         <button class="btn peligro" data-accion="salir">Cerrar sesión</button></div>`
     : `<p class="nota">Estás en modo local: los datos viven solo en esta pestaña. Añade tu configuración de Firebase en el archivo <b>index.html</b> para sincronizar entre teléfonos.</p>`}
@@ -1874,7 +1892,9 @@ function vAjustes(R){
       <button class="btn primario" data-accion="excel">Descargar reporte Excel</button>
       <button class="btn" data-accion="csv">CSV simple</button>
       <button class="btn" data-accion="ejemplo">Cargar ejemplo</button>
-      <button class="btn peligro" data-accion="borrar-todo">Borrar movimientos</button>
+      ${esAdmin()
+        ? `<button class="btn peligro" data-accion="borrar-todo">Borrar movimientos</button>`
+        : `<button class="btn" data-accion="solicitar-borrado">Solicitar borrado al administrador</button>`}
     </div>
     ${S.csv?`<p class="nota" style="margin-top:12px">Separador punto y coma. También se descargó el archivo.</p>
       <textarea class="csv" readonly>${esc(S.csv)}</textarea>`:""}
@@ -1962,7 +1982,8 @@ function acciones(a,R){
     instalar:()=>instalarApp(),
     "copiar-codigo":()=>{navigator.clipboard?.writeText(S.hogarId||"");avisar("Código copiado")},
     salir:()=>{ if(FB) FB.salir(); },
-    "borrar-todo":()=>{ if(confirm("¿Borrar todos los movimientos del hogar?")) S.movimientos.forEach(m=>DB.borrar("movimientos",m.id)); },
+    "borrar-todo":()=>modalBorrado(),
+    "solicitar-borrado":()=>solicitarBorrado(),
   }[a];
   if(f) f();
 }
@@ -2135,7 +2156,7 @@ function modalDeuda(id=null){
     if(d){ datos.original=Math.max(num($("#d-original").value),saldo); await DB.actualizar("deudas",id,datos); avisar("Deuda actualizada"); }
     else { datos.original=saldo; await DB.agregar("deudas",datos); avisar("Deuda registrada"); }
   }, d? "Guardar cambios":"Guardar deuda",
-     d? {texto:"Eliminar", accion:async()=>{await DB.borrar("deudas",id); avisar("Deuda eliminada")}} : null);
+     d&&esAdmin()? {texto:"Eliminar", accion:async()=>{await DB.borrar("deudas",id); avisar("Deuda eliminada")}} : null);
 }
 
 function modalMeta(id=null){
@@ -2156,7 +2177,7 @@ function modalMeta(id=null){
     if(g){ await DB.actualizar("metas",id,datos); avisar("Meta actualizada"); }
     else { await DB.agregar("metas",datos); avisar("Meta creada"); }
   }, g? "Guardar cambios":"Crear meta",
-     g? {texto:"Eliminar", accion:async()=>{await DB.borrar("metas",id); avisar("Meta eliminada")}} : null);
+     g&&esAdmin()? {texto:"Eliminar", accion:async()=>{await DB.borrar("metas",id); avisar("Meta eliminada")}} : null);
 }
 
 function abonarMeta(id){
@@ -2254,7 +2275,7 @@ function modalCategoria(cod=null){
     });
     avisar(c? "Sobre actualizado" : `Sobre ${codigo} creado`);
   }, c? "Guardar cambios":"Crear sobre",
-     c? {texto:"Eliminar sobre", accion:async()=>{
+     c&&esAdmin()? {texto:"Eliminar sobre", accion:async()=>{
           for(const m of S.movimientos.filter(m=>m.categoria===cod))
             await DB.actualizar("movimientos",m.id,{categoria:"OTR",esencial:false});
           const resto = {...S.presupuestos}; delete resto[cod];
@@ -2444,6 +2465,61 @@ async function exportarExcel(){
   const nombre = `presupuesto-${R.mes}.xlsx`;
   X.writeFile(lib, nombre, {compression:true});
   avisar("Reporte descargado");
+}
+
+/* ============ borrado de datos: solo administrador ================ */
+function modalBorrado(){
+  const n = S.movimientos.length;
+  if(n===0){ avisar("No hay movimientos que borrar"); return; }
+
+  if(!esAdmin()){
+    modal("Borrar todos los movimientos",`
+      <p class="aviso-credito">Esta acción está reservada al administrador del hogar. Tú puedes corregir o eliminar movimientos uno a uno desde el libro, pero el borrado masivo no.</p>
+      <p class="nota">Administrador de <b>${esc(S.hogarId||"")}</b>: <b>${esc(correoAdmin())}</b></p>
+      <p class="nota">Si necesitas vaciar el historial, pídeselo. El botón de abajo abre un correo con los datos del hogar ya escritos.</p>
+    `, async()=>{ solicitarBorrado(); return null; }, "Escribir al administrador");
+    return;
+  }
+
+  const codigo = S.hogarId || "BORRAR";
+  modal("Borrar todos los movimientos",`
+    <p class="aviso-credito">Vas a eliminar <b>${cuenta(n,"movimiento","movimientos")}</b> del hogar, para todas las personas y todos los meses. No se puede deshacer y tu esposa perderá también su historial.</p>
+    <p class="nota">Los sobres, deudas y metas se conservan; solo se van los movimientos.</p>
+    <div class="fila-btns" style="margin-bottom:14px">
+      <button class="btn" id="br-respaldo">Descargar respaldo Excel antes</button>
+    </div>
+    <label class="campo"><span>Para confirmar, escribe el código del hogar: <b class="mono">${esc(codigo)}</b></span>
+      <input id="br-codigo" placeholder="${esc(codigo)}" autocapitalize="characters" style="text-transform:uppercase"></label>
+  `, async()=>{
+    const escrito = ($("#br-codigo").value||"").trim().toUpperCase();
+    if(escrito!==codigo.toUpperCase()) return "El código no coincide. Escríbelo tal cual aparece arriba.";
+    avisar("Borrando…");
+    for(const m of [...S.movimientos]) await DB.borrar("movimientos",m.id);
+    avisar(`${cuenta(n,"movimiento eliminado","movimientos eliminados")}`);
+  }, "Eliminar definitivamente");
+
+  $("#br-respaldo").onclick = ()=>exportarExcel();
+}
+
+function solicitarBorrado(){
+  const asunto = `Solicitud de borrado de datos — hogar ${S.hogarId||""}`;
+  const cuerpo = [
+    `Hola,`,
+    ``,
+    `Solicito el borrado de datos del presupuesto familiar.`,
+    ``,
+    `Hogar: ${S.hogarId||"—"}`,
+    `Solicitado por: ${S.nombreUsuario||""}${S.correo?` (${S.correo})`:""}`,
+    `Fecha: ${new Date().toLocaleString("es")}`,
+    `Movimientos registrados: ${S.movimientos.length}`,
+    ``,
+    `Motivo:`,
+    ``,
+  ].join("\n");
+  const a = document.createElement("a");
+  a.href = `mailto:${correoAdmin()}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  a.click();
+  avisar("Abriendo el correo…");
 }
 
 function exportarCSV(){

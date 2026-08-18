@@ -44,7 +44,13 @@ Si dejas valores que empiecen por `TU_`, la app arranca en **modo local**: funci
 
 Copia el contenido de `firestore.rules` en **Firestore Database → Reglas** y publica. Sin este paso, cualquiera con la URL del proyecto podría leer tus datos.
 
-Con estas reglas: solo los miembros de un hogar leen y escriben en él, y unirse a un hogar exige conocer el código exacto de 8 caracteres.
+Con estas reglas: solo los miembros de un hogar leen y escriben en él, y unirse exige conocer el código exacto de 8 caracteres.
+
+**Borrado restringido.** Cualquier miembro puede registrar, corregir y borrar movimientos uno a uno —la operación del día a día—, pero eliminar deudas, metas o el hogar entero queda reservado al administrador: el correo definido en `ADMIN_CORREO` dentro de `index.html`, o quien creó el hogar. Si cambias ese correo, cámbialo también en `firestore.rules`: las dos definiciones deben coincidir.
+
+La restricción vive en las reglas del servidor, no en la interfaz. Ocultar un botón no protege nada, porque cualquiera con la consola del navegador podría llamar a la API igualmente.
+
+El borrado masivo de movimientos, además, exige escribir el código del hogar para confirmar, y ofrece descargar un respaldo en Excel antes. Quien no sea administrador ve en su lugar un botón que abre un correo dirigido al administrador, con los datos del hogar ya escritos.
 
 ## 4. Subir a GitHub Pages
 
