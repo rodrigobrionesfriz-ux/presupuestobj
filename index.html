@@ -255,6 +255,30 @@ textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space
 .balanza-pie{display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:var(--suave)}
 .balanza-pie b{font-family:var(--tipo-num);margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
+.clicable{cursor:pointer;transition:background .15s}
+.clicable:hover,.clicable:focus-visible{background:var(--papel)}
+tr.clicable td{transition:background .15s}
+.lupa{float:right;color:var(--suave);font-size:15px;line-height:1;opacity:.6}
+.sector{cursor:pointer;transition:opacity .15s}
+.sector:hover{opacity:.75}
+.sub-hoja{margin:3px 0 0;font-family:var(--tipo-num);font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--suave)}
+.detalle-lista{margin-top:14px;border-top:1px solid var(--rayado);max-height:46vh;overflow-y:auto}
+.detalle-fila{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px dotted var(--rayado);
+  cursor:pointer;transition:background .15s}
+.detalle-fila:hover,.detalle-fila:focus-visible{background:var(--papel)}
+.detalle-fecha{flex:none;width:34px;text-align:center;font-family:var(--tipo-num);line-height:1.1}
+.detalle-fecha b{display:block;font-size:15px;font-weight:500}
+.detalle-fecha em{font-style:normal;font-size:9.5px;text-transform:uppercase;color:var(--suave)}
+.detalle-txt{flex:1;min-width:0}
+.detalle-txt b{display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detalle-txt small{font-size:11px;color:var(--suave)}
+.detalle-monto{font-family:var(--tipo-num);font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.reparto-personas{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;padding-top:11px;
+  border-top:1px dotted var(--rayado);font-size:12px;color:var(--suave)}
+.reparto-personas i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.reparto-personas b{font-family:var(--tipo-num);color:var(--tinta);margin-left:6px}
+.reparto-personas em{font-style:normal;margin-left:5px}
 .firma{font-size:11.5px;margin:-4px 0 13px;color:var(--suave)}
 .filtro-personas{margin:-6px 0 14px}
 .quien{font-weight:600}
@@ -1382,7 +1406,7 @@ function grDona(items){
     const p = (r,t)=>[cx+r*Math.cos(t),cy+r*Math.sin(t)];
     const [x1,y1]=p(R1,ang),[x2,y2]=p(R1,fin),[x3,y3]=p(R0,fin),[x4,y4]=p(R0,ang);
     const big = a>Math.PI?1:0; ang=fin;
-    return `<path d="M${x1},${y1} A${R1},${R1} 0 ${big} 1 ${x2},${y2} L${x3},${y3} A${R0},${R0} 0 ${big} 0 ${x4},${y4} Z" fill="${col(it.color)}" stroke="var(--hoja)" stroke-width="1.5"/>`;
+    return `<path d="M${x1},${y1} A${R1},${R1} 0 ${big} 1 ${x2},${y2} L${x3},${y3} A${R0},${R0} 0 ${big} 0 ${x4},${y4} Z" fill="${col(it.color)}" stroke="var(--hoja)" stroke-width="1.5"${it.cod?` data-detalle-cat="${it.cod}" class="sector" tabindex="0" role="button"><title>${esc(it.nombre)}</title></path>`:"/>"}`;
   }).join("");
   return `<svg class="gr" viewBox="0 0 180 160" style="max-width:230px;margin:0 auto">${arcos}
     <text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="9" letter-spacing="1">TOTAL</text>
@@ -1457,7 +1481,7 @@ function vPanel(R){
       <button class="enlace" data-accion="nueva-categoria">+ Otro sobre</button></div>
     ${sobres.length?"":`<p class="nota">Aún no hay presupuestos ni gastos. Asígnalos en Ajustes o crea un sobre propio.</p>`}
     <ul class="sobres">${sobres.map(c=>`
-      <li>
+      <li class="clicable" data-detalle-cat="${c.cod}" role="button" tabindex="0" title="Ver el detalle de ${esc(c.nombre)}">
         <div class="sobre-cab"><span class="cod" style="color:${col(c.color)}">${c.cod}</span>
           <span class="sobre-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre ${c.nombre}" title="Editar sobre">✎</button>`:""}</span>
           <span class="sobre-cifra">${fmt(c.total)}</span></div>
@@ -1535,8 +1559,8 @@ function vEstadisticas(R){
     ${grDona(dona)}
     <table class="resp"><thead><tr><th>Categoría</th><th class="num">Total</th><th class="num">%</th>
       <th class="num">Compras</th><th class="num">Ticket</th><th class="num">vs ant.</th></tr></thead>
-    <tbody>${dona.map(c=>`<tr>
-      <td class="principal"><span class="cod" style="color:${col(c.color)}">${c.cod}</span> ${c.nombre}</td>
+    <tbody>${dona.map(c=>`<tr class="clicable" data-detalle-cat="${c.cod}" role="button" tabindex="0" title="Ver el detalle de ${esc(c.nombre)}">
+      <td class="principal"><span class="cod" style="color:${col(c.color)}">${c.cod}</span> ${c.nombre}<span class="lupa">›</span></td>
       <td class="num" data-etq="Total">${fmt(c.total)}</td>
       <td class="num" data-etq="Participación">${Math.round(c.total/R.totalGasto*100)}%</td>
       <td class="num" data-etq="Compras">${c.n}</td>
@@ -1565,7 +1589,7 @@ function vEstadisticas(R){
       ${R.sinAsignar>0?`<span style="width:${R.sinAsignar/R.totalGasto*100}%;background:#B9C0B6"></span>`:""}
     </div>
     <ul class="personas">${R.porPersona.map(p=>`
-      <li>
+      <li class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0" title="Ver los movimientos de ${esc(p.nombre)}">
         <div class="persona-cab">
           <span class="punto-p" style="background:${col(p.color)}"></span>
           <span class="persona-nom">${esc(p.nombre)}</span>
@@ -1725,7 +1749,7 @@ function vAhorro(R){
     <div class="cab"><h2>Quién aporta qué</h2><span class="cod">${mesCorto(R.mes)}</span></div>
     <p class="nota">Ingresos menos gastos de cada persona. El ahorro del hogar es la suma de los dos.</p>
     <ul class="personas">${R.porPersona.map(p=>`
-      <li>
+      <li class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0" title="Ver los movimientos de ${esc(p.nombre)}">
         <div class="persona-cab">
           <span class="punto-p" style="background:${col(p.color)}"></span>
           <span class="persona-nom">${esc(p.nombre)}</span>
@@ -1917,6 +1941,13 @@ function conectar(R){
     const n=$("#f-texto"); if(n){n.focus();n.setSelectionRange(p,p)}};
   const fc=$("#f-cat"); if(fc) fc.onchange=e=>{S.filtroCat=e.target.value;render()};
   const ex=$("#extra-deuda"); if(ex) ex.onchange=e=>DB.guardarHogar({config:{...S.config,extraDeuda:num(e.target.value)}});
+  const abrir = (sel,fn)=>document.querySelectorAll(sel).forEach(el=>{
+    const dato = el.dataset.detalleCat || el.dataset.detallePersona;
+    el.onclick=e=>{ if(e.target.closest("[data-editar-cat],button")) return; fn(dato); };
+    el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(dato); } };
+  });
+  abrir("[data-detalle-cat]", detalleCategoria);
+  abrir("[data-detalle-persona]", detallePersona);
   document.querySelectorAll("[data-editar-mov]").forEach(el=>{
     el.onclick=()=>modalMovimiento(el.dataset.editarMov);
     el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();modalMovimiento(el.dataset.editarMov)}};
@@ -2016,6 +2047,88 @@ async function ajustarTarjeta(antes,despues){
 const comprasDelMes = (idT,mes)=>S.movimientos
   .filter(m=>m.tarjetaId===idT && m.tipo==="gasto" && mesDe(m.fecha)===mes)
   .reduce((a,b)=>a+b.monto,0);
+
+/* ============ detalle: qué hay dentro de una cifra ================ */
+function modalInfo(titulo,subtitulo,cuerpo){
+  const h=$("#modal-host");
+  h.innerHTML=`<div class="modal"><div class="hoja" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+    <div class="hoja-cab">
+      <div><h2>${esc(titulo)}</h2>${subtitulo?`<p class="sub-hoja">${subtitulo}</p>`:""}</div>
+      <button class="icono cerrar-modal" id="m-x" aria-label="Cerrar ventana" title="Cerrar">✕</button>
+    </div>
+    ${cuerpo}
+    <div class="fila-btns pie-modal"><span class="empuje"></span>
+      <button class="btn" id="m-cerrar">Cerrar</button></div>
+  </div></div>`;
+  h.querySelector(".modal").onclick=e=>e.stopPropagation();
+  $("#m-x").onclick=cerrarModal; $("#m-cerrar").onclick=cerrarModal;
+  // Desde el detalle se puede saltar a editar el movimiento
+  h.querySelectorAll("[data-editar-mov]").forEach(el=>{
+    el.onclick=()=>modalMovimiento(el.dataset.editarMov);
+    el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();modalMovimiento(el.dataset.editarMov)}};
+  });
+}
+
+const fechaCorta = iso=>aDate(iso).toLocaleDateString("es",{day:"2-digit",month:"short"}).replace(".","");
+
+/* Lista de movimientos con quién, cuándo, cómo y cuánto */
+function listaDetalle(movs){
+  if(!movs.length) return `<p class="nota">No hay movimientos en este grupo durante ${mesLargo(S.mes)}.</p>`;
+  return `<div class="detalle-lista">${movs.map(m=>{
+    const autor = nombreDe(m.uid)||m.autor||"";
+    const tarjeta = S.deudas.find(d=>d.id===m.tarjetaId)?.nombre;
+    return `<div class="detalle-fila" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar este movimiento">
+      <div class="detalle-fecha"><b>${fechaCorta(m.fecha).split(" ")[0]}</b><em>${fechaCorta(m.fecha).split(" ")[1]||""}</em></div>
+      <div class="detalle-txt">
+        <b>${esc(m.nota||CAT[m.categoria]?.nombre||"Movimiento")}</b>
+        <small>
+          <span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span>
+          · ${esc(m.metodo||"—")}${tarjeta?` · ${esc(tarjeta)}`:""}
+          ${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}
+        </small>
+      </div>
+      <span class="detalle-monto ${m.tipo==="ingreso"?"verde":""}">${m.tipo==="ingreso"?"+":"−"}${fmt(m.monto,2)}</span>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function resumenDetalle(movs,totalMes){
+  const total = movs.reduce((a,b)=>a+b.monto,0);
+  const porP = {};
+  movs.forEach(m=>{ porP[m.miembro||"—"]=(porP[m.miembro||"—"]||0)+m.monto; });
+  const personas = Object.entries(porP).sort((a,b)=>b[1]-a[1]);
+  return `<div class="metricas" style="margin-top:0;border-top:none;padding-top:0">
+      <div><em>Total</em><b>${fmt(total)}</b></div>
+      <div><em>Movimientos</em><b>${movs.length}</b></div>
+      <div><em>Ticket promedio</em><b>${fmt(movs.length?total/movs.length:0)}</b></div>
+      <div><em>Del gasto del mes</em><b>${totalMes>0?Math.round(total/totalMes*100):0}%</b></div>
+    </div>
+    ${personas.length>1?`<div class="reparto-personas">
+      ${personas.map(([n,v])=>`<span><i style="background:${col(colorPersona(n))}"></i>${esc(n)}
+        <b>${fmt(v)}</b><em>${total>0?Math.round(v/total*100):0}%</em></span>`).join("")}
+    </div>`:""}`;
+}
+
+function detalleCategoria(cod){
+  const c = CAT[cod];
+  const movs = S.movimientos
+    .filter(m=>mesDe(m.fecha)===S.mes && m.tipo==="gasto" && m.categoria===cod)
+    .sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const R = calcular();
+  modalInfo(c?.nombre||cod,
+    `<span class="cod" style="color:${col(c?.color||"#8A9099")}">${esc(cod)}</span> · ${mesLargo(S.mes)}`,
+    resumenDetalle(movs,R.totalGasto) + listaDetalle(movs));
+}
+
+function detallePersona(nombre){
+  const movs = S.movimientos
+    .filter(m=>mesDe(m.fecha)===S.mes && m.miembro===nombre)
+    .sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const R = calcular();
+  const gastos = movs.filter(m=>m.tipo==="gasto");
+  modalInfo(nombre, `Movimientos de ${mesLargo(S.mes)}`,
+    resumenDetalle(gastos,R.totalGasto) + listaDetalle(movs));
+}
 
 function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
   const h=$("#modal-host");

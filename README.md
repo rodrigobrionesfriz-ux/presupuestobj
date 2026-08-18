@@ -159,6 +159,8 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 **Por persona** — En Estadísticas, el desglose de cada integrante: cuánto gastó y qué porcentaje del total representa, cuánto ingresó, su aporte neto, número de compras, ticket promedio, qué proporción de su gasto es prescindible, en qué categoría gasta más y cuántos movimientos registró en el mes. Con una barra comparativa arriba y un color fijo por persona que se repite en todo el libro.
 
+**Detalle al tocar** — El gráfico de anillo, las filas de la tabla de categorías, los sobres del panel y las tarjetas de cada persona se tocan para abrir el desglose: cada movimiento con su fecha, concepto, **quién lo hizo**, medio de pago (y tarjeta, si fue a crédito) y monto. Arriba, el total del grupo, cuántos movimientos son, el ticket promedio, qué porcentaje del gasto del mes representan y el reparto entre las dos personas. Desde ahí se toca cualquier movimiento para editarlo.
+
 **Estadísticas** — Acumulado del mes contra la línea de presupuesto, reparto por categoría, comparativo de los últimos seis meses, gasto por día de la semana, ticket promedio, frecuencia de compra, medio de pago, gasto por miembro y conceptos más repetidos.
 
 **Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
