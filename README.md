@@ -137,7 +137,15 @@ Todo lo que se registra se puede corregir después:
 
 - **Movimientos** — toca cualquier fila del libro para abrirla. Puedes cambiar monto, categoría, si es esencial, concepto, fecha, medio de pago, miembro, e incluso convertir un gasto en ingreso. Útil cuando algo quedó mal asignado: cambiar la categoría recalcula al instante los sobres, las estadísticas y las recomendaciones.
 - **Deudas** — botón *Editar*: saldo, tasa, pago mensual y tipo. También la deuda inicial, que es la referencia de la barra de avance.
-- **Metas** — botón *Editar*: objetivo, acumulado y fecha límite.
+- **Cuentas de ahorro** — Dónde vive el dinero ahorrado: cuenta del banco, depósito a plazo, fondo, efectivo guardado. Cada una con institución, tipo, titular (una persona o el hogar) y **saldo inicial configurable**, que es lo que había antes de empezar a registrar.
+
+El botón **+** tiene ahora tres pestañas: *Gasto*, *Ingreso* y ***Ahorrar***. En Ahorrar eliges la cuenta de destino, si es aporte o retiro, el monto y **quién transfiere**. Un aporte no es un gasto —el dinero sigue siendo tuyo— pero **sale del disponible del mes de quien lo transfiere**: ya no puede gastarlo. Un retiro lo devuelve. La casilla *solo mueve la cuenta* sirve para intereses, comisiones y traspasos, que cambian el saldo sin tocar el presupuesto del mes.
+
+Desde cada cuenta hay botones directos de *Aportar* y *Retirar*, y al tocarla se ve su historial completo con saldo inicial, total aportado, total retirado y cada movimiento.
+
+**Composición del disponible** — Bajo la cifra grande del panel aparece de quién es ese saldo: *Ana $X · Luis $Y*, y *sin asignar* si queda un resto. Cada nombre se toca para ver sus movimientos del mes. El disponible de cada persona es su ingreso —registrado o estimado— menos sus gastos, menos lo que transfirió a ahorro, más lo que retiró.
+
+**Metas** — botón *Editar*: objetivo, acumulado y fecha límite.
 
 Eliminar está dentro de la propia ventana de edición y pide confirmación en dos pasos, así no se borra nada de un toque accidental en el teléfono.
 
@@ -166,6 +174,14 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 **Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
 
 **Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector de tarjeta, y el monto se suma solo al saldo de esa tarjeta. El criterio contable es el de devengo: la compra cuenta como gasto del mes en que la haces, y el pago posterior de la tarjeta solo baja la deuda, sin volver a contar como gasto — por eso esa casilla viene desmarcada cuando la tarjeta ya tiene compras registradas. Si corriges un movimiento (cambias el monto, lo pasas a otra tarjeta o a efectivo) o lo eliminas, el saldo se reajusta solo. Y si en un mes cargas más de lo que pagas, aparece una recomendación avisando de cuánto está creciendo la deuda.
+
+**Cuentas de ahorro** — Dónde vive el dinero ahorrado: cuenta del banco, depósito a plazo, fondo, efectivo guardado. Cada una con institución, tipo, titular (una persona o el hogar) y **saldo inicial configurable**, que es lo que había antes de empezar a registrar.
+
+El botón **+** tiene ahora tres pestañas: *Gasto*, *Ingreso* y ***Ahorrar***. En Ahorrar eliges la cuenta de destino, si es aporte o retiro, el monto y **quién transfiere**. Un aporte no es un gasto —el dinero sigue siendo tuyo— pero **sale del disponible del mes de quien lo transfiere**: ya no puede gastarlo. Un retiro lo devuelve. La casilla *solo mueve la cuenta* sirve para intereses, comisiones y traspasos, que cambian el saldo sin tocar el presupuesto del mes.
+
+Desde cada cuenta hay botones directos de *Aportar* y *Retirar*, y al tocarla se ve su historial completo con saldo inicial, total aportado, total retirado y cada movimiento.
+
+**Composición del disponible** — Bajo la cifra grande del panel aparece de quién es ese saldo: *Ana $X · Luis $Y*, y *sin asignar* si queda un resto. Cada nombre se toca para ver sus movimientos del mes. El disponible de cada persona es su ingreso —registrado o estimado— menos sus gastos, menos lo que transfirió a ahorro, más lo que retiró.
 
 **Metas** — Objetivos con monto y fecha límite. Calcula cuánto necesitas apartar cada mes y cada semana, y lleva el progreso acumulado.
 

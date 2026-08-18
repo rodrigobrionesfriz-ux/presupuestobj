@@ -255,6 +255,18 @@ textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space
 .balanza-pie{display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:var(--suave)}
 .balanza-pie b{font-family:var(--tipo-num);margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
+.composicion{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:11px;padding-top:10px;
+  border-top:1px dotted var(--rayado);font-size:11.5px;color:var(--suave)}
+.composicion span{display:inline-flex;align-items:center;gap:5px;padding:2px 4px;border-radius:3px}
+.composicion i{width:8px;height:8px;border-radius:50%;flex:none}
+.composicion b{font-family:var(--tipo-num);color:var(--tinta);margin-left:3px}
+.toggle.tres button{font-size:13px;padding:10px 4px}
+.cuentas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:15px}
+.cuentas>li{padding-bottom:14px;border-bottom:1px dotted var(--rayado)}
+.cuentas>li:last-child{border-bottom:none;padding-bottom:0}
+.cuenta-cab{display:flex;align-items:baseline;gap:9px;margin-bottom:5px}
+.cuenta-nom{flex:1;font-size:14.5px;font-weight:600}
+.cuenta-saldo{font-family:var(--tipo-num);font-size:15px;font-variant-numeric:tabular-nums}
 .clicable{cursor:pointer;transition:background .15s}
 .clicable:hover,.clicable:focus-visible{background:var(--papel)}
 tr.clicable td{transition:background .15s}
@@ -710,6 +722,18 @@ const esFijaCat = cod=>CAT_FIJAS_BASE.includes(cod) || !!CAT[cod]?.fija;
 const METODOS = ["Efectivo","Débito","Crédito","Transferencia"];
 const MONEDAS = [["MXN","es-MX"],["EUR","es-ES"],["COP","es-CO"],["ARS","es-AR"],["CLP","es-CL"],["PEN","es-PE"],["USD","es-US"]];
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+/* Aportes y retiros de las cuentas de ahorro. No son categorías de gasto:
+   el dinero no se consume, cambia de bolsillo. Se les da código y color
+   propios para que se distingan en el libro. */
+const PSEUDO = {
+  ahorro:{cod:"AHO", nombre:"Aporte a ahorro",  color:"#3F7D58"},
+  retiro:{cod:"RET", nombre:"Retiro de ahorro", color:"#C7913A"},
+};
+const codDe   = m => PSEUDO[m.tipo]?.cod   || m.categoria;
+const colorDe = m => PSEUDO[m.tipo]?.color || CAT[m.categoria]?.color || "#8A9099";
+const nombreCuenta = id => S.cuentas.find(c=>c.id===id)?.nombre || "";
+const TIPOS_CUENTA = ["Cuenta de ahorro","Cuenta corriente","Depósito a plazo",
+                      "Fondo mutuo","APV","Efectivo guardado","Otra"];
 
 /* ============ administración y borrado de datos ===================
    El borrado masivo y la eliminación de deudas, metas y sobres quedan
@@ -749,7 +773,7 @@ let S = {
   modo: HAY_FIREBASE ? "nube" : "local",
   uid:null, hogarId:null, nombreUsuario:"", perfiles:{},
   config: configInicial(), presupuestos: presInicial(),
-  movimientos:[], deudas:[], metas:[],
+  movimientos:[], deudas:[], metas:[], cuentas:[],
   mes: mesDe(hoyISO()), vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
 const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
@@ -879,7 +903,7 @@ async function iniciarFirebase(){
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
       }, err=>marcarError(err)));
-      ["movimientos","deudas","metas"].forEach(col=>{
+      ["movimientos","deudas","metas","cuentas"].forEach(col=>{
         desuscribir.push(onSnapshot(collection(db,"hogares",hogarId,col), snap=>{
           S[col] = snap.docs.map(d=>({...d.data(), id:d.id}));
           render();
@@ -1068,7 +1092,33 @@ function calcular(){
     : (ingresoRegistrado>0 ? ingresoRegistrado : ingresoEstimado);
   const baseUsada = ingresoBase===ingresoEstimado && ingresoEstimado!==ingresoRegistrado
     ? "estimado" : "registrado";
-  const disponible = ingresoBase-totalGasto;
+
+  /* Aportes y retiros de las cuentas de ahorro.
+     Un aporte no es un gasto —el dinero sigue siendo tuyo— pero sí sale del
+     disponible del mes de quien lo transfiere: ya no puede gastarlo. Los
+     marcados como "solo cuenta" (intereses, comisiones, traspasos internos)
+     mueven el saldo de la cuenta sin tocar el presupuesto del mes. */
+  const aportes = delMes.filter(m=>m.tipo==="ahorro" && !m.soloCuenta);
+  const retiros = delMes.filter(m=>m.tipo==="retiro" && !m.soloCuenta);
+  const totalAporte = aportes.reduce((a,b)=>a+b.monto,0);
+  const totalRetiro = retiros.reduce((a,b)=>a+b.monto,0);
+  const disponible = ingresoBase - totalGasto - totalAporte + totalRetiro;
+
+  /* Saldo de cada cuenta: el inicial más todo lo aportado menos lo retirado,
+     desde siempre y no solo de este mes. */
+  const cuentasCalc = S.cuentas.map(c=>{
+    const dentro = S.movimientos.filter(m=>m.cuentaId===c.id);
+    const entradas = dentro.filter(m=>m.tipo==="ahorro").reduce((a,b)=>a+b.monto,0);
+    const salidas  = dentro.filter(m=>m.tipo==="retiro").reduce((a,b)=>a+b.monto,0);
+    const delMesC  = dentro.filter(m=>mesDe(m.fecha)===mes);
+    return {...c,
+      saldo:(c.saldoInicial||0)+entradas-salidas, entradas, salidas,
+      aporteMes: delMesC.filter(m=>m.tipo==="ahorro").reduce((a,b)=>a+b.monto,0),
+      retiroMes: delMesC.filter(m=>m.tipo==="retiro").reduce((a,b)=>a+b.monto,0),
+      movimientos: dentro.length,
+    };
+  }).sort((a,b)=>b.saldo-a.saldo);
+  const saldoAhorros = cuentasCalc.reduce((a,c)=>a+c.saldo,0);
 
   /* Proyección de cierre de mes.
      Los cargos fijos (renta, servicios, colegiatura, suscripciones, cuotas de deuda)
@@ -1170,25 +1220,39 @@ function calcular(){
     const i = ingresos.filter(x=>x.miembro===nombre);
     const gasto = g.reduce((a,b)=>a+b.monto,0);
     const ingreso = i.reduce((a,b)=>a+b.monto,0);
+    const aporte = aportes.filter(x=>x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
+    const retiro = retiros.filter(x=>x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
+    /* Base de ingreso de esta persona: lo suyo registrado frente a lo suyo
+       estimado, con el mismo criterio que se aplica al hogar. */
+    const estP = (S.config.ingresosPersona||{})[nombre] || 0;
+    const baseP = base==="registrado" ? ingreso
+                : base==="estimado"   ? (estP||ingreso)
+                : esMesActual         ? Math.max(ingreso,estP)
+                : (ingreso>0? ingreso : estP);
     const porCatP = {};
     g.forEach(x=>{ porCatP[x.categoria]=(porCatP[x.categoria]||0)+x.monto; });
     const top = Object.entries(porCatP).sort((a,b)=>b[1]-a[1])[0];
     const registrados = S.movimientos.filter(x=>mesDe(x.fecha)===mes && nombreDe(x.uid)===nombre).length;
     return {
-      nombre, gasto, ingreso, neto:ingreso-gasto, n:g.length, registrados,
+      nombre, gasto, ingreso, aporte, retiro, baseP,
+      neto:ingreso-gasto,
+      disponible: baseP - gasto - aporte + retiro,
+      n:g.length, registrados,
       ticket: g.length? gasto/g.length : 0,
       pct: totalGasto>0? gasto/totalGasto : 0,
       prescindible: g.filter(x=>!x.esencial).reduce((a,b)=>a+b.monto,0),
       topCat: top? {cod:top[0], monto:top[1]} : null,
       color: colorPersona(nombre),
     };
-  }).filter(p=>p.gasto>0||p.ingreso>0).sort((a,b)=>b.gasto-a.gasto);
+  }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0).sort((a,b)=>b.gasto-a.gasto);
   const sinAsignar = gastos.filter(x=>!personasHogar().includes(x.miembro)).reduce((a,b)=>a+b.monto,0);
+  const restoDisponible = disponible - porPersona.reduce((a,p)=>a+p.disponible,0);
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
     gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
-    ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,
+    ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
+    aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
     ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
@@ -1457,9 +1521,18 @@ function vPanel(R){
       ? `<div class="renglon ${R.baseUsada==="estimado"?"":"tenue"}"><span>Ingreso estimado${R.baseUsada==="estimado"?' <i class="marca-base">base</i>':""}</span><i></i><b>${fmt(R.ingresoEstimado)}</b></div>`
       : ""}
     <div class="renglon"><span>Gastos</span><i></i><b>−${fmt(R.totalGasto)}</b></div>
+    ${R.totalAporte>0?`<div class="renglon"><span>Ahorro transferido</span><i></i><b>−${fmt(R.totalAporte)}</b></div>`:""}
+    ${R.totalRetiro>0?`<div class="renglon"><span>Retiros de ahorro</span><i></i><b>+${fmt(R.totalRetiro)}</b></div>`:""}
     <div class="renglon tenue"><span>Presupuesto asignado</span><i></i><b>${fmt(R.presupuestoTotal)}</b></div>
+    ${R.saldoAhorros>0?`<div class="renglon tenue"><span>Ahorros acumulados</span><i></i><b>${fmt(R.saldoAhorros)}</b></div>`:""}
     ${R.deudaTotal>0?`<div class="renglon tenue"><span>Deuda pendiente</span><i></i><b>${fmt(R.deudaTotal)}</b></div>`:""}
     <div class="cinta-total"><span>Disponible</span><strong class="${R.disponible<0?"rojo":""}">${fmt(R.disponible)}</strong></div>
+    ${R.porPersona.length? `<div class="composicion">
+      ${R.porPersona.map(p=>`<span class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0">
+        <i style="background:${col(p.color)}"></i>${esc(p.nombre)}
+        <b class="${p.disponible<0?"rojo":""}">${fmt(p.disponible)}</b></span>`).join("")}
+      ${Math.abs(R.restoDisponible)>=1?`<span><i style="background:#B9C0B6"></i>sin asignar<b>${fmt(R.restoDisponible)}</b></span>`:""}
+    </div>`:""}
     ${R.esMesActual?`<div class="cinta-pie">
       <div><em>Ritmo variable</em><b>${fmt(R.ritmoVariable)}/día</b></div>
       <div><em>Proyección fin de mes</em><b class="${alta?"rojo":"verde"}">${fmt(R.proyectado)}</b></div>
@@ -1538,10 +1611,10 @@ function vMovimientos(R){
         ${ms.map(m=>{
           const autor = nombreDe(m.uid)||m.autor||"";
           return `<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
-          <span class="cod" style="color:${col(CAT[m.categoria]?.color||"#8A9099")}">${esc(m.categoria)}</span>
-          <div class="mov-txt"><b>${esc(m.nota||CAT[m.categoria]?.nombre||"Movimiento")}</b>
-            <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
-          <span class="mov-monto ${m.tipo==="ingreso"?"verde":""}">${m.tipo==="ingreso"?"+":"−"}${fmt(m.monto,2)}</span>
+          <span class="cod" style="color:${col(colorDe(m))}">${esc(codDe(m))}</span>
+          <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}</b>
+            <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:m.cuentaId?` · ${esc(nombreCuenta(m.cuentaId))}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
+          <span class="mov-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto,2)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
         </div>`;}).join("")}
       </div>`).join("")}</div>
@@ -1743,6 +1816,32 @@ function vAhorro(R){
       <div class="lista-cab"><span>Avance de la meta</span><b>${fmt(R.ahorroReal)} / ${fmt(meta)}</b></div>
       <div class="barra"><div class="fill ${R.ahorroReal>=meta?"":R.ahorroReal>0?"ambar":"rojo"}" style="width:${clamp(R.ahorroReal/meta*100,0,100)}%"></div></div>
     </div>`:""}
+  </section>
+
+  <section class="tarjeta" data-acento="verde">
+    <div class="cab"><h2>Cuentas de ahorro</h2>
+      <button class="enlace" data-accion="nueva-cuenta">+ Nueva cuenta</button></div>
+    ${R.cuentasCalc.length? `
+      <div class="lista-cab" style="margin-bottom:9px">
+        <span>Saldo total ahorrado</span><b class="mono">${fmt(R.saldoAhorros)}</b></div>
+      <ul class="cuentas">${R.cuentasCalc.map(c=>`
+        <li class="clicable" data-detalle-cuenta="${c.id}" role="button" tabindex="0" title="Ver movimientos de ${esc(c.nombre)}">
+          <div class="cuenta-cab">
+            <span class="punto-p" style="background:${col(c.color||"#3F7D58")}"></span>
+            <span class="cuenta-nom">${esc(c.nombre)}
+              <button class="lapiz-cat" data-editar-cuenta="${c.id}" aria-label="Editar cuenta" title="Editar cuenta">✎</button></span>
+            <span class="cuenta-saldo">${fmt(c.saldo)}</span>
+          </div>
+          <div class="sobre-pie">
+            <span>${esc(c.tipo||"Cuenta")}${c.banco?` · ${esc(c.banco)}`:""} · ${esc(c.titular||"del hogar")}</span>
+            <span>${c.aporteMes>0?`+${fmt(c.aporteMes)} este mes`:c.retiroMes>0?`−${fmt(c.retiroMes)} este mes`:"sin movimiento"}</span>
+          </div>
+          <div class="fila-btns" style="margin-top:8px">
+            <button class="btn mini" data-aportar="${c.id}">Aportar</button>
+            <button class="btn mini" data-retirar="${c.id}">Retirar</button>
+          </div>
+        </li>`).join("")}</ul>`
+    : `<p class="nota">Crea la cuenta donde guardas el dinero —del banco, un depósito, el fondo de emergencia— y podrás registrar cada aporte desde la pestaña <b>Ahorrar</b> del botón +. Cada aporte descuenta del disponible de quien transfiere.</p>`}
   </section>
 
   ${R.porPersona.length>1?`<section class="tarjeta" data-acento="lila">
@@ -1947,6 +2046,19 @@ function conectar(R){
     el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(dato); } };
   });
   abrir("[data-detalle-cat]", detalleCategoria);
+  document.querySelectorAll("[data-detalle-cuenta]").forEach(el=>{
+    el.onclick=e=>{ if(e.target.closest("button")) return; detalleCuenta(el.dataset.detalleCuenta); };
+    el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();detalleCuenta(el.dataset.detalleCuenta)} };
+  });
+  document.querySelectorAll("[data-editar-cuenta]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); modalCuenta(b.dataset.editarCuenta);
+  });
+  document.querySelectorAll("[data-aportar]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); movimientoCuenta(b.dataset.aportar,"ahorro");
+  });
+  document.querySelectorAll("[data-retirar]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); movimientoCuenta(b.dataset.retirar,"retiro");
+  });
   abrir("[data-detalle-persona]", detallePersona);
   document.querySelectorAll("[data-editar-mov]").forEach(el=>{
     el.onclick=()=>modalMovimiento(el.dataset.editarMov);
@@ -1994,6 +2106,7 @@ function acciones(a,R){
     nuevo:()=>modalMovimiento(),
     "nueva-deuda":()=>modalDeuda(),
     "nueva-categoria":()=>modalCategoria(),
+    "nueva-cuenta":()=>modalCuenta(),
     fondo:()=>elegirFondo(),
     "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
     "nueva-meta":()=>modalMeta(),
@@ -2076,18 +2189,18 @@ function listaDetalle(movs){
   if(!movs.length) return `<p class="nota">No hay movimientos en este grupo durante ${mesLargo(S.mes)}.</p>`;
   return `<div class="detalle-lista">${movs.map(m=>{
     const autor = nombreDe(m.uid)||m.autor||"";
-    const tarjeta = S.deudas.find(d=>d.id===m.tarjetaId)?.nombre;
+    const tarjeta = S.deudas.find(d=>d.id===m.tarjetaId)?.nombre || nombreCuenta(m.cuentaId);
     return `<div class="detalle-fila" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar este movimiento">
       <div class="detalle-fecha"><b>${fechaCorta(m.fecha).split(" ")[0]}</b><em>${fechaCorta(m.fecha).split(" ")[1]||""}</em></div>
       <div class="detalle-txt">
-        <b>${esc(m.nota||CAT[m.categoria]?.nombre||"Movimiento")}</b>
+        <b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}</b>
         <small>
           <span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span>
           · ${esc(m.metodo||"—")}${tarjeta?` · ${esc(tarjeta)}`:""}
           ${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}
         </small>
       </div>
-      <span class="detalle-monto ${m.tipo==="ingreso"?"verde":""}">${m.tipo==="ingreso"?"+":"−"}${fmt(m.monto,2)}</span>
+      <span class="detalle-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto,2)}</span>
     </div>`;
   }).join("")}</div>`;
 }
@@ -2168,6 +2281,7 @@ function modalMovimiento(id=null){
   const m = id? S.movimientos.find(x=>x.id===id) : null;
   const fecha = m? m.fecha : (mesDe(hoyISO())===S.mes? hoyISO() : `${S.mes}-01`);
   const tipoIni = m?.tipo || "gasto";
+  const esAhorro = tipoIni==="ahorro" || tipoIni==="retiro";
   const catIni = (m && m.tipo==="gasto")? m.categoria : "ALM";
   const yo = miNombre();
   const miembroIni = m? m.miembro : yo;
@@ -2177,14 +2291,32 @@ function modalMovimiento(id=null){
 
   modal(m? "Editar movimiento":"Registrar movimiento",`
     ${m?`<p class="nota migaja">Registrado el ${esc(m.fecha)} · corrige lo que esté mal asignado y guarda.</p>`:""}
-    <div class="toggle"><button class="${tipoIni==="gasto"?"activo":""}" id="t-gasto">Gasto</button>
-      <button class="${tipoIni==="ingreso"?"activo":""}" id="t-ingreso">Ingreso</button></div>
+    <div class="toggle tres"><button class="${tipoIni==="gasto"?"activo":""}" id="t-gasto">Gasto</button>
+      <button class="${tipoIni==="ingreso"?"activo":""}" id="t-ingreso">Ingreso</button>
+      <button class="${esAhorro?"activo":""}" id="t-ahorro">Ahorrar</button></div>
     <label class="campo"><span>Monto</span><input class="grande" id="m-monto" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${m?m.monto:""}"></label>
-    <div id="bloque-cat" class="${tipoIni==="ingreso"?"oculto":""}">
+    <div id="bloque-cat" class="${tipoIni==="gasto"?"":"oculto"}">
       <div class="campo"><span class="campo-tit">Categoría</span><div class="chips" id="m-cats">
         ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${col(c.color)};color:${col(c.color)}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
       </div></div>
       <label class="check"><input type="checkbox" id="m-esencial" ${(m? m.esencial : CAT[catIni].esencial)?"checked":""}><span>Gasto esencial</span></label>
+    </div>
+    <div id="bloque-ahorro" class="${esAhorro?"":"oculto"}">
+      ${S.cuentas.length? `
+        <label class="campo"><span>¿A qué cuenta de ahorro?</span>
+          <select id="m-cuenta">
+            ${S.cuentas.map(c=>`<option value="${c.id}" ${m?.cuentaId===c.id?"selected":""}>${esc(c.nombre)}${c.banco?` · ${esc(c.banco)}`:""}</option>`).join("")}
+          </select></label>
+        <div class="campo"><span class="campo-tit">Tipo de movimiento</span>
+          <div class="chips" id="m-flujo">
+            <button class="chip ${m?.tipo!=="retiro"?"activo":""}" data-flujo="ahorro"><b>APO</b> Aporte a la cuenta</button>
+            <button class="chip ${m?.tipo==="retiro"?"activo":""}" data-flujo="retiro"><b>RET</b> Retiro de la cuenta</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="m-solocuenta" ${m?.soloCuenta?"checked":""}>
+          <span>Solo mueve la cuenta (interés, comisión, traspaso)</span></label>
+        <p class="nota aviso-credito" id="nota-ahorro">Un aporte no es un gasto: el dinero sigue siendo tuyo, pero sale del disponible del mes de quien lo transfiere.</p>`
+      : `<p class="nota aviso-credito">Todavía no tienes cuentas de ahorro. Créalas en <b>Ahorro → Cuentas de ahorro</b> y podrás asignar aquí cada aporte.</p>`}
     </div>
     <label class="campo"><span>Concepto</span><input id="m-nota" placeholder="Supermercado, gasolina, sueldo…" value="${esc(m?.nota||"")}"></label>
     <div class="campos-2">
@@ -2201,19 +2333,28 @@ function modalMovimiento(id=null){
         <p class="nota aviso-credito">El monto se suma al saldo de la tarjeta. La compra cuenta como gasto del mes; el pago posterior de la tarjeta no vuelve a contar.</p>`
       : `<p class="nota aviso-credito">No tienes tarjetas registradas. Créalas en <b>Deudas → Añadir deuda o tarjeta</b> para que las compras a crédito se sumen solas a su saldo.</p>`}
     </div>
-    <label class="campo"><span>¿De quién es el gasto?</span>
+    <label class="campo"><span id="etq-miembro">${esAhorro?"¿Quién transfiere?":"¿De quién es el gasto?"}</span>
       <select id="m-miembro">${miembros.map(x=>`<option ${miembroIni===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
     ${registrador?`<p class="nota firma">Registrado por <b>${esc(registrador)}</b>${m&&m.creado?` · ${new Date(m.creado).toLocaleDateString("es")}`:""}</p>`:""}
   `, async()=>{
     const monto = num($("#m-monto").value);
     if(monto<=0) return "Escribe un monto mayor que cero.";
-    const tipo = $("#t-gasto").classList.contains("activo")?"gasto":"ingreso";
+    const modo = $("#t-gasto").classList.contains("activo") ? "gasto"
+               : $("#t-ingreso").classList.contains("activo") ? "ingreso" : "ahorro";
+    let tipo = modo, cuentaId = "", soloCuenta = false;
+    if(modo==="ahorro"){
+      if(!S.cuentas.length) return "Crea primero una cuenta de ahorro en Ahorro → Cuentas de ahorro.";
+      cuentaId = $("#m-cuenta").value;
+      if(!cuentaId) return "Elige la cuenta de ahorro.";
+      tipo = document.querySelector("#m-flujo .activo")?.dataset.flujo || "ahorro";
+      soloCuenta = $("#m-solocuenta").checked;
+    }
     const cat = document.querySelector("#m-cats .activo")?.dataset.cat||"OTR";
     const metodo = $("#m-metodo").value;
     const tarjetaId = (tipo==="gasto" && metodo==="Crédito") ? ($("#m-tarjeta")?.value||"") : "";
-    const datos = { tipo, monto, categoria: tipo==="ingreso"?"OTR":cat, fecha:$("#m-fecha").value,
-      metodo, tarjetaId, miembro:$("#m-miembro").value, nota:$("#m-nota").value.trim(),
-      esencial: tipo==="ingreso"? true : $("#m-esencial").checked };
+    const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", fecha:$("#m-fecha").value,
+      metodo, tarjetaId, cuentaId, soloCuenta, miembro:$("#m-miembro").value,
+      nota:$("#m-nota").value.trim(), esencial: tipo==="gasto"? $("#m-esencial").checked : true };
     if(m){
       await DB.actualizar("movimientos",id,datos);
       await ajustarTarjeta(cargoDe(m), cargoDe({...m,...datos}));
@@ -2231,14 +2372,36 @@ function modalMovimiento(id=null){
           avisar("Movimiento eliminado");
         }} : null);
 
-  const g=$("#t-gasto"), ing=$("#t-ingreso");
+  const g=$("#t-gasto"), ing=$("#t-ingreso"), aho=$("#t-ahorro");
   const verTarjeta = ()=>{
     const esGasto = g.classList.contains("activo");
     $("#bloque-tarjeta").classList.toggle("oculto", !(esGasto && $("#m-metodo").value==="Crédito"));
   };
+  const cambiarModo = (activo)=>{
+    [g,ing,aho].forEach(b=>b.classList.remove("activo"));
+    activo.classList.add("activo");
+    const modo = activo===g? "gasto" : activo===ing? "ingreso" : "ahorro";
+    $("#bloque-cat").classList.toggle("oculto", modo!=="gasto");
+    $("#bloque-ahorro").classList.toggle("oculto", modo!=="ahorro");
+    const etq=$("#etq-miembro");
+    if(etq) etq.textContent = modo==="ahorro"? "¿Quién transfiere?"
+                            : modo==="ingreso"? "¿Quién lo recibe?" : "¿De quién es el gasto?";
+    const nota=$("#m-nota");
+    if(nota) nota.placeholder = modo==="ahorro"? "Abono mensual, aguinaldo…"
+                              : modo==="ingreso"? "Sueldo, venta, devolución…" : "Supermercado, gasolina…";
+    if(modo==="ahorro" && !m) $("#m-metodo").value = "Transferencia";
+    verTarjeta();
+  };
   $("#m-metodo").onchange = verTarjeta;
-  g.onclick=()=>{g.classList.add("activo");ing.classList.remove("activo");$("#bloque-cat").classList.remove("oculto");verTarjeta()};
-  ing.onclick=()=>{ing.classList.add("activo");g.classList.remove("activo");$("#bloque-cat").classList.add("oculto");verTarjeta()};
+  g.onclick=()=>cambiarModo(g); ing.onclick=()=>cambiarModo(ing); aho.onclick=()=>cambiarModo(aho);
+  document.querySelectorAll("#m-flujo [data-flujo]").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#m-flujo [data-flujo]").forEach(x=>x.classList.remove("activo"));
+    b.classList.add("activo");
+    const nota=$("#nota-ahorro");
+    if(nota) nota.textContent = b.dataset.flujo==="ahorro"
+      ? "Un aporte no es un gasto: el dinero sigue siendo tuyo, pero sale del disponible del mes de quien lo transfiere."
+      : "Un retiro devuelve el dinero al disponible del mes de quien lo saca.";
+  });
   document.querySelectorAll("#m-cats [data-cat]").forEach(b=>b.onclick=()=>{
     document.querySelectorAll("#m-cats [data-cat]").forEach(x=>{x.classList.remove("activo");x.style.borderColor="";x.style.color=""});
     b.classList.add("activo"); const c=CAT[b.dataset.cat];
@@ -2334,6 +2497,110 @@ function codigoLibre(nombre){
   if(!CAT[base]) return base;
   for(let i=1;i<100;i++){ const alt=base.slice(0,2)+i; if(!CAT[alt]) return alt; }
   return base.slice(0,2)+Math.floor(Math.random()*90+10);
+}
+
+/* ================= cuentas de ahorro ============================== */
+function modalCuenta(id=null){
+  const c = id? S.cuentas.find(x=>x.id===id) : null;
+  const R = id? calcular() : null;
+  const saldo = id? (R.cuentasCalc.find(x=>x.id===id)?.saldo ?? 0) : 0;
+  const titulares = ["Del hogar", ...personasHogar()];
+  const colorIni = c?.color || PALETA_CAT[S.cuentas.length % PALETA_CAT.length];
+
+  modal(c? `Editar ${c.nombre}` : "Nueva cuenta de ahorro",`
+    ${c? `<p class="nota migaja">Saldo actual ${fmt(saldo)} · ${cuenta(R.cuentasCalc.find(x=>x.id===id)?.movimientos||0,"movimiento","movimientos")}</p>`
+        : `<p class="nota">Dónde vive el dinero ahorrado: una cuenta del banco, un depósito a plazo, un fondo. Cada aporte que registres se sumará a su saldo.</p>`}
+    <label class="campo"><span>Nombre de la cuenta</span>
+      <input id="cu-nombre" placeholder="Ahorro vivienda, fondo emergencia…" value="${esc(c?.nombre||"")}"></label>
+    <div class="campos-2">
+      <label class="campo"><span>Banco o institución</span>
+        <input id="cu-banco" placeholder="Banco Estado, Falabella…" value="${esc(c?.banco||"")}"></label>
+      <label class="campo"><span>Tipo</span>
+        <select id="cu-tipo">${TIPOS_CUENTA.map(t=>`<option ${c?.tipo===t?"selected":""}>${t}</option>`).join("")}</select></label>
+    </div>
+    <div class="campos-2">
+      <label class="campo"><span>Titular</span>
+        <select id="cu-titular">${titulares.map(t=>`<option ${(c?.titular||"Del hogar")===t?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
+      <label class="campo"><span>Saldo inicial</span>
+        <input id="cu-saldo" type="number" inputmode="decimal" placeholder="0" value="${c?.saldoInicial ?? ""}"></label>
+    </div>
+    ${c?`<p class="nota ayuda">El saldo inicial es lo que había en la cuenta antes de empezar a registrar aquí. Los aportes y retiros se suman encima.</p>`:""}
+    <div class="campo"><span class="campo-tit">Color</span>
+      <div class="chips" id="cu-color">
+        ${PALETA_CAT.map(x=>`<button class="tono ${x===colorIni?"activo":""}" data-color="${x}" style="background:${x}" aria-label="Color ${x}"></button>`).join("")}
+      </div>
+    </div>
+  `, async()=>{
+    const nombre=$("#cu-nombre").value.trim();
+    if(!nombre) return "Ponle un nombre a la cuenta.";
+    const datos = {nombre, banco:$("#cu-banco").value.trim(), tipo:$("#cu-tipo").value,
+      titular:$("#cu-titular").value, saldoInicial:num($("#cu-saldo").value),
+      color:document.querySelector("#cu-color .activo")?.dataset.color||colorIni};
+    if(c){ await DB.actualizar("cuentas",id,datos); avisar("Cuenta actualizada"); }
+    else { await DB.agregar("cuentas",datos); avisar("Cuenta creada"); }
+  }, c? "Guardar cambios":"Crear cuenta",
+     c&&esAdmin()? {texto:"Eliminar cuenta", accion:async()=>{
+        for(const m of S.movimientos.filter(m=>m.cuentaId===id))
+          await DB.actualizar("movimientos",m.id,{cuentaId:""});
+        await DB.borrar("cuentas",id);
+        avisar("Cuenta eliminada");
+      }} : null);
+
+  document.querySelectorAll("#cu-color [data-color]").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#cu-color [data-color]").forEach(x=>x.classList.remove("activo"));
+    b.classList.add("activo");
+  });
+}
+
+/* Aporte o retiro rápido desde la propia cuenta */
+function movimientoCuenta(id,flujo="ahorro"){
+  const c = S.cuentas.find(x=>x.id===id); if(!c) return;
+  const R = calcular();
+  const saldo = R.cuentasCalc.find(x=>x.id===id)?.saldo ?? 0;
+  modal(flujo==="ahorro"? `Aportar a ${c.nombre}` : `Retirar de ${c.nombre}`,`
+    <p class="nota migaja">Saldo actual ${fmt(saldo)}</p>
+    <label class="campo"><span>Monto</span>
+      <input class="grande" id="cm-monto" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></label>
+    <label class="campo"><span>${flujo==="ahorro"?"¿Quién transfiere?":"¿Quién lo retira?"}</span>
+      <select id="cm-miembro">${personasHogar().map(x=>`<option ${miNombre()===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+    <div class="campos-2">
+      <label class="campo"><span>Fecha</span><input id="cm-fecha" type="date" value="${hoyISO()}"></label>
+      <label class="campo"><span>Medio</span>
+        <select id="cm-metodo">${METODOS.map(x=>`<option ${x==="Transferencia"?"selected":""}>${x}</option>`).join("")}</select></label>
+    </div>
+    <label class="campo"><span>Concepto</span>
+      <input id="cm-nota" placeholder="${flujo==="ahorro"?"Abono mensual, aguinaldo…":"Imprevisto, compra grande…"}"></label>
+    <label class="check"><input type="checkbox" id="cm-solo">
+      <span>Solo mueve la cuenta (interés, comisión, traspaso)</span></label>
+    <p class="nota aviso-credito">${flujo==="ahorro"
+      ? "Sale del disponible del mes de quien transfiere, salvo que marques la casilla."
+      : "Vuelve al disponible del mes de quien lo retira, salvo que marques la casilla."}</p>
+  `, async()=>{
+    const monto = num($("#cm-monto").value);
+    if(monto<=0) return "Escribe un monto mayor que cero.";
+    await DB.agregar("movimientos",{
+      tipo:flujo, monto, categoria:"OTR", fecha:$("#cm-fecha").value,
+      metodo:$("#cm-metodo").value, tarjetaId:"", cuentaId:id,
+      soloCuenta:$("#cm-solo").checked, miembro:$("#cm-miembro").value,
+      nota:$("#cm-nota").value.trim() || (flujo==="ahorro"?`Aporte a ${c.nombre}`:`Retiro de ${c.nombre}`),
+      esencial:true, uid:S.uid||"", autor:miNombre(), creado:Date.now()
+    });
+    avisar(flujo==="ahorro"? "Aporte registrado" : "Retiro registrado");
+  }, flujo==="ahorro"? "Registrar aporte":"Registrar retiro");
+}
+
+function detalleCuenta(id){
+  const c = S.cuentas.find(x=>x.id===id); if(!c) return;
+  const R = calcular();
+  const datos = R.cuentasCalc.find(x=>x.id===id);
+  const movs = S.movimientos.filter(m=>m.cuentaId===id).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  modalInfo(c.nombre, `${esc(c.tipo||"Cuenta")}${c.banco?` · ${esc(c.banco)}`:""} · titular ${esc(c.titular||"del hogar")}`,
+    `<div class="metricas" style="margin-top:0;border-top:none;padding-top:0">
+       <div><em>Saldo actual</em><b>${fmt(datos.saldo)}</b></div>
+       <div><em>Saldo inicial</em><b>${fmt(c.saldoInicial||0)}</b></div>
+       <div><em>Total aportado</em><b class="verde">+${fmt(datos.entradas)}</b></div>
+       <div><em>Total retirado</em><b class="rojo">−${fmt(datos.salidas)}</b></div>
+     </div>` + listaDetalle(movs));
 }
 
 function modalCategoria(cod=null){
@@ -2480,7 +2747,11 @@ async function exportarExcel(){
     ["  de los cuales variables", R.gastoVariable],
     ["Gasto esencial", R.esenciales],
     ["Gasto prescindible", R.prescindibles],
-    ["Ahorro del mes", R.ahorroReal],
+    ["Aportes a cuentas de ahorro", R.totalAporte],
+    ["Retiros de ahorro", R.totalRetiro],
+    ["Saldo total en cuentas", R.saldoAhorros],
+    ["Disponible del mes", R.disponible],
+    ["Ahorro del mes (no gastado)", R.ahorroReal],
     ["Tasa de ahorro", R.tasaAhorro],
     [],
     ["PROYECCIÓN A FIN DE MES"],
@@ -2499,14 +2770,17 @@ async function exportarExcel(){
   X.utils.book_append_sheet(lib, hojaDesde(X,resumen,[34,18],{1:MONEDA}), "Resumen");
 
   /* --- Movimientos --- */
-  const movs = [["Fecha","Tipo","Cuenta","Categoría","Concepto","Monto","Medio de pago",
-                 "Tarjeta","Persona","Registrado por","Esencial"]];
+  const ETIQ_TIPO = {gasto:"Gasto", ingreso:"Ingreso", ahorro:"Aporte a ahorro", retiro:"Retiro de ahorro"};
+  const movs = [["Fecha","Tipo","Cta.","Categoría","Concepto","Monto","Medio de pago",
+                 "Tarjeta","Cuenta de ahorro","¿Afecta el mes?","Persona","Registrado por","Esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>movs.push([
-    m.fecha, m.tipo, m.categoria, CAT[m.categoria]?.nombre||m.categoria, m.nota||"",
+    m.fecha, ETIQ_TIPO[m.tipo]||m.tipo, codDe(m),
+    PSEUDO[m.tipo]?.nombre || CAT[m.categoria]?.nombre || m.categoria, m.nota||"",
     m.monto, m.metodo, S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"",
+    nombreCuenta(m.cuentaId), m.cuentaId? (m.soloCuenta?"No":"Sí") : "Sí",
     m.miembro||"", nombreDe(m.uid)||m.autor||"", m.esencial?"Sí":"No"
   ]));
-  X.utils.book_append_sheet(lib, hojaDesde(X,movs,[11,9,8,20,28,14,15,18,14,16,9],{5:MONEDA}), "Movimientos");
+  X.utils.book_append_sheet(lib, hojaDesde(X,movs,[11,16,7,20,28,14,15,18,20,15,14,16,9],{5:MONEDA}), "Movimientos");
 
   /* --- Por categoría --- */
   const cats = [["Cuenta","Categoría","Tipo","Frecuencia","Presupuesto","Gastado","Diferencia",
@@ -2559,6 +2833,20 @@ async function exportarExcel(){
     ]));
     X.utils.book_append_sheet(lib, hojaDesde(X,met,[24,14,14,14,10,14,16,24],
       {1:MONEDA,2:MONEDA,3:MONEDA,4:PCT,7:MONEDA}), "Metas");
+  }
+
+  /* --- Cuentas de ahorro --- */
+  if(S.cuentas.length){
+    const cu = [["Cuenta","Institución","Tipo","Titular","Saldo inicial","Aportado",
+                 "Retirado","Saldo actual","Aporte del mes","Movimientos"]];
+    R.cuentasCalc.forEach(c=>cu.push([
+      c.nombre, c.banco||"", c.tipo||"", c.titular||"Del hogar", c.saldoInicial||0,
+      c.entradas, c.salidas, c.saldo, c.aporteMes, c.movimientos
+    ]));
+    cu.push([]);
+    cu.push(["","","","TOTAL","","","",R.saldoAhorros,R.totalAporte,""]);
+    X.utils.book_append_sheet(lib, hojaDesde(X,cu,[24,18,18,14,14,14,14,14,15,12],
+      {4:MONEDA,5:MONEDA,6:MONEDA,7:MONEDA,8:MONEDA}), "Cuentas");
   }
 
   /* --- Recomendaciones --- */
