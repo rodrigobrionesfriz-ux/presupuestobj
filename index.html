@@ -255,6 +255,7 @@ textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space
 .balanza-pie{display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:var(--suave)}
 .balanza-pie b{font-family:var(--tipo-num);margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
+.mini-select{width:auto;min-width:104px;flex:none}
 .composicion{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:11px;padding-top:10px;
   border-top:1px dotted var(--rayado);font-size:11.5px;color:var(--suave)}
 .composicion span{display:inline-flex;align-items:center;gap:5px;padding:2px 4px;border-radius:3px}
@@ -761,6 +762,50 @@ const sumaMes = (m,k)=>{const[y,mm]=m.split("-").map(Number);const d=new Date(y,
 const mesLargo = m=>{const[y,mm]=m.split("-").map(Number);const s=new Date(y,mm-1,1).toLocaleDateString("es",{month:"long",year:"numeric"});return s[0].toUpperCase()+s.slice(1)};
 const mesCorto = m=>{const[y,mm]=m.split("-").map(Number);return new Date(y,mm-1,1).toLocaleDateString("es",{month:"short"}).replace(".","")};
 const uid = ()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+
+/* ============ ciclo mensual configurable =========================
+   Muchas familias no viven del 1 al 31 sino del día de pago al siguiente.
+   El "periodo" se identifica por el mes en que empieza: con el ciclo el 10,
+   el periodo 2026-08 va del 10 de agosto al 9 de septiembre.
+   Con el ciclo el día 1 —el valor por omisión— todo esto equivale al mes
+   natural, así que los datos ya registrados siguen cayendo donde estaban. */
+const diaCiclo = ()=>Math.min(28,Math.max(1, S.config?.diaCiclo || 1));
+const iso = (y,m,d)=>`${y}-${pad(m)}-${pad(d)}`;
+const inicioPeriodo = mes=>{ const [y,m]=mes.split("-").map(Number); return iso(y,m,diaCiclo()); };
+const finPeriodo = mes=>{
+  const [y,m]=mes.split("-").map(Number);
+  const d = new Date(y,m-1,diaCiclo());   // día siguiente al cierre
+  d.setMonth(d.getMonth()+1); d.setDate(d.getDate()-1);
+  return iso(d.getFullYear(), d.getMonth()+1, d.getDate());
+};
+/* A qué periodo pertenece una fecha */
+const periodoDe = fechaISO=>{
+  const [y,m,d] = String(fechaISO).split("-").map(Number);
+  const clave = `${y}-${pad(m)}`;
+  return d>=diaCiclo()? clave : sumaMes(clave,-1);
+};
+const enPeriodo = (fechaISO,mes)=>periodoDe(fechaISO)===mes;
+const diasPeriodo = mes=>{
+  const a=aDate(inicioPeriodo(mes)), b=aDate(finPeriodo(mes));
+  return Math.round((b-a)/86400000)+1;
+};
+const diaDelPeriodo = mes=>{
+  const a=aDate(inicioPeriodo(mes)), hoy=aDate(hoyISO());
+  return Math.min(diasPeriodo(mes), Math.max(1, Math.round((hoy-a)/86400000)+1));
+};
+const fechasPeriodo = mes=>{
+  const salida=[], a=aDate(inicioPeriodo(mes)), n=diasPeriodo(mes);
+  for(let i=0;i<n;i++){ const d=new Date(a); d.setDate(a.getDate()+i);
+    salida.push(iso(d.getFullYear(), d.getMonth()+1, d.getDate())); }
+  return salida;
+};
+/* Etiqueta del periodo: "Agosto de 2026" con ciclo el 1, "10 ago – 9 sep 2026" si no */
+const etiquetaPeriodo = mes=>{
+  if(diaCiclo()===1) return mesLargo(mes);
+  const corto = f=>aDate(f).toLocaleDateString("es",{day:"numeric",month:"short"}).replace(".","");
+  const fin = finPeriodo(mes);
+  return `${corto(inicioPeriodo(mes))} – ${corto(fin)} ${fin.slice(0,4)}`;
+};
 const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 /* num() devuelve enteros: todos los importes de la app lo son.
    numDec() se reserva para valores que sí llevan decimales, como la tasa. */
@@ -777,7 +822,7 @@ let S = {
   uid:null, hogarId:null, nombreUsuario:"", perfiles:{},
   config: configInicial(), presupuestos: presInicial(),
   movimientos:[], deudas:[], metas:[], cuentas:[],
-  mes: mesDe(hoyISO()), vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
+  mes: mesDe(hoyISO()), mesFijado:false, vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
 const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
 /* Nombre con el que aparece cada persona del hogar. Si el movimiento trae el
@@ -905,6 +950,7 @@ async function iniciarFirebase(){
         S.config = {...configInicial(),...(v.config||{})};
         S.presupuestos = {...presInicial(),...(v.presupuestos||{})};
         S.perfiles = v.perfiles||{};
+        if(!S.mesFijado){ S.mes = periodoDe(hoyISO()); S.mesFijado = true; }
         S.adminUid = v.adminUid||""; S.adminCorreo = v.adminCorreo||"";
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
@@ -1059,6 +1105,7 @@ async function registrarmeEnHogar(){
 }
 
 function mostrarApp(){
+  if(!S.mesFijado){ S.mes = periodoDe(hoyISO()); S.mesFijado = true; }
   $("#acceso").classList.add("oculto");
   $("#app").classList.remove("oculto");
   render();
@@ -1068,18 +1115,18 @@ function mostrarApp(){
 /* ============================ cálculos ============================ */
 function calcular(){
   const mes = S.mes, mesAnt = sumaMes(mes,-1);
-  const delMes = S.movimientos.filter(m=>mesDe(m.fecha)===mes);
+  const delMes = S.movimientos.filter(m=>enPeriodo(m.fecha,mes));
   const gastos = delMes.filter(m=>m.tipo==="gasto");
   const ingresos = delMes.filter(m=>m.tipo==="ingreso");
-  const gastosAnt = S.movimientos.filter(m=>mesDe(m.fecha)===mesAnt && m.tipo==="gasto");
+  const gastosAnt = S.movimientos.filter(m=>enPeriodo(m.fecha,mesAnt) && m.tipo==="gasto");
 
   const totalGasto = gastos.reduce((a,b)=>a+b.monto,0);
   const totalIngreso = ingresos.reduce((a,b)=>a+b.monto,0);
   const presupuestoTotal = Object.values(S.presupuestos).reduce((a,b)=>a+(b||0),0);
 
-  const dias = diasEnMes(mes);
-  const esMesActual = mes===mesDe(hoyISO());
-  const diaHoy = esMesActual? new Date().getDate() : dias;
+  const dias = diasPeriodo(mes);
+  const esMesActual = mes===periodoDe(hoyISO());
+  const diaHoy = esMesActual? diaDelPeriodo(mes) : dias;
   const restantes = Math.max(0,dias-diaHoy);
   const ritmoDiario = totalGasto/Math.max(1,diaHoy);
 
@@ -1116,7 +1163,7 @@ function calcular(){
     const dentro = S.movimientos.filter(m=>m.cuentaId===c.id);
     const entradas = dentro.filter(m=>m.tipo==="ahorro").reduce((a,b)=>a+b.monto,0);
     const salidas  = dentro.filter(m=>m.tipo==="retiro").reduce((a,b)=>a+b.monto,0);
-    const delMesC  = dentro.filter(m=>mesDe(m.fecha)===mes);
+    const delMesC  = dentro.filter(m=>enPeriodo(m.fecha,mes));
     return {...c,
       saldo:(c.saldoInicial||0)+entradas-salidas, entradas, salidas,
       aporteMes: delMesC.filter(m=>m.tipo==="ahorro").reduce((a,b)=>a+b.monto,0),
@@ -1165,16 +1212,18 @@ function calcular(){
   const prescindibles = totalGasto-esenciales;
 
   const acumulado=[]; let acc=0;
-  for(let d=1;d<=dias;d++){
-    const dd = `${mes}-${pad(d)}`;
+  fechasPeriodo(mes).forEach((dd,i)=>{
+    const d = i+1;                       // día número i dentro del ciclo
     acc += gastos.filter(g=>g.fecha===dd).reduce((a,b)=>a+b.monto,0);
-    acumulado.push({dia:d, gasto:(esMesActual&&d>diaHoy)?null:acc, limite:presupuestoTotal*d/dias});
-  }
+    acumulado.push({dia:Number(dd.slice(8)),      // se rotula con el día del calendario
+                    gasto:(esMesActual&&d>diaHoy)?null:acc,
+                    limite:presupuestoTotal*d/dias});
+  });
   const historico=[];
   for(let k=5;k>=0;k--){
     const mm=sumaMes(mes,-k);
-    const g=S.movimientos.filter(m=>mesDe(m.fecha)===mm&&m.tipo==="gasto").reduce((a,b)=>a+b.monto,0);
-    const i=S.movimientos.filter(m=>mesDe(m.fecha)===mm&&m.tipo==="ingreso").reduce((a,b)=>a+b.monto,0);
+    const g=S.movimientos.filter(m=>enPeriodo(m.fecha,mm)&&m.tipo==="gasto").reduce((a,b)=>a+b.monto,0);
+    const i=S.movimientos.filter(m=>enPeriodo(m.fecha,mm)&&m.tipo==="ingreso").reduce((a,b)=>a+b.monto,0);
     historico.push({mes:mesCorto(mm),gasto:g,ingreso:i});
   }
   const porDia = DIAS.map((d,i)=>{
@@ -1202,7 +1251,7 @@ function calcular(){
   S.movimientos.filter(m=>m.tipo==="gasto").forEach(g=>{
     const k=(g.nota||"").trim().toLowerCase(); if(!k) return;
     if(!rec[k]) rec[k]={nombre:g.nota,meses:new Set(),montos:[],cod:g.categoria};
-    rec[k].meses.add(mesDe(g.fecha)); rec[k].montos.push(g.monto);
+    rec[k].meses.add(periodoDe(g.fecha)); rec[k].montos.push(g.monto);
   });
   const recurrentes = Object.values(rec).filter(r=>r.meses.size>=3)
     .map(r=>({nombre:r.nombre,cod:r.cod,meses:r.meses.size,promedio:r.montos.reduce((a,b)=>a+b,0)/r.montos.length}))
@@ -1238,7 +1287,7 @@ function calcular(){
     const porCatP = {};
     g.forEach(x=>{ porCatP[x.categoria]=(porCatP[x.categoria]||0)+x.monto; });
     const top = Object.entries(porCatP).sort((a,b)=>b[1]-a[1])[0];
-    const registrados = S.movimientos.filter(x=>mesDe(x.fecha)===mes && nombreDe(x.uid)===nombre).length;
+    const registrados = S.movimientos.filter(x=>enPeriodo(x.fecha,mes) && nombreDe(x.uid)===nombre).length;
     return {
       nombre, gasto, ingreso, aporte, retiro, baseP,
       neto:ingreso-gasto,
@@ -1493,7 +1542,7 @@ function render(){
   if($("#app").classList.contains("oculto")) return;
   sincronizarCategorias();
   const R = calcular();
-  $("#mes-txt").textContent = mesLargo(S.mes);
+  $("#mes-txt").textContent = etiquetaPeriodo(S.mes);
   $("#sub-hogar").textContent = S.modo==="nube"? `Hogar ${S.hogarId||""}` : "Modo local · sin sincronizar";
   $("#punto").className = "punto"+(S.modo==="local"?" local":"");
   $("#estado-txt").textContent = S.modo==="nube"? "en línea":"local";
@@ -1799,7 +1848,7 @@ function vAhorro(R){
 
   return `
   <section class="tarjeta destacado">
-    <em>Ahorro del hogar en ${mesLargo(R.mes).split(" ")[0].toLowerCase()}</em>
+    <em>Ahorro del hogar · ${etiquetaPeriodo(R.mes)}</em>
     <strong class="${R.ahorroReal<0?"rojo":""}" style="${R.ahorroReal<0?"color:var(--margen)":""}">${fmt(R.ahorroReal)}</strong>
     <span>${R.ingresoBase>0?`${Math.round(R.tasaAhorro*100)}% de los ingresos del hogar`:"define tus ingresos para ver la tasa"}</span>
 
@@ -1922,6 +1971,15 @@ function vAjustes(R){
           <b class="mono">${fmt(S.config.ingresoMensual||0)}</b></li>
       </ul>
     </div>
+    <div class="campo"><span class="campo-tit">¿Qué día empieza el ciclo?</span>
+      <p class="nota ayuda" style="margin:0 0 8px">Si cobran el día 10, el mes presupuestario va del 10 al 9 del mes siguiente. Así el sueldo y los gastos que cubre caen en el mismo periodo.</p>
+      <div class="fila-btns">
+        <select class="mini-select" data-cfg="diaCiclo">
+          ${Array.from({length:28},(_,i)=>i+1).map(d=>`<option value="${d}" ${diaCiclo()===d?"selected":""}>Día ${d}</option>`).join("")}
+        </select>
+        <span class="nota" style="margin:0">Periodo actual: <b>${etiquetaPeriodo(S.mes)}</b></span>
+      </div>
+    </div>
     <label class="campo"><span>Meta de ahorro mensual</span>
       <input type="number" inputmode="numeric" data-cfg="metaAhorro" value="${S.config.metaAhorro||""}" placeholder="0"></label>
     <div class="campo"><span class="campo-tit">¿Sobre qué ingreso se calcula el mes?</span>
@@ -2040,7 +2098,11 @@ function conectar(R){
   document.querySelectorAll("[data-cfg]").forEach(i=>i.onchange=()=>{
     const k=i.dataset.cfg; let v=i.value;
     if(k==="moneda"){ const loc=MONEDAS.find(m=>m[0]===v); DB.guardarHogar({config:{...S.config,moneda:v,locale:loc[1]}}); }
-    else DB.guardarHogar({config:{...S.config,[k]:num(v)}});
+    else {
+      DB.guardarHogar({config:{...S.config,[k]:num(v)}});
+      // Al cambiar el día del ciclo, saltamos al periodo que contiene hoy
+      if(k==="diaCiclo"){ S.mes = periodoDe(hoyISO()); render(); avisar(`Ciclo del día ${diaCiclo()}`); }
+    }
   });
   const ft=$("#f-texto"); if(ft) ft.oninput=e=>{S.filtroTexto=e.target.value;const p=e.target.selectionStart;render();
     const n=$("#f-texto"); if(n){n.focus();n.setSelectionRange(p,p)}};
@@ -2170,7 +2232,7 @@ async function ajustarTarjeta(antes,despues){
   }
 }
 const comprasDelMes = (idT,mes)=>S.movimientos
-  .filter(m=>m.tarjetaId===idT && m.tipo==="gasto" && mesDe(m.fecha)===mes)
+  .filter(m=>m.tarjetaId===idT && m.tipo==="gasto" && enPeriodo(m.fecha,mes))
   .reduce((a,b)=>a+b.monto,0);
 
 /* ============ detalle: qué hay dentro de una cifra ================ */
@@ -2199,7 +2261,7 @@ const fechaCorta = iso=>aDate(iso).toLocaleDateString("es",{day:"2-digit",month:
 
 /* Lista de movimientos con quién, cuándo, cómo y cuánto */
 function listaDetalle(movs){
-  if(!movs.length) return `<p class="nota">No hay movimientos en este grupo durante ${mesLargo(S.mes)}.</p>`;
+  if(!movs.length) return `<p class="nota">No hay movimientos en este grupo durante ${etiquetaPeriodo(S.mes)}.</p>`;
   return `<div class="detalle-lista">${movs.map(m=>{
     const autor = nombreDe(m.uid)||m.autor||"";
     const tarjeta = S.deudas.find(d=>d.id===m.tarjetaId)?.nombre || nombreCuenta(m.cuentaId);
@@ -2238,21 +2300,21 @@ function resumenDetalle(movs,totalMes){
 function detalleCategoria(cod){
   const c = CAT[cod];
   const movs = S.movimientos
-    .filter(m=>mesDe(m.fecha)===S.mes && m.tipo==="gasto" && m.categoria===cod)
+    .filter(m=>enPeriodo(m.fecha,S.mes) && m.tipo==="gasto" && m.categoria===cod)
     .sort((a,b)=>a.fecha<b.fecha?1:-1);
   const R = calcular();
   modalInfo(c?.nombre||cod,
-    `<span class="cod" style="color:${col(c?.color||"#8A9099")}">${esc(cod)}</span> · ${mesLargo(S.mes)}`,
+    `<span class="cod" style="color:${col(c?.color||"#8A9099")}">${esc(cod)}</span> · ${etiquetaPeriodo(S.mes)}`,
     resumenDetalle(movs,R.totalGasto) + listaDetalle(movs));
 }
 
 function detallePersona(nombre){
   const movs = S.movimientos
-    .filter(m=>mesDe(m.fecha)===S.mes && m.miembro===nombre)
+    .filter(m=>enPeriodo(m.fecha,S.mes) && m.miembro===nombre)
     .sort((a,b)=>a.fecha<b.fecha?1:-1);
   const R = calcular();
   const gastos = movs.filter(m=>m.tipo==="gasto");
-  modalInfo(nombre, `Movimientos de ${mesLargo(S.mes)}`,
+  modalInfo(nombre, `Movimientos de ${etiquetaPeriodo(S.mes)}`,
     resumenDetalle(gastos,R.totalGasto) + listaDetalle(movs));
 }
 
@@ -2344,7 +2406,7 @@ function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
 
 function modalMovimiento(id=null){
   const m = id? S.movimientos.find(x=>x.id===id) : null;
-  const fecha = m? m.fecha : (mesDe(hoyISO())===S.mes? hoyISO() : `${S.mes}-01`);
+  const fecha = m? m.fecha : (periodoDe(hoyISO())===S.mes? hoyISO() : inicioPeriodo(S.mes));
   const tipoIni = m?.tipo || "gasto";
   const esAhorro = tipoIni==="ahorro" || tipoIni==="retiro";
   const catIni = (m && m.tipo==="gasto")? m.categoria : "ALM";
@@ -2742,8 +2804,8 @@ function sugerirPresupuestos(){
   CATEGORIAS.forEach(c=>{
     let suma=0,meses=0;
     for(let k=1;k<=3;k++){
-      const mm=sumaMes(mesDe(hoyISO()),-k);
-      const t=S.movimientos.filter(m=>m.tipo==="gasto"&&m.categoria===c.cod&&mesDe(m.fecha)===mm).reduce((a,b)=>a+b.monto,0);
+      const mm=sumaMes(periodoDe(hoyISO()),-k);
+      const t=S.movimientos.filter(m=>m.tipo==="gasto"&&m.categoria===c.cod&&enPeriodo(m.fecha,mm)).reduce((a,b)=>a+b.monto,0);
       if(t>0){suma+=t;meses++}
     }
     if(meses) nuevos[c.cod]=Math.round(suma/meses*0.9/10)*10;
@@ -2798,7 +2860,7 @@ async function exportarExcel(){
   const resumen = [
     ["Presupuesto familiar — reporte del hogar"],
     ["Hogar", S.hogarId||"local"],
-    ["Mes", mesLargo(R.mes)],
+    ["Periodo", etiquetaPeriodo(R.mes)],
     ["Generado", new Date().toLocaleString("es")],
     ["Moneda", S.config.moneda],
     [],

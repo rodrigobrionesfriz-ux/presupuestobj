@@ -193,6 +193,14 @@ Solo después vienen las **oportunidades detectadas**, que son otra cosa y así 
 
 **Reporte en Excel** — Un `.xlsx` con ocho hojas: *Resumen* del mes con la proyección y el presupuesto, *Movimientos* completos, *Por categoría* con presupuesto contra gasto y variación, *Por persona*, *Evolución* de los últimos seis meses, *Deudas* con meses hasta liquidar e intereses, *Metas*, y *Recomendaciones* con su cifra y si suma o no al ahorro potencial. Los importes llevan formato de moneda y los porcentajes formato de porcentaje, con anchos de columna ajustados: se puede armar una tabla dinámica sin tocar nada. La librería se descarga solo al pedir el reporte; sin conexión, la app cae a un CSV y avisa.
 
+## Ciclo mensual configurable
+
+Muchas familias no viven del 1 al 31 sino del día de pago al siguiente. En **Ajustes → Hogar** se elige el día en que empieza el ciclo (1 a 28). Con el día 10, el periodo va del 10 de agosto al 9 de septiembre, y el sueldo cae junto a los gastos que cubre.
+
+Afecta a todo de forma coherente: qué movimientos entran en el periodo, los días transcurridos y restantes, el ritmo variable, la proyección de cierre, el gráfico de acumulado —que rotula los días reales del calendario, del 10 al 9—, la comparación con el periodo anterior, las alertas de sobre y el reporte en Excel. Las flechas de la cabecera navegan entre periodos, no entre meses naturales.
+
+El valor por omisión es el día 1, que equivale al mes natural: si no lo cambias, nada se mueve de sitio.
+
 ## Botón atrás del móvil
 
 Android manda el botón atrás al historial del navegador, así que por defecto la primera pulsación cerraría la app aunque tuvieras una ventana abierta. La app lleva su propio historial:
