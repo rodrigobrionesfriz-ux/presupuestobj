@@ -209,6 +209,15 @@ Afecta a todo de forma coherente: qué movimientos entran en el periodo, los dí
 
 El valor por omisión es el día 1, que equivale al mes natural: si no lo cambias, nada se mueve de sitio.
 
+## Navegación
+
+Las secciones viven en una **barra lateral**, no en una barra inferior:
+
+- **Desde 960px de ancho** está siempre visible a la izquierda y el contenido se desplaza para dejarle sitio.
+- **Por debajo** se comporta como un cajón: se abre con el botón **☰** de la cabecera y se cierra al elegir una sección, al tocar fuera, con Esc o con el botón atrás del móvil.
+
+Frente a la barra inferior gana dos cosas: los nombres de sección se leen completos —caben las siete sin apretarse— y se recuperan unos 60px de alto útil en el móvil, que es donde más falta hacen.
+
 ## Botón atrás del móvil
 
 Android manda el botón atrás al historial del navegador, así que por defecto la primera pulsación cerraría la app aunque tuvieras una ventana abierta. La app lleva su propio historial:

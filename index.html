@@ -27,6 +27,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
+  --ancho-lateral:232px;
   /* Tipografía: se elige en Ajustes y se guarda por dispositivo */
   --tipo-ui:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   --tipo-titulo:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -41,7 +42,7 @@ html,body{margin:0;padding:0;overflow-x:hidden;max-width:100%}
 body{
   font-family:var(--tipo-ui);color:var(--tinta);background:var(--papel);
   background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(107,128,110,.12) 27px 28px);
-  min-height:100vh;padding-bottom:calc(96px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;
+  min-height:100vh;padding-bottom:calc(34px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;
 }
 h1,h2,h3{font-family:var(--tipo-titulo);letter-spacing:-.02em;margin:0}
 .oculto{display:none!important}
@@ -354,17 +355,28 @@ html[data-tema="claro"] .cerrar-modal{border-width:2px}
 .toggle button.activo{background:var(--tinta);color:var(--hoja);font-weight:600}
 
 /* ---------------- navegación ---------------- */
-nav{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:var(--tinta);overflow-x:auto;
-  padding-bottom:env(safe-area-inset-bottom);scrollbar-width:none}
+/* Barra lateral: fija en pantallas anchas, cajón deslizante en el móvil */
+nav{position:fixed;top:0;left:0;bottom:0;width:var(--ancho-lateral);z-index:46;display:flex;flex-direction:column;
+  background:var(--tinta);overflow-y:auto;scrollbar-width:none;
+  padding:calc(14px + env(safe-area-inset-top)) 0 calc(14px + env(safe-area-inset-bottom));
+  transform:translateX(-100%);transition:transform .24s ease;box-shadow:2px 0 16px rgba(22,36,28,.25)}
 nav::-webkit-scrollbar{display:none}
-nav button{flex:1 0 auto;min-width:72px;background:none;border:none;color:#93A594;padding:13px 8px 15px;cursor:pointer;
-  font-family:var(--tipo-num);font-size:10px;letter-spacing:.06em;text-transform:uppercase;border-top:2px solid transparent}
-nav button.activo{color:var(--papel);border-top-color:var(--margen)}
-.fab{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:31;width:54px;height:54px;
+body.menu-abierto nav{transform:none}
+nav::before{content:"Presupuesto familiar";display:block;padding:6px 20px 16px;color:#93A594;
+  font-family:var(--tipo-num);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+nav button{width:100%;text-align:left;background:none;border:none;color:#93A594;padding:14px 20px;cursor:pointer;
+  font-family:var(--tipo-num);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  border-left:3px solid transparent;transition:background .15s,color .15s}
+nav button:hover{background:rgba(228,233,221,.07);color:var(--papel)}
+nav button.activo{color:var(--papel);border-left-color:var(--margen);background:rgba(228,233,221,.09)}
+.velo{position:fixed;inset:0;z-index:45;background:rgba(22,36,28,.55);
+  opacity:0;transition:opacity .24s ease;pointer-events:none}
+body.menu-abierto .velo{opacity:1;pointer-events:auto}
+.fab{position:fixed;right:16px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:31;width:54px;height:54px;
   border-radius:50%;background:var(--margen);color:#FBFCF9;border:none;font-size:29px;line-height:1;cursor:pointer;
   box-shadow:0 4px 14px rgba(22,36,28,.28);transition:transform .25s ease,opacity .25s ease}
 .fab.recogido{transform:translateY(96px);opacity:0}
-.aviso{position:fixed;bottom:calc(142px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:40;
+.aviso{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:40;
   background:var(--tinta);color:var(--papel);padding:9px 15px;border-radius:2px;font-family:var(--tipo-num);font-size:12px}
 
 /* ---------------- acceso ---------------- */
@@ -384,13 +396,20 @@ nav button.activo{color:var(--papel);border-top-color:var(--margen)}
 .muestra b{font-family:var(--tipo-num);font-size:9.5px;font-weight:500;color:var(--tinta)}
 
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--margen);outline-offset:2px}
+@media(min-width:960px){
+  body{padding-left:var(--ancho-lateral)}
+  nav{transform:none;box-shadow:none}
+  .velo{display:none}
+  #btn-menu{display:none}
+  .marca-agua{left:var(--ancho-lateral)}
+  .fab{right:calc((100vw - var(--ancho-lateral) - 840px)/2 + 16px)}
+}
 @media(min-width:640px){
   main{padding:20px 18px 8px}
   .metricas{grid-template-columns:repeat(4,1fr)}
   .dos{grid-template-columns:1fr 1fr;gap:26px}
   .sobres{display:grid;grid-template-columns:1fr 1fr;gap:15px 22px}
-  .fab{right:calc(50% - 406px)}
-  nav button{flex:1}
+
 }
 @media(max-width:420px){
   header h1{font-size:16.5px;line-height:1.15}
@@ -437,7 +456,7 @@ html[data-tema="claro"] .codigo-hogar{border:2px dashed var(--borde)}
 html[data-tema="claro"] .hoja{border:2px solid var(--borde);border-top:4px solid var(--margen)}
 html[data-tema="claro"] .toggle{border-width:2px}
 html[data-tema="claro"] header{border-bottom-width:4px}
-html[data-tema="claro"] nav{border-top:2px solid var(--borde)}
+html[data-tema="claro"] nav{border-right:2px solid var(--borde)}
 html[data-tema="claro"] .fab{border:2px solid var(--tinta)}
 html[data-tema="claro"] .gr line{stroke:#B9C4BB}
 
@@ -473,9 +492,10 @@ html[data-tema="fiori"] header{background:var(--shell);border-bottom:none;box-sh
 html[data-tema="fiori"] header .sub{color:#C6D2DC}
 html[data-tema="fiori"] .estado-conn{color:#C6D2DC}
 html[data-tema="fiori"] .logo{border-color:#8FA5B8}
-html[data-tema="fiori"] nav{background:#FFFFFF;border-top:1px solid var(--borde);box-shadow:0 -1px 4px rgba(0,0,0,.08)}
+html[data-tema="fiori"] nav{background:#FFFFFF;border-right:1px solid var(--borde);box-shadow:1px 0 4px rgba(0,0,0,.08)}
 html[data-tema="fiori"] nav button{color:var(--suave)}
-html[data-tema="fiori"] nav button.activo{color:var(--azul);border-top-color:var(--azul)}
+html[data-tema="fiori"] nav::before{color:var(--suave)}
+html[data-tema="fiori"] nav button.activo{color:var(--azul);border-left-color:var(--azul);background:#EBF5FE}
 html[data-tema="fiori"] .fab{background:var(--azul);border-radius:50%;box-shadow:0 4px 12px rgba(10,110,209,.4)}
 html[data-tema="fiori"] .fab:hover{background:#0854A0}
 html[data-tema="fiori"] .btn{border-radius:4px;border-color:var(--azul);color:var(--azul);background:#FFFFFF}
@@ -531,7 +551,8 @@ html[data-tema="femenino"] header .sub,html[data-tema="femenino"] .estado-conn{c
 html[data-tema="femenino"] .logo{border-color:var(--oro);color:#F7E4C8}
 html[data-tema="femenino"] nav{background:#3B2230}
 html[data-tema="femenino"] nav button{color:#C9A9B5}
-html[data-tema="femenino"] nav button.activo{color:#FFF;border-top-color:var(--oro)}
+html[data-tema="femenino"] nav::before{color:#C9A9B5}
+html[data-tema="femenino"] nav button.activo{color:#FFF;border-left-color:var(--oro)}
 html[data-tema="femenino"] .fab{background:var(--margen);box-shadow:0 4px 14px rgba(168,56,90,.35)}
 html[data-tema="femenino"] .fab:hover{background:#8C2C49}
 html[data-tema="femenino"] .btn{border-radius:5px}
@@ -608,9 +629,10 @@ html[data-tema="oscuro"] .mes-txt{color:var(--tinta)}
 html[data-tema="oscuro"] header .sub,html[data-tema="oscuro"] .estado-conn{color:var(--suave)}
 html[data-tema="oscuro"] .logo{border-color:var(--borde);color:var(--suave)}
 html[data-tema="oscuro"] .icono{border-color:var(--borde);color:var(--tinta)}
-html[data-tema="oscuro"] nav{background:#161B22;border-top:1px solid var(--borde)}
+html[data-tema="oscuro"] nav{background:#161B22;border-right:1px solid var(--borde)}
 html[data-tema="oscuro"] nav button{color:var(--suave)}
-html[data-tema="oscuro"] nav button.activo{color:var(--azul);border-top-color:var(--azul)}
+html[data-tema="oscuro"] nav::before{color:var(--suave)}
+html[data-tema="oscuro"] nav button.activo{color:var(--azul);border-left-color:var(--azul);background:#0D419D26}
 html[data-tema="oscuro"] .fab{background:#238636;color:#fff;box-shadow:0 0 0 1px #2EA043,0 4px 16px rgba(35,134,54,.45)}
 html[data-tema="oscuro"] .fab:hover{background:#2EA043}
 html[data-tema="oscuro"] .btn{background:#21262D;border-color:var(--borde);color:var(--tinta);border-radius:6px}
@@ -665,6 +687,7 @@ html[data-tema="oscuro"] [data-acento="lila"]{--acento-color:#A371F7}
   <input type="file" id="fondo-archivo" accept="image/*" class="oculto">
   <header>
     <div class="marca">
+      <button class="icono" id="btn-menu" aria-label="Abrir menú" aria-expanded="false" title="Menú">☰</button>
       <span class="logo">₱F</span>
       <div style="flex:1">
         <h1>Presupuesto familiar</h1>
@@ -681,7 +704,8 @@ html[data-tema="oscuro"] [data-acento="lila"]{--acento-color:#A371F7}
   </header>
   <main id="vista"></main>
   <button class="fab" id="fab" aria-label="Registrar movimiento">+</button>
-  <nav id="nav"></nav>
+  <nav id="nav" aria-label="Secciones"></nav>
+  <div id="velo" class="velo" hidden></div>
 </div>
 
 <div id="modal-host"></div>
@@ -2192,7 +2216,11 @@ function vAjustes(R){
 
 /* ======================= eventos y acciones ======================= */
 function conectar(R){
-  document.querySelectorAll("[data-vista]").forEach(b=>b.onclick=()=>irAVista(b.dataset.vista));
+  document.querySelectorAll("[data-vista]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.vista;
+    if(menuAbierto()){ cerrarMenu(); setTimeout(()=>irAVista(v),70); }
+    else irAVista(v);
+  });
   document.querySelectorAll("[data-borrar]").forEach(b=>b.onclick=()=>DB.borrar(b.dataset.borrar,b.dataset.id));
   document.querySelectorAll("[data-pres]").forEach(i=>i.onchange=()=>{
     DB.guardarHogar({presupuestos:{...S.presupuestos,[i.dataset.pres]:num(i.value)}});
@@ -2453,6 +2481,27 @@ function apilar(estado){
   try{ history.pushState({pf:pilaApp.length}, ""); }catch{}
 }
 
+/* El cajón lateral solo se despliega en pantallas estrechas; a partir de
+   960px la barra está siempre visible y no hay nada que abrir. */
+const enEscritorio = ()=>matchMedia("(min-width:960px)").matches;
+const menuAbierto  = ()=>document.body.classList.contains("menu-abierto");
+function pintarMenu(abierto){
+  document.body.classList.toggle("menu-abierto", abierto);
+  const velo=$("#velo"), btn=$("#btn-menu");
+  if(velo) velo.hidden = !abierto;
+  if(btn) btn.setAttribute("aria-expanded", String(abierto));
+}
+function abrirMenu(){
+  if(enEscritorio() || menuAbierto()) return;
+  pintarMenu(true);
+  apilar({tipo:"menu"});            // así el botón atrás lo cierra
+}
+function cerrarMenu(){
+  if(!menuAbierto()) return;
+  pintarMenu(false);
+  if(pilaApp.at(-1)?.tipo==="menu") history.back();
+}
+
 function irAVista(v){
   if(S.vista===v) return;
   apilar({tipo:"vista", vista:S.vista});
@@ -2465,6 +2514,7 @@ addEventListener("popstate", ()=>{
   const est = pilaApp.pop();
   if(est){
     salidaAvisada = false;
+    if(est.tipo==="menu"){ pintarMenu(false); return; }
     if(est.tipo==="modal"){ cerrarModalDOM(); return; }
     if(est.tipo==="vista"){ S.vista = est.vista; render(); return; }
     return;
@@ -3527,6 +3577,9 @@ aplicarTipo(leerLocal("pf-tipo")||"inter");
 cargarFondoLocal();
 registrarSW();
 $("#btn-tema").onclick=alternarTema;
+$("#btn-menu").onclick=()=>menuAbierto()? cerrarMenu() : abrirMenu();
+$("#velo").onclick=cerrarMenu;
+addEventListener("resize",()=>{ if(enEscritorio() && menuAbierto()) cerrarMenu(); });
 $("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);render()};
 $("#mes-sig").onclick=()=>{S.mes=sumaMes(S.mes,1);render()};
 $("#fab").onclick=()=>modalMovimiento();
@@ -3541,7 +3594,8 @@ if(!matchMedia("(prefers-reduced-motion: reduce)").matches){
     tFab=setTimeout(()=>f.classList.remove("recogido"),520);
   },{passive:true});
 }
-document.addEventListener("keydown",e=>{if(e.key==="Escape")cerrarModal()});
+document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
+  if($("#modal-host").innerHTML) cerrarModal(); else cerrarMenu(); });
 
 /* Accesos directos del icono: ?vista=estadisticas o ?accion=nuevo */
 const params = new URLSearchParams(location.search);
