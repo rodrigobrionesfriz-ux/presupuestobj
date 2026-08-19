@@ -159,7 +159,11 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 **Panel** — Corte del mes en formato de cinta de sumadora: ingresos registrados, ingreso estimado, gastos, deuda pendiente y disponible. La etiqueta *base* señala cuál de los dos ingresos se está usando para calcular. Por omisión se toma el mayor de los dos: a mitad de mes manda la estimación, porque parte del sueldo aún no ha entrado, y al cerrar el mes se impone lo realmente recibido. En Ajustes se puede fijar a mano. Ritmo de gasto variable, proyección a fin de mes con su desglose, y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
 
-**Sub-sobres** — Cada sobre se divide por dentro sin multiplicar los sobres del panel: *Alimentación* puede separarse en supermercado, feria y carnicería. Se gestionan al expandir el sobre, desde el enlace *Gestionar*, y aparecen como campo opcional al registrar un gasto de esa categoría. Lo que no se clasifica se agrupa aparte como *Sin clasificar*, así la suma siempre cuadra con el total del sobre.
+**Sub-sobres** — Cada sobre se divide por dentro sin multiplicar los sobres del panel: *Alimentación* puede separarse en supermercado, feria y carnicería. Se crean desde tres sitios, según dónde te haga falta:
+
+- **Al registrar un gasto** — junto al selector de sub-sobre hay un botón *+ Nuevo*: escribes el nombre y queda creado y asignado en el mismo paso.
+- **En Ajustes → Presupuesto por sobre** — cada categoría lleva una etiqueta *+ SUB* (o *3 SUB* si ya tiene) que abre su gestión.
+- **En el panel** — al expandir un sobre, el enlace *+ Añadir sub-sobre*. Lo que no se clasifica se agrupa aparte como *Sin clasificar*, así la suma siempre cuadra con el total del sobre.
 
 **Resumen expandible** — El panel muestra los seis sobres con más gasto y un enlace para ver el resto. Al tocar cualquiera se despliega en su sitio: reparto por sub-sobre con barras proporcionales, cuánto puso cada persona, y un botón para abrir la lista completa de movimientos. El resumen se mantiene corto y el detalle está a un toque.
 

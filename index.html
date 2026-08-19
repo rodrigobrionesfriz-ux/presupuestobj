@@ -122,6 +122,14 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .sub-monto em{font-style:normal;font-size:10px;color:var(--suave);margin-left:6px}
 .ver-mas{display:block;margin:14px auto 0;text-align:center}
 .opcional{font-style:normal;text-transform:none;letter-spacing:0;color:var(--suave);font-size:9.5px}
+.fila-sub{display:flex;gap:8px;align-items:center}
+.fila-sub select{flex:1;min-width:0}
+.fila-sub .btn{flex:none;white-space:nowrap}
+#m-sub-input{margin-top:8px}
+.btn-sub{background:none;border:1px solid var(--rayado);border-radius:2px;color:var(--suave);
+  font-family:var(--tipo-num);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 6px;margin-left:6px;cursor:pointer;vertical-align:1px}
+.btn-sub:hover{border-color:var(--tinta);color:var(--tinta)}
 .etq-sub{font-style:normal;font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.06em;color:var(--suave);
   border:1px solid var(--rayado);border-radius:2px;padding:0 4px;margin-left:6px;vertical-align:1px}
 
@@ -1623,7 +1631,7 @@ function desgloseSobre(c){
   const max = Math.max(1, ...c.subs.map(s=>s.monto));
   return `<div class="desglose-sobre">
     <div class="sub-cab"><span>Sub-sobres</span>
-      <button class="enlace" data-subs="${c.cod}">Gestionar</button></div>
+      <button class="enlace" data-subs="${c.cod}">${declarados.length? "Gestionar" : "+ Añadir sub-sobre"}</button></div>
     ${c.subs.length? `<ul class="subs">${c.subs.map(s=>`
       <li>
         <div class="sub-fila"><span class="sub-nom ${s.nombre===SIN_SUB?"tenue":""}">${esc(s.nombre)}</span>
@@ -2037,11 +2045,15 @@ function vAjustes(R){
   <section class="tarjeta">
     <div class="cab"><h2>Presupuesto por sobre</h2><span class="cod">total ${fmt(total)}</span></div>
     <p class="nota">Asigna cuánto puede gastar la familia al mes en cada cuenta.</p>
-    <ul class="pres">${CATEGORIAS.map(c=>`<li>
+    <ul class="pres">${CATEGORIAS.map(c=>{
+      const subs = subsDe(c.cod);
+      return `<li>
       <span class="cod" style="color:${col(c.color)}">${c.cod}</span>
       <span class="pres-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre">✎</button>`:""}
-        ${c.fija?`<em class="marca-fija">fijo</em>`:""}${c.esencial?"":`<em class="marca-fija">prescindible</em>`}</span>
-      <input class="mini importe" type="text" inputmode="numeric" min="0" data-pres="${c.cod}" value="${vf(S.presupuestos[c.cod])}" placeholder="0"></li>`).join("")}</ul>
+        ${c.fija?`<em class="marca-fija">fijo</em>`:""}${c.esencial?"":`<em class="marca-fija">prescindible</em>`}
+        <button class="btn-sub" data-subs="${c.cod}" title="Sub-sobres de ${esc(c.nombre)}">${
+          subs.length? `${subs.length} sub` : "+ sub"}</button></span>
+      <input class="mini importe" type="text" inputmode="numeric" min="0" data-pres="${c.cod}" value="${vf(S.presupuestos[c.cod])}" placeholder="0"></li>`;}).join("")}</ul>
     <div class="fila-btns">
       <button class="btn" data-accion="sugerir">Sugerir según mis últimos 3 meses</button>
       <button class="btn" data-accion="nueva-categoria">+ Añadir sobre propio</button>
@@ -2548,7 +2560,12 @@ function modalMovimiento(id=null){
       </div></div>
       <label class="check"><input type="checkbox" id="m-esencial" ${(m? m.esencial : CAT[catIni].esencial)?"checked":""}><span>Gasto esencial</span></label>
       <label class="campo" id="campo-sub"><span>Sub-sobre <em class="opcional">opcional</em></span>
-        <select id="m-sub">${opcionesSub(catIni, m?.sub)}</select></label>
+        <div class="fila-sub">
+          <select id="m-sub">${opcionesSub(catIni, m?.sub)}</select>
+          <button class="btn mini" id="m-sub-nuevo" title="Crear un sub-sobre nuevo">+ Nuevo</button>
+        </div>
+        <input id="m-sub-input" class="oculto" placeholder="Nombre del sub-sobre nuevo">
+      </label>
     </div>
     <div id="bloque-ahorro" class="${esAhorro?"":"oculto"}">
       ${S.cuentas.length? `
@@ -2601,7 +2618,19 @@ function modalMovimiento(id=null){
     const cat = document.querySelector("#m-cats .activo")?.dataset.cat||"OTR";
     const metodo = $("#m-metodo").value;
     const tarjetaId = (tipo==="gasto" && metodo==="Crédito") ? ($("#m-tarjeta")?.value||"") : "";
-    const sub = tipo==="gasto"? ($("#m-sub")?.value||"") : "";
+    let sub = tipo==="gasto"? ($("#m-sub")?.value||"") : "";
+    const inputSub = $("#m-sub-input");
+    if(tipo==="gasto" && inputSub && !inputSub.classList.contains("oculto")){
+      const nuevo = inputSub.value.trim();
+      if(nuevo){
+        sub = nuevo;
+        const actuales = subsDe(cat);
+        if(!actuales.some(x=>x.toLowerCase()===nuevo.toLowerCase())){
+          await DB.guardarHogar({config:{...S.config,
+            subsobres:{...(S.config.subsobres||{}), [cat]:[...actuales, nuevo]}}});
+        }
+      }
+    }
     const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", sub, fecha:$("#m-fecha").value,
       metodo, tarjetaId, cuentaId, soloCuenta, miembro:$("#m-miembro").value,
       nota:$("#m-nota").value.trim(), esencial: tipo==="gasto"? $("#m-esencial").checked : true };
@@ -2657,7 +2686,16 @@ function modalMovimiento(id=null){
     b.classList.add("activo"); const c=CAT[b.dataset.cat];
     b.style.borderColor=col(c.color); b.style.color=col(c.color); $("#m-esencial").checked=c.esencial;
     const sel=$("#m-sub"); if(sel) sel.innerHTML = opcionesSub(b.dataset.cat, "");
+    const inp=$("#m-sub-input"); if(inp){ inp.value=""; inp.classList.add("oculto"); }
   });
+  const btnSub = $("#m-sub-nuevo");
+  if(btnSub) btnSub.onclick = ()=>{
+    const inp = $("#m-sub-input"), sel = $("#m-sub");
+    const oculto = inp.classList.toggle("oculto");
+    sel.disabled = !oculto;
+    btnSub.textContent = oculto? "+ Nuevo" : "Cancelar";
+    if(!oculto) inp.focus(); else inp.value="";
+  };
 }
 
 function modalDeuda(id=null){
