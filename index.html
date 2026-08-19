@@ -256,6 +256,8 @@ textarea.csv{height:130px;font-family:var(--tipo-num);font-size:11px;white-space
 .balanza-pie b{font-family:var(--tipo-num);margin-left:5px}
 .ayuda{font-size:11.5px;margin:7px 0 0;line-height:1.45}
 .mini-select{width:auto;min-width:104px;flex:none}
+input.importe{font-family:var(--tipo-num);font-variant-numeric:tabular-nums;text-align:right}
+input.grande.importe{text-align:left}
 .composicion{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:11px;padding-top:10px;
   border-top:1px dotted var(--rayado);font-size:11.5px;color:var(--suave)}
 .composicion span{display:inline-flex;align-items:center;gap:5px;padding:2px 4px;border-radius:3px}
@@ -810,7 +812,16 @@ const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":
 /* num() devuelve enteros: todos los importes de la app lo son.
    numDec() se reserva para valores que sí llevan decimales, como la tasa. */
 const numDec = v=>{const n=parseFloat(String(v).replace(",","."));return isFinite(n)?n:0};
-const num = v=>Math.round(numDec(v));
+/* Los importes se escriben con separador de miles, así que al leerlos se
+   descarta todo lo que no sea dígito o signo. */
+const num = v=>{ const n=parseInt(String(v).replace(/[^\d-]/g,""),10); return isFinite(n)?n:0; };
+/* Formato para los campos de captura: solo miles, sin símbolo de moneda */
+const miles = n=>{
+  try{ return Number(n).toLocaleString(S.config?.locale||"es-CL",{maximumFractionDigits:0}); }
+  catch{ return String(Math.round(n||0)); }
+};
+/* Valor inicial de un campo de importe: vacío si no hay nada que mostrar */
+const vf = n=>(n===null||n===undefined||n===""||Number(n)===0)? "" : miles(Number(n));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 
 /* ============================ estado ============================== */
@@ -1792,7 +1803,7 @@ function vDeudas(R){
       <div><em>% del ingreso</em><b>${R.ingresoBase?Math.round(R.pagoMinTotal/R.ingresoBase*100)+"%":"—"}</b></div>
     </div>
     <label class="campo" style="margin-top:14px"><span>Abono extra mensual (simulación)</span>
-      <input id="extra-deuda" type="number" inputmode="numeric" value="${S.config.extraDeuda||0}"></label>
+      <input id="extra-deuda" type="text" inputmode="numeric" class="importe" value="${vf(S.config.extraDeuda)}"></label>
     ${(S.config.extraDeuda>0)?`<p class="nota">Con ${fmt(S.config.extraDeuda)} extra al mes liquidas todo en ${conExtra.meses} meses.</p>`:""}
   </section>`:`<section class="tarjeta"><p class="nota">Registra tarjetas, préstamos o créditos para ver en cuántos meses quedas libre y cuánto pagarás de intereses.</p></section>`}`;
 }
@@ -1951,7 +1962,7 @@ function vAjustes(R){
       <span class="cod" style="color:${col(c.color)}">${c.cod}</span>
       <span class="pres-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre">✎</button>`:""}
         ${c.fija?`<em class="marca-fija">fijo</em>`:""}${c.esencial?"":`<em class="marca-fija">prescindible</em>`}</span>
-      <input class="mini" type="number" inputmode="numeric" min="0" data-pres="${c.cod}" value="${S.presupuestos[c.cod]||""}" placeholder="0"></li>`).join("")}</ul>
+      <input class="mini importe" type="text" inputmode="numeric" min="0" data-pres="${c.cod}" value="${vf(S.presupuestos[c.cod])}" placeholder="0"></li>`).join("")}</ul>
     <div class="fila-btns">
       <button class="btn" data-accion="sugerir">Sugerir según mis últimos 3 meses</button>
       <button class="btn" data-accion="nueva-categoria">+ Añadir sobre propio</button>
@@ -1965,8 +1976,8 @@ function vAjustes(R){
       <ul class="pres">${personasHogar().map((p,i)=>`<li>
         <span class="punto-p" style="background:${col(colorPersona(p))}"></span>
         <span class="pres-nom">${esc(p)}</span>
-        <input class="mini" type="number" inputmode="numeric" min="0" data-ing-persona="${esc(p)}"
-          value="${(S.config.ingresosPersona||{})[p] ?? (i===0 && !S.config.ingresosPersona ? (S.config.ingresoMensual||"") : "")}" placeholder="0"></li>`).join("")}
+        <input class="mini importe" type="text" inputmode="numeric" min="0" data-ing-persona="${esc(p)}"
+          value="${vf((S.config.ingresosPersona||{})[p] ?? (i===0 && !S.config.ingresosPersona ? S.config.ingresoMensual : 0))}" placeholder="0"></li>`).join("")}
         <li class="total-ing"><span class="pres-nom">Total del hogar</span>
           <b class="mono">${fmt(S.config.ingresoMensual||0)}</b></li>
       </ul>
@@ -1981,7 +1992,7 @@ function vAjustes(R){
       </div>
     </div>
     <label class="campo"><span>Meta de ahorro mensual</span>
-      <input type="number" inputmode="numeric" data-cfg="metaAhorro" value="${S.config.metaAhorro||""}" placeholder="0"></label>
+      <input type="text" inputmode="numeric" class="importe" data-cfg="metaAhorro" value="${vf(S.config.metaAhorro)}" placeholder="0"></label>
     <div class="campo"><span class="campo-tit">¿Sobre qué ingreso se calcula el mes?</span>
       <div class="chips" id="base-ingreso">
         <button class="chip ${(S.config.baseIngreso||"auto")==="auto"?"activo":""}" data-base="auto"><b>AUT</b> El mayor de los dos</button>
@@ -2362,6 +2373,19 @@ addEventListener("popstate", ()=>{
   }
 });
 
+/* Los campos de importe se formatean mientras se escriben. El cursor se
+   mide desde la derecha, que es lo único estable cuando se insertan o
+   quitan separadores de miles al teclear. */
+document.addEventListener("input", e=>{
+  const el = e.target;
+  if(!el.classList || !el.classList.contains("importe")) return;
+  const desdeDerecha = el.value.length - (el.selectionStart ?? el.value.length);
+  const crudo = el.value.replace(/[^\d-]/g,"");
+  el.value = crudo===""||crudo==="-" ? crudo : miles(num(crudo));
+  const pos = Math.max(0, el.value.length - desdeDerecha);
+  try{ el.setSelectionRange(pos,pos); }catch{}
+});
+
 function iniciarHistorial(){
   try{
     history.replaceState({pf:"base"}, "");
@@ -2421,7 +2445,7 @@ function modalMovimiento(id=null){
     <div class="toggle tres"><button class="${tipoIni==="gasto"?"activo":""}" id="t-gasto">Gasto</button>
       <button class="${tipoIni==="ingreso"?"activo":""}" id="t-ingreso">Ingreso</button>
       <button class="${esAhorro?"activo":""}" id="t-ahorro">Ahorrar</button></div>
-    <label class="campo"><span>Monto</span><input class="grande" id="m-monto" type="number" inputmode="numeric" step="1" placeholder="0.00" value="${m?m.monto:""}"></label>
+    <label class="campo"><span>Monto</span><input class="grande importe" id="m-monto" type="text" inputmode="numeric" placeholder="0.00" value="${m?vf(m.monto):""}"></label>
     <div id="bloque-cat" class="${tipoIni==="gasto"?"":"oculto"}">
       <div class="campo"><span class="campo-tit">Categoría</span><div class="chips" id="m-cats">
         ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${col(c.color)};color:${col(c.color)}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
@@ -2542,15 +2566,15 @@ function modalDeuda(id=null){
   modal(d? "Editar deuda":"Nueva deuda o tarjeta",`
     <label class="campo"><span>Nombre</span><input id="d-nombre" placeholder="Tarjeta banco, crédito auto…" value="${esc(d?.nombre||"")}"></label>
     <div class="campos-2">
-      <label class="campo"><span>Saldo actual</span><input id="d-saldo" type="number" inputmode="numeric" placeholder="0" value="${d?.saldo??""}"></label>
+      <label class="campo"><span>Saldo actual</span><input id="d-saldo" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(d?.saldo)}"></label>
       <label class="campo"><span>Tasa anual %</span><input id="d-tasa" type="number" inputmode="decimal" step="0.01" placeholder="36" value="${d?.tasaAnual??""}"></label>
     </div>
     <div class="campos-2">
-      <label class="campo"><span>Pago mensual</span><input id="d-pago" type="number" inputmode="numeric" placeholder="0" value="${d?.pagoMensual??""}"></label>
+      <label class="campo"><span>Pago mensual</span><input id="d-pago" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(d?.pagoMensual)}"></label>
       <label class="campo"><span>Tipo</span><select id="d-tipo">${tipos.map(t=>`<option ${d?.tipo===t?"selected":""}>${t}</option>`).join("")}</select></label>
     </div>
     ${d?`<label class="campo"><span>Deuda inicial (para la barra de avance)</span>
-      <input id="d-original" type="number" inputmode="numeric" value="${d.original??d.saldo}"></label>`:""}
+      <input id="d-original" type="text" inputmode="numeric" class="importe" value="${vf(d.original??d.saldo)}"></label>`:""}
   `, async()=>{
     const nombre=$("#d-nombre").value.trim(), saldo=num($("#d-saldo").value);
     if(!nombre) return "Ponle un nombre para identificarla.";
@@ -2568,8 +2592,8 @@ function modalMeta(id=null){
   modal(g? "Editar meta":"Nueva meta de ahorro",`
     <label class="campo"><span>Nombre</span><input id="g-nombre" placeholder="Fondo de emergencia, vacaciones…" value="${esc(g?.nombre||"")}"></label>
     <div class="campos-2">
-      <label class="campo"><span>Objetivo</span><input id="g-obj" type="number" inputmode="numeric" placeholder="0" value="${g?.objetivo??""}"></label>
-      <label class="campo"><span>${g?"Acumulado":"Ya ahorrado"}</span><input id="g-ini" type="number" inputmode="numeric" placeholder="0" value="${g?.ahorrado??""}"></label>
+      <label class="campo"><span>Objetivo</span><input id="g-obj" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(g?.objetivo)}"></label>
+      <label class="campo"><span>${g?"Acumulado":"Ya ahorrado"}</span><input id="g-ini" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(g?.ahorrado)}"></label>
     </div>
     <label class="campo"><span>Fecha límite</span><input id="g-fecha" type="month" value="${g?.fechaLimite||prox}"></label>
   `, async()=>{
@@ -2586,7 +2610,7 @@ function modalMeta(id=null){
 function abonarMeta(id){
   const m = S.metas.find(x=>x.id===id); if(!m) return;
   modal(`Abonar a ${m.nombre}`,`
-    <label class="campo"><span>Monto del abono</span><input class="grande" id="ab-monto" type="number" inputmode="numeric" placeholder="0.00" autofocus></label>
+    <label class="campo"><span>Monto del abono</span><input class="grande importe" id="ab-monto" type="text" inputmode="numeric" placeholder="0.00" autofocus></label>
     <p class="nota">Llevas ${fmt(m.ahorrado||0)} de ${fmt(m.objetivo)}.</p>
   `, async()=>{
     const v=num($("#ab-monto").value);
@@ -2601,7 +2625,7 @@ function abonarDeuda(id){
   const compras = esTarjeta(d)? comprasDelMes(id,S.mes) : 0;
   const yaContado = esTarjeta(d) && S.movimientos.some(m=>m.tarjetaId===id);
   modal(`Pago a ${d.nombre}`,`
-    <label class="campo"><span>Monto del pago</span><input class="grande" id="pg-monto" type="number" inputmode="numeric" value="${d.pagoMensual||""}"></label>
+    <label class="campo"><span>Monto del pago</span><input class="grande importe" id="pg-monto" type="text" inputmode="numeric" value="${vf(d.pagoMensual)}"></label>
     <label class="check"><input type="checkbox" id="pg-mov" ${yaContado?"":"checked"}><span>Registrarlo también como gasto del mes</span></label>
     ${yaContado
       ? `<p class="nota aviso-credito">Las compras de esta tarjeta ya contaron como gasto cuando las registraste${compras>0?` (${fmt(compras)} este mes)`:""}. Si marcas la casilla, ese dinero contaría dos veces: lo normal es dejarla sin marcar y que el pago solo baje el saldo.</p>`
@@ -2649,7 +2673,7 @@ function modalCuenta(id=null){
       <label class="campo"><span>Titular</span>
         <select id="cu-titular">${titulares.map(t=>`<option ${(c?.titular||"Del hogar")===t?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
       <label class="campo"><span>Saldo inicial</span>
-        <input id="cu-saldo" type="number" inputmode="numeric" placeholder="0" value="${c?.saldoInicial ?? ""}"></label>
+        <input id="cu-saldo" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(c?.saldoInicial)}"></label>
     </div>
     ${c?`<p class="nota ayuda">El saldo inicial es lo que había en la cuenta antes de empezar a registrar aquí. Los aportes y retiros se suman encima.</p>`:""}
     <div class="campo"><span class="campo-tit">Color</span>
@@ -2687,7 +2711,7 @@ function movimientoCuenta(id,flujo="ahorro"){
   modal(flujo==="ahorro"? `Aportar a ${c.nombre}` : `Retirar de ${c.nombre}`,`
     <p class="nota migaja">Saldo actual ${fmt(saldo)}</p>
     <label class="campo"><span>Monto</span>
-      <input class="grande" id="cm-monto" type="number" inputmode="numeric" step="1" placeholder="0.00"></label>
+      <input class="grande importe" id="cm-monto" type="text" inputmode="numeric" placeholder="0.00"></label>
     <label class="campo"><span>${flujo==="ahorro"?"¿Quién transfiere?":"¿Quién lo retira?"}</span>
       <select id="cm-miembro">${personasHogar().map(x=>`<option ${miNombre()===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
     <div class="campos-2">
@@ -2764,7 +2788,7 @@ function modalCategoria(cod=null){
     </div>
 
     <label class="campo"><span>Presupuesto mensual</span>
-      <input id="ct-pres" type="number" inputmode="numeric" placeholder="0" value="${cod?(S.presupuestos[cod]||""):""}"></label>
+      <input id="ct-pres" type="text" inputmode="numeric" class="importe" placeholder="0" value="${cod?vf(S.presupuestos[cod]):""}"></label>
   `, async()=>{
     const nombre = $("#ct-nombre").value.trim();
     if(!nombre) return "Ponle un nombre al sobre.";

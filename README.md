@@ -211,7 +211,7 @@ Android manda el botón atrás al historial del navegador, así que por defecto 
 
 ## Formato de los importes
 
-Todos los importes se muestran como enteros con separador de miles, sin decimales: en un presupuesto doméstico los céntimos solo añaden ruido. Los campos de captura usan teclado numérico y paso de 1, y lo que se escriba con decimales se redondea al guardar. La única excepción es la tasa anual de las deudas, que sí admite decimales porque un 42,5% no es lo mismo que un 42%.
+Todos los importes se muestran como enteros con separador de miles, sin decimales: en un presupuesto doméstico los céntimos solo añaden ruido. **También los campos de captura**: se formatean mientras escribes, así que ves `211.000` en lugar de `211000` y no hay que contar ceros. El separador es el de tu configuración regional. Los campos usan teclado numérico y aceptan que pegues cifras con puntos, comas o signo de moneda: al leerlas se descarta todo lo que no sea dígito. La única excepción es la tasa anual de las deudas, que sí admite decimales porque un 42,5% no es lo mismo que un 42%.
 
 ## Estructura de datos
 
