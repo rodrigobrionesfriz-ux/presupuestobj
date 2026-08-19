@@ -108,7 +108,23 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 
 /* ---------------- sobres y barras ---------------- */
 .sobres{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:13px}
-.sobre-cab{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
+.sobre-cab{display:flex;align-items:baseline;gap:8px;margin-bottom:5px;padding:3px 2px;border-radius:3px}
+.flecha{color:var(--suave);font-size:11px;flex:none;line-height:1}
+.desglose-sobre{margin-top:11px;padding-top:11px;border-top:1px dotted var(--rayado);animation:abrir .18s ease-out}
+@keyframes abrir{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.sub-cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;
+  font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--suave)}
+.subs{list-style:none;margin:0 0 4px;padding:0;display:flex;flex-direction:column;gap:8px}
+.sub-fila{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px;font-size:12.5px}
+.sub-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub-nom.tenue{color:var(--suave);font-style:italic}
+.sub-monto{font-family:var(--tipo-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sub-monto em{font-style:normal;font-size:10px;color:var(--suave);margin-left:6px}
+.ver-mas{display:block;margin:14px auto 0;text-align:center}
+.opcional{font-style:normal;text-transform:none;letter-spacing:0;color:var(--suave);font-size:9.5px}
+.etq-sub{font-style:normal;font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.06em;color:var(--suave);
+  border:1px solid var(--rayado);border-radius:2px;padding:0 4px;margin-left:6px;vertical-align:1px}
+
 .sobre-nom{flex:1;font-size:13.5px;font-weight:500}
 .sobre-cifra{font-family:var(--tipo-num);font-size:13px;font-variant-numeric:tabular-nums}
 .barra{height:9px;background:var(--papel);border:1px solid var(--rayado);border-radius:1px;overflow:hidden}
@@ -705,6 +721,18 @@ function sincronizarCategorias(){
   CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
 }
 const esPropia = cod=>!!CAT[cod]?.propia;
+/* Sub-sobres: divisiones dentro de una categoría. "Alimentación" puede
+   separarse en supermercado, feria y carnicería sin multiplicar los sobres
+   del panel. Se guardan por código de categoría en la configuración del
+   hogar, así que los ve toda la familia. */
+const subsDe = cod => (S.config?.subsobres||{})[cod] || [];
+const SIN_SUB = "Sin clasificar";
+const opcionesSub = (cod,actual="")=>{
+  const lista = subsDe(cod);
+  const extra = actual && !lista.includes(actual) ? [actual] : [];
+  return `<option value="">Sin especificar</option>` +
+    [...lista,...extra].map(s=>`<option ${actual===s?"selected":""}>${esc(s)}</option>`).join("");
+};
 /* Los colores de categoría están pensados sobre papel claro; sobre un fondo
    oscuro pierden contraste, así que se aclaran y saturan al vuelo. */
 function aclarar(hex,luz=62,sat=68){
@@ -833,7 +861,7 @@ let S = {
   uid:null, hogarId:null, nombreUsuario:"", perfiles:{},
   config: configInicial(), presupuestos: presInicial(),
   movimientos:[], deudas:[], metas:[], cuentas:[],
-  mes: mesDe(hoyISO()), mesFijado:false, vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
+  mes: mesDe(hoyISO()), mesFijado:false, abiertos:new Set(), verTodosSobres:false, vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
 const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
 /* Nombre con el que aparece cada persona del hogar. Si el movimiento trae el
@@ -1215,7 +1243,19 @@ function calcular(){
     const total = l.reduce((a,b)=>a+b.monto,0);
     const totalAnt = gastosAnt.filter(g=>g.categoria===c.cod).reduce((a,b)=>a+b.monto,0);
     const pres = S.presupuestos[c.cod]||0;
-    return {...c,total,totalAnt,pres,n:l.length,ticket:l.length?total/l.length:0,
+    /* Reparto interno: primero los sub-sobres declarados, después lo que
+       quedó sin clasificar, para que la suma cuadre siempre con el total. */
+    const mapa = {};
+    l.forEach(g=>{ const k=(g.sub||"").trim()||SIN_SUB; mapa[k]=(mapa[k]||0)+g.monto; });
+    const subs = Object.entries(mapa)
+      .map(([nombre,monto])=>({nombre, monto, n:l.filter(g=>((g.sub||"").trim()||SIN_SUB)===nombre).length}))
+      .sort((a,b)=> a.nombre===SIN_SUB? 1 : b.nombre===SIN_SUB? -1 : b.monto-a.monto);
+    const porQuien = {};
+    l.forEach(g=>{ const k=g.miembro||"—"; porQuien[k]=(porQuien[k]||0)+g.monto; });
+    const personas = Object.entries(porQuien).map(([nombre,monto])=>({nombre,monto}))
+      .sort((a,b)=>b.monto-a.monto);
+    return {...c,total,totalAnt,pres,n:l.length,subs,personas,
+      ticket:l.length?total/l.length:0,
       uso:pres>0?total/pres:null, variacion: totalAnt>0? (total-totalAnt)/totalAnt : null, delta: total-totalAnt};
   }).sort((a,b)=>b.total-a.total);
 
@@ -1574,9 +1614,39 @@ const bloqueVacio = ()=>`<section class="tarjeta">
   <div class="fila-btns"><button class="btn primario" data-accion="nuevo">Registrar movimiento</button>
   <button class="btn" data-accion="ejemplo">Cargar ejemplo</button></div></section>`;
 
+const LIMITE_SOBRES = 6;
+
+/* Lo que se despliega al tocar un sobre: cómo se reparte por dentro.
+   Se muestra solo bajo demanda para que el panel siga siendo un resumen. */
+function desgloseSobre(c){
+  const declarados = subsDe(c.cod);
+  const max = Math.max(1, ...c.subs.map(s=>s.monto));
+  return `<div class="desglose-sobre">
+    <div class="sub-cab"><span>Sub-sobres</span>
+      <button class="enlace" data-subs="${c.cod}">Gestionar</button></div>
+    ${c.subs.length? `<ul class="subs">${c.subs.map(s=>`
+      <li>
+        <div class="sub-fila"><span class="sub-nom ${s.nombre===SIN_SUB?"tenue":""}">${esc(s.nombre)}</span>
+          <span class="sub-monto">${fmt(s.monto)}<em>${c.total>0?Math.round(s.monto/c.total*100):0}%</em></span></div>
+        <div class="barra fina"><div class="fill" style="width:${s.monto/max*100}%;background:${col(c.color)};opacity:${s.nombre===SIN_SUB?.35:.85}"></div></div>
+      </li>`).join("")}</ul>`
+    : `<p class="nota">Sin gastos todavía en este sobre.</p>`}
+    ${declarados.length===0 && c.n>0
+      ? `<p class="nota ayuda">Divide este sobre en partes —supermercado, feria, farmacia— para ver dónde se va de verdad.</p>`:""}
+    ${c.personas.length>1?`<div class="reparto-personas">
+      ${c.personas.map(p=>`<span><i style="background:${col(colorPersona(p.nombre))}"></i>${esc(p.nombre)}
+        <b>${fmt(p.monto)}</b></span>`).join("")}
+    </div>`:""}
+    <div class="fila-btns">
+      <button class="btn mini" data-detalle-cat="${c.cod}">Ver los ${cuenta(c.n,"movimiento","movimientos")}</button>
+    </div>
+  </div>`;
+}
+
 function vPanel(R){
   const est = u=> u===null? "" : u>1?"rojo": u>0.85?"ambar":"";
   const sobres = R.porCat.filter(c=>c.pres>0||c.total>0);
+  const visibles = S.verTodosSobres? sobres : sobres.slice(0,LIMITE_SOBRES);
   const alta = R.esMesActual && R.presupuestoTotal>0 && R.proyectado>R.presupuestoTotal;
   const rec = recomendar(R);
   return `
@@ -1619,15 +1689,24 @@ function vPanel(R){
     <div class="cab"><h2>Sobres del mes</h2>
       <button class="enlace" data-accion="nueva-categoria">+ Otro sobre</button></div>
     ${sobres.length?"":`<p class="nota">Aún no hay presupuestos ni gastos. Asígnalos en Ajustes o crea un sobre propio.</p>`}
-    <ul class="sobres">${sobres.map(c=>`
-      <li class="clicable" data-detalle-cat="${c.cod}" role="button" tabindex="0" title="Ver el detalle de ${esc(c.nombre)}">
-        <div class="sobre-cab"><span class="cod" style="color:${col(c.color)}">${c.cod}</span>
-          <span class="sobre-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre ${c.nombre}" title="Editar sobre">✎</button>`:""}</span>
-          <span class="sobre-cifra">${fmt(c.total)}</span></div>
+    <ul class="sobres">${visibles.map(c=>{
+      const abierto = S.abiertos.has(c.cod);
+      return `
+      <li class="${abierto?"abierto":""}">
+        <div class="sobre-cab clicable" data-abrir-sobre="${c.cod}" role="button" tabindex="0"
+             aria-expanded="${abierto}" title="Ver el desglose de ${esc(c.nombre)}">
+          <span class="cod" style="color:${col(c.color)}">${c.cod}</span>
+          <span class="sobre-nom">${c.nombre}${c.propia?`<button class="lapiz-cat" data-editar-cat="${c.cod}" aria-label="Editar sobre" title="Editar sobre">✎</button>`:""}</span>
+          <span class="sobre-cifra">${fmt(c.total)}</span>
+          <span class="flecha">${abierto?"▴":"▾"}</span>
+        </div>
         <div class="barra"><div class="fill ${est(c.uso)}" style="width:${Math.min(100,c.pres>0?c.total/c.pres*100:100)}%;${c.pres>0?"":`background:${col(c.color)}`}"></div></div>
         <div class="sobre-pie"><span>${c.pres>0?`de ${fmt(c.pres)}`:"sin presupuesto"}${c.fija?" · fijo":""}</span>
           <span>${c.pres>0?(c.total>c.pres?`excedido en ${fmt(c.total-c.pres)}`:`quedan ${fmt(c.pres-c.total)}`):`${cuenta(c.n,"compra","compras")}`}</span></div>
-      </li>`).join("")}</ul>
+        ${abierto? desgloseSobre(c) : ""}
+      </li>`;}).join("")}</ul>
+    ${sobres.length>LIMITE_SOBRES?`<button class="enlace ver-mas" data-accion="mas-sobres">${
+      S.verTodosSobres? "Ver solo los principales" : `Ver los ${sobres.length-LIMITE_SOBRES} sobres restantes`}</button>`:""}
   </section>
 
   ${R.totalGasto>0?`<section class="tarjeta" data-acento="ambar">
@@ -1678,7 +1757,7 @@ function vMovimientos(R){
           const autor = nombreDe(m.uid)||m.autor||"";
           return `<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
           <span class="cod" style="color:${col(colorDe(m))}">${esc(codDe(m))}</span>
-          <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}</b>
+          <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}${m.sub?`<em class="etq-sub">${esc(m.sub)}</em>`:""}</b>
             <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:m.cuentaId?` · ${esc(nombreCuenta(m.cuentaId))}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
           <span class="mov-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
@@ -2124,6 +2203,18 @@ function conectar(R){
     el.onclick=e=>{ if(e.target.closest("[data-editar-cat],button")) return; fn(dato); };
     el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(dato); } };
   });
+  document.querySelectorAll("[data-abrir-sobre]").forEach(el=>{
+    const alternar = ()=>{
+      const c = el.dataset.abrirSobre;
+      S.abiertos.has(c)? S.abiertos.delete(c) : S.abiertos.add(c);
+      render();
+    };
+    el.onclick = e=>{ if(e.target.closest("[data-editar-cat]")) return; alternar(); };
+    el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); alternar(); } };
+  });
+  document.querySelectorAll("[data-subs]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); modalSubsobres(b.dataset.subs);
+  });
   abrir("[data-detalle-cat]", detalleCategoria);
   document.querySelectorAll("[data-detalle-cuenta]").forEach(el=>{
     el.onclick=e=>{ if(e.target.closest("button")) return; detalleCuenta(el.dataset.detalleCuenta); };
@@ -2186,6 +2277,7 @@ function acciones(a,R){
     "nueva-deuda":()=>modalDeuda(),
     "nueva-categoria":()=>modalCategoria(),
     "nueva-cuenta":()=>modalCuenta(),
+    "mas-sobres":()=>{ S.verTodosSobres=!S.verTodosSobres; render(); },
     fondo:()=>elegirFondo(),
     "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
     "nueva-meta":()=>modalMeta(),
@@ -2314,9 +2406,13 @@ function detalleCategoria(cod){
     .filter(m=>enPeriodo(m.fecha,S.mes) && m.tipo==="gasto" && m.categoria===cod)
     .sort((a,b)=>a.fecha<b.fecha?1:-1);
   const R = calcular();
+  const datos = R.porCat.find(x=>x.cod===cod);
+  const porSub = datos && datos.subs.length>1
+    ? `<div class="reparto-personas">${datos.subs.map(s=>`<span><i style="background:${col(c?.color||"#8A9099")};opacity:${s.nombre===SIN_SUB?.35:.85}"></i>${esc(s.nombre)}<b>${fmt(s.monto)}</b></span>`).join("")}</div>`
+    : "";
   modalInfo(c?.nombre||cod,
     `<span class="cod" style="color:${col(c?.color||"#8A9099")}">${esc(cod)}</span> · ${etiquetaPeriodo(S.mes)}`,
-    resumenDetalle(movs,R.totalGasto) + listaDetalle(movs));
+    resumenDetalle(movs,R.totalGasto) + porSub + listaDetalle(movs));
 }
 
 function detallePersona(nombre){
@@ -2451,6 +2547,8 @@ function modalMovimiento(id=null){
         ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${col(c.color)};color:${col(c.color)}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
       </div></div>
       <label class="check"><input type="checkbox" id="m-esencial" ${(m? m.esencial : CAT[catIni].esencial)?"checked":""}><span>Gasto esencial</span></label>
+      <label class="campo" id="campo-sub"><span>Sub-sobre <em class="opcional">opcional</em></span>
+        <select id="m-sub">${opcionesSub(catIni, m?.sub)}</select></label>
     </div>
     <div id="bloque-ahorro" class="${esAhorro?"":"oculto"}">
       ${S.cuentas.length? `
@@ -2503,7 +2601,8 @@ function modalMovimiento(id=null){
     const cat = document.querySelector("#m-cats .activo")?.dataset.cat||"OTR";
     const metodo = $("#m-metodo").value;
     const tarjetaId = (tipo==="gasto" && metodo==="Crédito") ? ($("#m-tarjeta")?.value||"") : "";
-    const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", fecha:$("#m-fecha").value,
+    const sub = tipo==="gasto"? ($("#m-sub")?.value||"") : "";
+    const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", sub, fecha:$("#m-fecha").value,
       metodo, tarjetaId, cuentaId, soloCuenta, miembro:$("#m-miembro").value,
       nota:$("#m-nota").value.trim(), esencial: tipo==="gasto"? $("#m-esencial").checked : true };
     if(m){
@@ -2557,6 +2656,7 @@ function modalMovimiento(id=null){
     document.querySelectorAll("#m-cats [data-cat]").forEach(x=>{x.classList.remove("activo");x.style.borderColor="";x.style.color=""});
     b.classList.add("activo"); const c=CAT[b.dataset.cat];
     b.style.borderColor=col(c.color); b.style.color=col(c.color); $("#m-esencial").checked=c.esencial;
+    const sel=$("#m-sub"); if(sel) sel.innerHTML = opcionesSub(b.dataset.cat, "");
   });
 }
 
@@ -2651,6 +2751,47 @@ function codigoLibre(nombre){
 }
 
 /* ================= cuentas de ahorro ============================== */
+/* ================= sub-sobres ===================================== */
+function modalSubsobres(cod){
+  const c = CAT[cod]; if(!c) return;
+  const lista = subsDe(cod);
+  const usados = {};
+  S.movimientos.filter(m=>m.categoria===cod && (m.sub||"").trim())
+    .forEach(m=>{ const k=m.sub.trim(); usados[k]=(usados[k]||0)+1; });
+
+  modal(`Sub-sobres de ${c.nombre}`,`
+    <p class="nota">Divide el sobre en partes para saber en qué se va por dentro. Al registrar un gasto de <b>${esc(c.nombre)}</b> podrás elegir una.</p>
+    ${lista.length? `<ul class="pres">${lista.map(s=>`<li>
+      <span class="pres-nom">${esc(s)}</span>
+      <span class="cod">${usados[s]? cuenta(usados[s],"gasto","gastos") : "sin uso"}</span>
+      <button class="borrar" data-quitar-sub="${esc(s)}" aria-label="Quitar ${esc(s)}">×</button></li>`).join("")}</ul>`
+    : `<p class="nota ayuda">Todavía no hay ninguno.</p>`}
+    <div class="fila-btns">
+      <input id="sub-nuevo" placeholder="Supermercado, feria, farmacia…">
+      <button class="btn" id="sub-add">Añadir</button>
+    </div>
+    <p class="error oculto" id="sub-error"></p>
+  `, async()=>{ /* los cambios se guardan al vuelo */ }, "Listo");
+
+  const guardar = async(nuevos)=>{
+    await DB.guardarHogar({config:{...S.config, subsobres:{...(S.config.subsobres||{}), [cod]:nuevos}}});
+    cerrarModal(); setTimeout(()=>modalSubsobres(cod),120);
+  };
+  $("#sub-add").onclick = async()=>{
+    const v = $("#sub-nuevo").value.trim();
+    const e = $("#sub-error");
+    if(!v){ e.textContent="Escribe un nombre."; e.classList.remove("oculto"); return; }
+    if(lista.some(x=>x.toLowerCase()===v.toLowerCase())){
+      e.textContent="Ya existe un sub-sobre con ese nombre."; e.classList.remove("oculto"); return; }
+    await guardar([...lista, v]);
+  };
+  document.querySelectorAll("[data-quitar-sub]").forEach(b=>b.onclick=async()=>{
+    const s = b.dataset.quitarSub;
+    // Los gastos que lo usaban conservan la etiqueta; solo deja de ofrecerse
+    await guardar(lista.filter(x=>x!==s));
+  });
+}
+
 function modalCuenta(id=null){
   const c = id? S.cuentas.find(x=>x.id===id) : null;
   const R = id? calcular() : null;
@@ -2922,16 +3063,16 @@ async function exportarExcel(){
 
   /* --- Movimientos --- */
   const ETIQ_TIPO = {gasto:"Gasto", ingreso:"Ingreso", ahorro:"Aporte a ahorro", retiro:"Retiro de ahorro"};
-  const movs = [["Fecha","Tipo","Cta.","Categoría","Concepto","Monto","Medio de pago",
+  const movs = [["Fecha","Tipo","Cta.","Categoría","Sub-sobre","Concepto","Monto","Medio de pago",
                  "Tarjeta","Cuenta de ahorro","¿Afecta el mes?","Persona","Registrado por","Esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>movs.push([
     m.fecha, ETIQ_TIPO[m.tipo]||m.tipo, codDe(m),
-    PSEUDO[m.tipo]?.nombre || CAT[m.categoria]?.nombre || m.categoria, m.nota||"",
+    PSEUDO[m.tipo]?.nombre || CAT[m.categoria]?.nombre || m.categoria, m.sub||"", m.nota||"",
     m.monto, m.metodo, S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"",
     nombreCuenta(m.cuentaId), m.cuentaId? (m.soloCuenta?"No":"Sí") : "Sí",
     m.miembro||"", nombreDe(m.uid)||m.autor||"", m.esencial?"Sí":"No"
   ]));
-  X.utils.book_append_sheet(lib, hojaDesde(X,movs,[11,16,7,20,28,14,15,18,20,15,14,16,9],{5:MONEDA}), "Movimientos");
+  X.utils.book_append_sheet(lib, hojaDesde(X,movs,[11,16,7,20,18,28,14,15,18,20,15,14,16,9],{6:MONEDA}), "Movimientos");
 
   /* --- Por categoría --- */
   const cats = [["Cuenta","Categoría","Tipo","Frecuencia","Presupuesto","Gastado","Diferencia",
@@ -2944,6 +3085,16 @@ async function exportarExcel(){
   cats.push(["","TOTAL","","",R.presupuestoTotal,R.totalGasto,R.presupuestoTotal-R.totalGasto,"",R.gastos.length,R.ticketGeneral,"",""]);
   X.utils.book_append_sheet(lib, hojaDesde(X,cats,[8,22,13,11,14,14,14,8,9,16,14,10],
     {4:MONEDA,5:MONEDA,6:MONEDA,7:PCT,9:MONEDA,10:MONEDA,11:PCT}), "Por categoría");
+
+  /* --- Por sub-sobre --- */
+  const conSubs = R.porCat.filter(c=>c.total>0 && c.subs.length);
+  if(conSubs.length){
+    const ss = [["Cuenta","Categoría","Sub-sobre","Total","% del sobre","Movimientos"]];
+    conSubs.forEach(c=>c.subs.forEach(s=>ss.push([
+      c.cod, c.nombre, s.nombre, s.monto, c.total>0? s.monto/c.total : "", s.n
+    ])));
+    X.utils.book_append_sheet(lib, hojaDesde(X,ss,[8,22,24,14,13,13],{3:MONEDA,4:PCT}), "Por sub-sobre");
+  }
 
   /* --- Por persona --- */
   const pers = [["Persona","Ingresos","Gastos","Aporte neto","Tasa de ahorro","Compras",
