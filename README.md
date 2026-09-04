@@ -201,6 +201,34 @@ Solo después vienen las **oportunidades detectadas**, que son otra cosa y así 
 
 **Reporte en Excel** — Un `.xlsx` con ocho hojas: *Resumen* del mes con la proyección y el presupuesto, *Movimientos* completos, *Por categoría* con presupuesto contra gasto y variación, *Por persona*, *Evolución* de los últimos seis meses, *Deudas* con meses hasta liquidar e intereses, *Metas*, y *Recomendaciones* con su cifra y si suma o no al ahorro potencial. Los importes llevan formato de moneda y los porcentajes formato de porcentaje, con anchos de columna ajustados: se puede armar una tabla dinámica sin tocar nada. La librería se descarga solo al pedir el reporte; sin conexión, la app cae a un CSV y avisa.
 
+## Cerrar el periodo y cuadrar la caja
+
+Al terminar un periodo —o en sus últimos dos días— el panel ofrece **cerrarlo**. Se anota el saldo **real** que tiene cada persona en sus cuentas de uso diario y la app lo compara con el **saldo teórico**:
+
+```
+saldo teórico = saldo real declarado en el cierre anterior
+              + ingresos − gastos − aportes + retiros del periodo
+```
+
+La diferencia se registra como **gasto no registrado** (categoría `NRG`), o como ingreso no registrado si sobra dinero. Ahí es donde aparecen las compras hormiga que nunca se anotan: el café, las propinas, el efectivo suelto.
+
+Detalles del diseño:
+
+- **Cada cierre arranca del saldo declarado en el anterior**, no de un acumulado teórico, así que un error de un mes no se arrastra a los siguientes.
+- **Los ajustes generados por un cierre se excluyen del saldo teórico**: son una conclusión, no un movimiento real. Por eso volver a cerrar el mismo periodo da la misma diferencia y reemplaza el ajuste anterior en lugar de duplicarlo.
+- **Un campo en blanco significa "no lo sé"**, no cero: esa persona queda fuera del cierre en vez de generar un ajuste inventado.
+- **El primer cierre solo registra saldos**, porque no hay con qué comparar. Desde el segundo ya se calculan diferencias.
+
+En la vista Ahorro aparece **Gasto hormiga detectado**: el histórico de estas diferencias por periodo, su promedio, la proyección anual y en cuántos cierres hubo fuga. Cuando la cifra es significativa, el motor de recomendaciones la señala. El Excel suma una hoja **Cierres** con el detalle por persona.
+
+## Lo que sobra de un periodo
+
+Lo que no se gasta no desaparece: sigue en la cuenta. Al cerrarse un periodo, su saldo pasa al siguiente como **remanente**, y se acumula. Aparece como primera línea del corte del mes —*viene del periodo anterior*— y entra en el disponible.
+
+Al empezar un periodo con remanente positivo, el panel avisa y ofrece **apartarlo en una cuenta de ahorro** con un toque: se registra como aporte del día, sale del disponible corriente y entra al saldo de la cuenta. El aviso se puede ocultar y no vuelve en ese periodo.
+
+El arrastre se cuenta desde el primer periodo con ingresos registrados, porque antes de eso los datos están incompletos y saldría falseado. En **Ajustes → Hogar** se puede desactivar para que cada periodo empiece de cero.
+
 ## Ciclo mensual configurable
 
 Muchas familias no viven del 1 al 31 sino del día de pago al siguiente. En **Ajustes → Hogar** se elige el día en que empieza el ciclo (1 a 28). Con el día 10, el periodo va del 10 de agosto al 9 de septiembre, y el sueldo cae junto a los gastos que cubre.

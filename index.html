@@ -295,6 +295,24 @@ input.grande.importe{text-align:left}
 .cuenta-cab{display:flex;align-items:baseline;gap:9px;margin-bottom:5px}
 .cuenta-nom{flex:1;font-size:14.5px;font-weight:600}
 .cuenta-saldo{font-family:var(--tipo-num);font-size:15px;font-variant-numeric:tabular-nums}
+.cierre{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:18px}
+.cierre>li{padding-bottom:16px;border-bottom:1px dotted var(--rayado)}
+.cierre>li:last-child{border-bottom:none;padding-bottom:0}
+.cierre-cab{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.cierre-nom{font-size:15px;font-weight:600}
+.cierre-linea{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  font-size:12.5px;color:var(--suave);padding:3px 0}
+.cierre-linea b{font-family:var(--tipo-num);font-weight:500;color:var(--tinta)}
+.cierre-linea.total{border-top:1px solid var(--rayado);margin-top:5px;padding-top:7px;color:var(--tinta);font-weight:500}
+.cierre-dif{font-size:12px;margin:0;padding:7px 9px;border-radius:2px;background:var(--papel);
+  border-left:3px solid var(--rayado);color:var(--suave)}
+.cierre-dif.ok{border-left-color:var(--verde);color:var(--verde)}
+.cierre-dif.menos{border-left-color:var(--margen);color:var(--margen)}
+.cierre-dif.mas{border-left-color:var(--ambar);color:var(--ambar)}
+.cierre-resumen{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.cierre-resumen li{display:flex;align-items:center;gap:8px;font-size:13px}
+.cierre-resumen b{margin-left:auto;font-family:var(--tipo-num);font-weight:500}
+.cierre-resumen em{font-style:normal;font-family:var(--tipo-num);font-size:11px;min-width:72px;text-align:right}
 .clicable{cursor:pointer;transition:background .15s}
 .clicable:hover,.clicable:focus-visible{background:var(--papel)}
 tr.clicable td{transition:background .15s}
@@ -740,6 +758,7 @@ const CATEGORIAS_BASE = [
   {cod:"OCI",nombre:"Ocio y salidas",color:"#D08A2C",esencial:false},
   {cod:"ROP",nombre:"Ropa y compras",color:"#4F8C8C",esencial:false},
   {cod:"SUS",nombre:"Suscripciones",color:"#5A5F6B",esencial:false},
+  {cod:"NRG",nombre:"Gastos no registrados",color:"#8C6D8F",esencial:false},
   {cod:"OTR",nombre:"Otros",color:"#8A9099",esencial:false},
 ];
 /* CATEGORIAS y CAT se recalculan al vuelo: a las de serie se suman las que
@@ -892,7 +911,7 @@ let S = {
   modo: HAY_FIREBASE ? "nube" : "local",
   uid:null, hogarId:null, nombreUsuario:"", perfiles:{},
   config: configInicial(), presupuestos: presInicial(),
-  movimientos:[], deudas:[], metas:[], cuentas:[],
+  movimientos:[], deudas:[], metas:[], cuentas:[], cierres:[],
   mes: mesDe(hoyISO()), mesFijado:false, abiertos:new Set(), verTodosSobres:false, vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
 const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
@@ -1026,7 +1045,7 @@ async function iniciarFirebase(){
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
       }, err=>marcarError(err)));
-      ["movimientos","deudas","metas","cuentas"].forEach(col=>{
+      ["movimientos","deudas","metas","cuentas","cierres"].forEach(col=>{
         desuscribir.push(onSnapshot(collection(db,"hogares",hogarId,col), snap=>{
           S[col] = snap.docs.map(d=>({...d.data(), id:d.id}));
           render();
@@ -1184,6 +1203,67 @@ function mostrarApp(){
 }
 
 /* ============================ cálculos ============================ */
+/* ============ remanente entre periodos ============================
+   Lo que no se gasta no desaparece: sigue en la cuenta. Al cerrarse un
+   periodo, su saldo pasa al siguiente como remanente, y así se acumula.
+   Se cuenta solo desde el primer periodo con ingresos registrados: antes
+   de eso los datos están incompletos y el arrastre saldría falseado. */
+function saldoDePeriodo(mm){
+  const dentro = S.movimientos.filter(m=>enPeriodo(m.fecha,mm));
+  const suma = (t,f=()=>true) => dentro.filter(m=>m.tipo===t && f(m)).reduce((a,b)=>a+b.monto,0);
+  return suma("ingreso") - suma("gasto")
+       - suma("ahorro", m=>!m.soloCuenta) + suma("retiro", m=>!m.soloCuenta);
+}
+function remanenteAntesDe(mes){
+  if(S.config?.arrastre==="reiniciar") return 0;
+  const conIngreso = S.movimientos.filter(m=>m.tipo==="ingreso").map(m=>m.fecha).sort();
+  if(!conIngreso.length) return 0;
+  let p = periodoDe(conIngreso[0]), acc = 0, vueltas = 0;
+  while(p !== mes && vueltas++ < 120){
+    acc += saldoDePeriodo(p);
+    p = sumaMes(p,1);
+  }
+  return vueltas>=120 ? 0 : acc;   // fuera de rango: mejor no inventar
+}
+
+/* ============ cierre de periodo: cuadrar con la realidad ==========
+   El saldo teórico de una persona al cerrar un periodo es lo que la app
+   cree que debería tener: el saldo real que ella misma declaró en el
+   cierre anterior, más lo que entró y menos lo que salió según lo
+   registrado. La diferencia contra su saldo real es, casi siempre, gasto
+   que nunca se anotó. Al arrancar cada cierre desde el saldo declarado,
+   los errores de un mes no se arrastran a los siguientes. */
+const cierreDe = mes => S.cierres.find(c=>c.mes===mes);
+
+function flujoPersona(nombre,mes){
+  /* Los ajustes generados por un cierre anterior se excluyen: son una
+     conclusión, no un movimiento real. Si se contaran, al volver a cerrar
+     el mismo periodo el saldo teórico ya vendría corregido y la diferencia
+     saldría distinta. */
+  const suyos = S.movimientos.filter(m=>enPeriodo(m.fecha,mes) && m.miembro===nombre && !m.ajusteCierre);
+  const suma = (t,f=()=>true)=>suyos.filter(m=>m.tipo===t && f(m)).reduce((a,b)=>a+b.monto,0);
+  return suma("ingreso") - suma("gasto")
+       - suma("ahorro", m=>!m.soloCuenta) + suma("retiro", m=>!m.soloCuenta);
+}
+function saldoTeorico(nombre,mes){
+  const previo = cierreDe(sumaMes(mes,-1));
+  const arranque = previo ? (previo.saldos?.[nombre] ?? 0) : null;
+  const flujo = flujoPersona(nombre,mes);
+  return { base:arranque, flujo, teorico:(arranque??0)+flujo, hayPrevio:arranque!==null };
+}
+/* Historial de lo que se detecta al cuadrar, periodo a periodo */
+function historialNoRegistrado(mes,n=6){
+  const salida=[];
+  for(let k=n-1;k>=0;k--){
+    const mm = sumaMes(mes,-k);
+    const total = S.movimientos
+      .filter(m=>enPeriodo(m.fecha,mm) && m.categoria==="NRG" && m.tipo==="gasto")
+      .reduce((a,b)=>a+b.monto,0);
+    salida.push({mes:mesCorto(mm), clave:mm, total});
+  }
+  return salida;
+}
+
 function calcular(){
   const mes = S.mes, mesAnt = sumaMes(mes,-1);
   const delMes = S.movimientos.filter(m=>enPeriodo(m.fecha,mes));
@@ -1226,7 +1306,8 @@ function calcular(){
   const retiros = delMes.filter(m=>m.tipo==="retiro" && !m.soloCuenta);
   const totalAporte = aportes.reduce((a,b)=>a+b.monto,0);
   const totalRetiro = retiros.reduce((a,b)=>a+b.monto,0);
-  const disponible = ingresoBase - totalGasto - totalAporte + totalRetiro;
+  const remanente = remanenteAntesDe(mes);
+  const disponible = remanente + ingresoBase - totalGasto - totalAporte + totalRetiro;
 
   /* Saldo de cada cuenta: el inicial más todo lo aportado menos lo retirado,
      desde siempre y no solo de este mes. */
@@ -1385,13 +1466,14 @@ function calcular(){
   }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0).sort((a,b)=>b.gasto-a.gasto);
   const sinAsignar = gastos.filter(x=>!personasHogar().includes(x.miembro)).reduce((a,b)=>a+b.monto,0);
   const restoDisponible = disponible - porPersona.reduce((a,p)=>a+p.disponible,0);
+  const saldoCierre = ingresoBase - totalGasto - totalAporte + totalRetiro;  // sin arrastre
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
     gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
-    ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,
+    ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,remanente,saldoCierre,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
     deudaTotal,pagoMinTotal,deudasCalc,metasCalc};
@@ -1504,6 +1586,17 @@ function recomendar(R){
     titulo:`El hogar paga ${fmt(sus.total)} al mes en suscripciones`,
     detalle:`Son ${fmt(sus.total*12)} al año en ${cuenta(sus.n,"cargo recurrente","cargos recurrentes")}. Es el gasto que más fácil se olvida y el más rápido de cancelar.`,
     accion:"Revisa cuáles usaste en las últimas dos semanas y cancela el resto; suele sobrar un tercio."});
+
+  /* lo que aparece al cuadrar la caja */
+  const fuga = R.porCat.find(c=>c.cod==="NRG");
+  if(fuga && fuga.total>0 && R.totalGasto>0){
+    const pct = fuga.total/R.totalGasto;
+    push({nivel: pct>0.1? "alto":"medio", grupo:"habitos", ahorro:fuga.total*0.5,
+      etiqueta:"NRG · gasto sin registrar",
+      titulo:`${fmt(fuga.total)} salieron sin quedar registrados`,
+      detalle:`Es el ${Math.round(pct*100)}% del gasto del periodo y apareció al cuadrar los saldos reales con los teóricos. Son las compras pequeñas que nadie anota: café, propinas, encargos, efectivo suelto.`,
+      accion:"Anota durante dos semanas todo lo que pagues en efectivo, aunque sean cifras mínimas. Lo que se mide se puede recortar; a ciegas, no."});
+  }
 
   /* tarjetas: gastar más de lo que se abona */
   tarjetas().forEach(t=>{
@@ -1675,6 +1768,181 @@ function desgloseSobre(c){
   </div>`;
 }
 
+/* El cierre se ofrece cuando el periodo termina, o en sus últimos días.
+   Si ya se cerró, la tarjeta pasa a resumir cómo cuadró. */
+function avisoCierre(R){
+  const c = cierreDe(R.mes);
+  const toca = !R.esMesActual || R.restantes<=2;
+  if(!toca && !c) return "";
+  if(c){
+    const difs = Object.entries(c.diferencias||{});
+    const total = difs.reduce((a,[,v])=>a+Math.min(0,v),0);
+    return `<section class="tarjeta" data-acento="lila">
+      <div class="cab"><h2>Periodo cerrado</h2><span class="cod">${esc(c.fecha)}</span></div>
+      ${c.soloRegistro
+        ? `<p class="nota">Se registraron los saldos de partida. Desde el próximo cierre ya se calculan las diferencias.</p>`
+        : total<0
+          ? `<p class="nota">Al cuadrar aparecieron <b>${fmt(-total)}</b> de gasto que no estaba registrado.</p>`
+          : `<p class="nota">Cuadró sin diferencias apreciables.</p>`}
+      <ul class="cierre-resumen">${Object.entries(c.saldos||{}).map(([n,v])=>`
+        <li><span class="punto-p" style="background:${col(colorPersona(n))}"></span>${esc(n)}
+          <b>${fmt(v)}</b>
+          <em class="${(c.diferencias?.[n]||0)<0?"rojo":"verde"}">${
+            Math.abs(c.diferencias?.[n]||0)<1? "cuadra"
+            : `${c.diferencias[n]<0?"−":"+"}${fmt(Math.abs(c.diferencias[n]))}`}</em></li>`).join("")}</ul>
+      <div class="fila-btns"><button class="btn mini" data-cerrar-mes="${R.mes}">Revisar el cierre</button></div>
+    </section>`;
+  }
+  return `<section class="tarjeta" data-acento="ambar">
+    <div class="cab"><h2>${R.esMesActual? "El periodo está por terminar" : "Este periodo no se ha cerrado"}</h2></div>
+    <p class="nota">Anota el saldo real de cada uno y la app calcula qué se gastó sin registrar. Es la única forma de ver las compras hormiga que nunca se anotan.</p>
+    <div class="fila-btns"><button class="btn primario" data-cerrar-mes="${R.mes}">Cerrar el periodo</button></div>
+  </section>`;
+}
+
+/* Al empezar un periodo, recordar lo que sobró del anterior y ofrecer
+   apartarlo antes de que se confunda con el dinero del mes en curso. */
+function avisoRemanente(R){
+  if(!R.esMesActual || R.remanente<=0) return "";
+  if(leerLocal(`pf-remanente:${R.mes}`)==="visto") return "";
+  const anterior = saldoDePeriodo(R.mesAnt);
+  return `<section class="tarjeta" data-acento="ambar">
+    <div class="cab"><h2>Sobró dinero del periodo anterior</h2>
+      <button class="enlace" data-accion="ocultar-remanente">Ocultar</button></div>
+    <p class="nota">Arrastras <b>${fmt(R.remanente)}</b> de periodos ya cerrados${
+      anterior>0?`, de los cuales ${fmt(anterior)} son del último`:""}. Ese dinero ya está sumado a tu disponible de ${etiquetaPeriodo(R.mes)}.</p>
+    <p class="nota">Si no lo apartas, se mezcla con el gasto corriente y acaba gastándose sin haberlo decidido.</p>
+    <div class="fila-btns">
+      <button class="btn primario" data-accion="guardar-remanente">Apartarlo en una cuenta</button>
+    </div>
+  </section>`;
+}
+
+/* ============ cerrar el periodo ==================================== */
+function modalCierre(mes){
+  const personas = personasHogar();
+  if(!personas.length){ avisar("Añade primero a los integrantes del hogar"); return; }
+  const previo = cierreDe(mes);
+  const datos = personas.map(n=>({nombre:n, ...saldoTeorico(n,mes)}));
+  const primero = !datos.some(d=>d.hayPrevio);
+
+  modal(`Cerrar ${etiquetaPeriodo(mes)}`,`
+    ${previo?`<p class="aviso-credito">Este periodo ya se cerró el ${esc(previo.fecha)}. Si vuelves a cerrarlo se reemplazarán los ajustes anteriores.</p>`:""}
+    <p class="nota">Anota el saldo <b>real</b> que tiene hoy cada persona en sus cuentas de uso diario. La diferencia con lo que la app calcula se registra como <b>gasto no registrado</b>, que es donde acaban las compras hormiga que nunca se anotan.</p>
+
+    <ul class="cierre">${datos.map((d,i)=>`
+      <li>
+        <div class="cierre-cab">
+          <span class="punto-p" style="background:${col(colorPersona(d.nombre))}"></span>
+          <span class="cierre-nom">${esc(d.nombre)}</span>
+        </div>
+        <div class="cierre-linea"><span>Saldo declarado al cierre anterior</span>
+          <b>${d.hayPrevio? fmt(d.base) : "—"}</b></div>
+        <div class="cierre-linea"><span>Movimientos registrados del periodo</span>
+          <b class="${d.flujo<0?"rojo":"verde"}">${d.flujo>=0?"+":""}${fmt(d.flujo)}</b></div>
+        <div class="cierre-linea total"><span>Saldo teórico</span><b>${fmt(d.teorico)}</b></div>
+        <label class="campo" style="margin:10px 0 6px"><span>Saldo real de ${esc(d.nombre)}</span>
+          <input class="importe" type="text" inputmode="numeric" data-real="${i}"
+                 data-teorico="${d.teorico}" value="${vf(previo?.saldos?.[d.nombre])}" placeholder="0"></label>
+        <p class="cierre-dif" data-dif="${i}">Escribe el saldo real para ver la diferencia.</p>
+      </li>`).join("")}</ul>
+
+    <label class="check"><input type="checkbox" id="ci-primero" ${primero?"checked":""}>
+      <span>Solo registrar saldos, sin generar ajustes</span></label>
+    <p class="nota ayuda">${primero
+      ? "En el primer cierre no hay con qué comparar: se guardan los saldos como punto de partida y desde el próximo periodo ya se calculan las diferencias."
+      : "Desmarca esto para que las diferencias se registren como gastos o ingresos no registrados."}</p>
+  `, async()=>{
+    const soloRegistrar = $("#ci-primero").checked;
+    /* Un campo en blanco significa "no lo sé", no "cero": esa persona
+       queda fuera del cierre en vez de generar un ajuste inventado. */
+    const saldos={}, teoricos={}, diferencias={};
+    const declarados = datos.filter((d,i)=>document.querySelector(`[data-real="${i}"]`).value.trim()!=="");
+    if(!declarados.length) return "Escribe al menos un saldo real.";
+    datos.forEach((d,i)=>{
+      const campo = document.querySelector(`[data-real="${i}"]`);
+      if(campo.value.trim()==="") return;
+      const real = num(campo.value);
+      saldos[d.nombre]=real; teoricos[d.nombre]=d.teorico; diferencias[d.nombre]=real-d.teorico;
+    });
+
+    // Un recierre reemplaza los ajustes que generó el anterior
+    for(const m of S.movimientos.filter(m=>m.ajusteCierre && enPeriodo(m.fecha,mes)))
+      await DB.borrar("movimientos", m.id);
+
+    if(!soloRegistrar){
+      const fecha = finPeriodo(mes);
+      for(const d of declarados){
+        const dif = diferencias[d.nombre];
+        if(Math.abs(dif) < 1) continue;
+        await DB.agregar("movimientos", dif<0
+          ? { tipo:"gasto", monto:-dif, categoria:"NRG", sub:"", fecha, metodo:"Efectivo",
+              tarjetaId:"", cuentaId:"", soloCuenta:false, miembro:d.nombre,
+              nota:`Gastos no registrados · ${mesCorto(mes)}`, esencial:false,
+              ajusteCierre:true, uid:S.uid||"", autor:miNombre(), creado:Date.now() }
+          : { tipo:"ingreso", monto:dif, categoria:"OTR", sub:"", fecha, metodo:"Efectivo",
+              tarjetaId:"", cuentaId:"", soloCuenta:false, miembro:d.nombre,
+              nota:`Ingreso no registrado · ${mesCorto(mes)}`, esencial:true,
+              ajusteCierre:true, uid:S.uid||"", autor:miNombre(), creado:Date.now() });
+      }
+    }
+
+    const registro = {mes, fecha:hoyISO(), saldos, teoricos, diferencias,
+                      soloRegistro:soloRegistrar, uid:S.uid||"", autor:miNombre()};
+    if(previo) await DB.actualizar("cierres", previo.id, registro);
+    else await DB.agregar("cierres", registro);
+    render();
+    avisar(soloRegistrar? "Saldos registrados" : "Periodo cerrado y cuadrado");
+  }, previo? "Volver a cerrar" : "Cerrar el periodo");
+
+  /* Diferencia en vivo mientras se escribe */
+  const refrescar = ()=>document.querySelectorAll("[data-real]").forEach(campo=>{
+    const i = campo.dataset.real, t = Number(campo.dataset.teorico);
+    const nota = document.querySelector(`[data-dif="${i}"]`);
+    if(!campo.value.trim()){ nota.className="cierre-dif"; nota.textContent="Escribe el saldo real para ver la diferencia."; return; }
+    const dif = num(campo.value) - t;
+    if(Math.abs(dif)<1){ nota.className="cierre-dif ok"; nota.textContent="Cuadra exactamente."; }
+    else if(dif<0){ nota.className="cierre-dif menos";
+      nota.textContent=`Faltan ${fmt(-dif)}: se registrarán como gastos no registrados.`; }
+    else { nota.className="cierre-dif mas";
+      nota.textContent=`Sobran ${fmt(dif)}: se registrarán como ingreso no registrado.`; }
+  });
+  document.querySelectorAll("[data-real]").forEach(c=>c.addEventListener("input",refrescar));
+  refrescar();
+}
+
+function modalGuardarRemanente(){
+  const R = calcular();
+  if(!S.cuentas.length){
+    modal("Apartar el remanente",`
+      <p class="aviso-credito">Necesitas una cuenta de ahorro donde guardarlo. Créala en <b>Ahorro → Cuentas de ahorro</b> y vuelve aquí.</p>
+      <p class="nota">Tienes <b>${fmt(R.remanente)}</b> arrastrados de periodos anteriores.</p>
+    `, async()=>{ S.vista="ahorro"; render(); }, "Ir a cuentas");
+    return;
+  }
+  modal("Apartar el remanente",`
+    <p class="nota migaja">Arrastras ${fmt(R.remanente)} de periodos cerrados</p>
+    <label class="campo"><span>Cuánto apartar</span>
+      <input class="grande importe" id="rm-monto" type="text" inputmode="numeric" value="${vf(R.remanente)}"></label>
+    <label class="campo"><span>¿A qué cuenta?</span>
+      <select id="rm-cuenta">${S.cuentas.map(c=>`<option value="${c.id}">${esc(c.nombre)}${c.banco?` · ${esc(c.banco)}`:""}</option>`).join("")}</select></label>
+    <label class="campo"><span>¿Quién transfiere?</span>
+      <select id="rm-miembro">${personasHogar().map(x=>`<option ${miNombre()===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+    <p class="nota aviso-credito">Se registra como aporte de hoy: sale del disponible de este periodo y entra al saldo de la cuenta.</p>
+  `, async()=>{
+    const monto = num($("#rm-monto").value);
+    if(monto<=0) return "Escribe un monto mayor que cero.";
+    await DB.agregar("movimientos",{
+      tipo:"ahorro", monto, categoria:"OTR", fecha:hoyISO(), metodo:"Transferencia",
+      tarjetaId:"", cuentaId:$("#rm-cuenta").value, soloCuenta:false,
+      miembro:$("#rm-miembro").value, nota:"Remanente del periodo anterior",
+      esencial:true, uid:S.uid||"", autor:miNombre(), creado:Date.now()});
+    guardarLocal(`pf-remanente:${S.mes}`,"visto");
+    render();                       // el aviso ya no tiene que reaparecer
+    avisar("Remanente apartado");
+  }, "Apartar en la cuenta");
+}
+
 function vPanel(R){
   const est = u=> u===null? "" : u>1?"rojo": u>0.85?"ambar":"";
   const sobres = R.porCat.filter(c=>c.pres>0||c.total>0);
@@ -1684,6 +1952,7 @@ function vPanel(R){
   return `
   <section class="cinta">
     <div class="cinta-cab"><span>Corte del mes</span><span>${R.esMesActual?`día ${R.diaHoy} de ${R.dias}`:"mes cerrado"}</span></div>
+    ${R.remanente!==0?`<div class="renglon"><span>Viene del periodo anterior</span><i></i><b class="${R.remanente<0?"rojo":"verde"}">${R.remanente>0?"+":""}${fmt(R.remanente)}</b></div>`:""}
     <div class="renglon ${R.baseUsada==="registrado"?"":"tenue"}"><span>Ingresos registrados${R.baseUsada==="registrado"?' <i class="marca-base">base</i>':""}</span><i></i><b>+${fmt(R.ingresoRegistrado)}</b></div>
     ${R.ingresoEstimado>0 && R.ingresoEstimado!==R.ingresoRegistrado
       ? `<div class="renglon ${R.baseUsada==="estimado"?"":"tenue"}"><span>Ingreso estimado${R.baseUsada==="estimado"?' <i class="marca-base">base</i>':""}</span><i></i><b>${fmt(R.ingresoEstimado)}</b></div>`
@@ -1699,7 +1968,7 @@ function vPanel(R){
       ${R.porPersona.map(p=>`<span class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0">
         <i style="background:${col(p.color)}"></i>${esc(p.nombre)}
         <b class="${p.disponible<0?"rojo":""}">${fmt(p.disponible)}</b></span>`).join("")}
-      ${Math.abs(R.restoDisponible)>=1?`<span><i style="background:#B9C0B6"></i>sin asignar<b>${fmt(R.restoDisponible)}</b></span>`:""}
+      ${Math.abs(R.restoDisponible)>=1?`<span><i style="background:#B9C0B6"></i>${R.remanente!==0?"del hogar":"sin asignar"}<b>${fmt(R.restoDisponible)}</b></span>`:""}
     </div>`:""}
     ${R.esMesActual?`<div class="cinta-pie">
       <div><em>Ritmo variable</em><b>${fmt(R.ritmoVariable)}/día</b></div>
@@ -1716,6 +1985,9 @@ function vPanel(R){
       <span class="total">= ${fmt(R.proyectado)}</span>
     </div>`:""}
   </section>
+
+  ${avisoCierre(R)}
+  ${avisoRemanente(R)}
 
   <section class="tarjeta" data-acento="verde">
     <div class="cab"><h2>Sobres del mes</h2>
@@ -2039,6 +2311,24 @@ function vAhorro(R){
       </li>`).join("")}</ul>
   </section>`:""}
 
+  ${(()=>{
+    const hist = historialNoRegistrado(R.mes);
+    const total = hist.reduce((a,x)=>a+x.total,0);
+    if(total<=0) return "";
+    const conDato = hist.filter(x=>x.total>0).length;
+    return `<section class="tarjeta" data-acento="lila">
+      <div class="cab"><h2>Gasto hormiga detectado</h2><span class="cod">al cuadrar la caja</span></div>
+      <p class="nota">Diferencias entre el saldo real y el teórico en los cierres: dinero que salió sin quedar registrado.</p>
+      ${grBarras(hist,{color:"#8C6D8F"})}
+      <div class="metricas">
+        <div><em>Total del periodo mostrado</em><b>${fmt(total)}</b></div>
+        <div><em>Promedio por cierre</em><b>${fmt(conDato? total/conDato : 0)}</b></div>
+        <div><em>Al año a este ritmo</em><b>${fmt(conDato? total/conDato*12 : 0)}</b></div>
+        <div><em>Cierres con fuga</em><b>${conDato} de ${hist.length}</b></div>
+      </div>
+    </section>`;
+  })()}
+
   <section class="tarjeta" data-acento="verde">
     <div class="cab"><h2>Ahorro de los últimos 6 meses</h2></div>
     ${grBarras(hist,{color:"var(--verde)"})}
@@ -2097,6 +2387,14 @@ function vAjustes(R){
           <b class="mono">${fmt(S.config.ingresoMensual||0)}</b></li>
       </ul>
     </div>
+    <div class="campo"><span class="campo-tit">¿Qué pasa con lo que no se gasta?</span>
+      <div class="chips" id="arrastre">
+        <button class="chip ${(S.config.arrastre||"acumular")==="acumular"?"activo":""}" data-arrastre="acumular"><b>ACU</b> Se arrastra al periodo siguiente</button>
+        <button class="chip ${S.config.arrastre==="reiniciar"?"activo":""}" data-arrastre="reiniciar"><b>CERO</b> Cada periodo empieza de cero</button>
+      </div>
+      <p class="nota ayuda">Con <b>arrastre</b>, el saldo que sobra de un periodo aparece al inicio del siguiente como <i>viene del periodo anterior</i>: refleja el dinero que sigue en la cuenta. Se cuenta desde el primer periodo con ingresos registrados.</p>
+    </div>
+
     <div class="campo"><span class="campo-tit">¿Qué día empieza el ciclo?</span>
       <p class="nota ayuda" style="margin:0 0 8px">Si cobran el día 10, el mes presupuestario va del 10 al 9 del mes siguiente. Así el sueldo y los gastos que cubre caen en el mismo periodo.</p>
       <div class="fila-btns">
@@ -2252,6 +2550,7 @@ function conectar(R){
     el.onclick = e=>{ if(e.target.closest("[data-editar-cat]")) return; alternar(); };
     el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); alternar(); } };
   });
+  document.querySelectorAll("[data-cerrar-mes]").forEach(b=>b.onclick=()=>modalCierre(b.dataset.cerrarMes));
   document.querySelectorAll("[data-subs]").forEach(b=>b.onclick=e=>{
     e.stopPropagation(); modalSubsobres(b.dataset.subs);
   });
@@ -2297,6 +2596,8 @@ function conectar(R){
     DB.guardarHogar({config:{...S.config, ingresosPersona:mapa, ingresoMensual:total}});
   });
   document.querySelectorAll("[data-persona]").forEach(b=>b.onclick=()=>{S.filtroPersona=b.dataset.persona;render()});
+  document.querySelectorAll("#arrastre [data-arrastre]").forEach(b=>b.onclick=()=>
+    DB.guardarHogar({config:{...S.config,arrastre:b.dataset.arrastre}}));
   document.querySelectorAll("#base-ingreso [data-base]").forEach(b=>b.onclick=()=>
     DB.guardarHogar({config:{...S.config,baseIngreso:b.dataset.base}}));
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
@@ -2318,6 +2619,8 @@ function acciones(a,R){
     "nueva-categoria":()=>modalCategoria(),
     "nueva-cuenta":()=>modalCuenta(),
     "mas-sobres":()=>{ S.verTodosSobres=!S.verTodosSobres; render(); },
+    "guardar-remanente":()=>modalGuardarRemanente(),
+    "ocultar-remanente":()=>{ guardarLocal(`pf-remanente:${S.mes}`,"visto"); render(); },
     fondo:()=>elegirFondo(),
     "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
     "nueva-meta":()=>modalMeta(),
@@ -3119,6 +3422,7 @@ async function exportarExcel(){
     [],
     ["RESUMEN DEL MES"],
     ["Concepto","Monto"],
+    ["Remanente de periodos anteriores", R.remanente],
     ["Ingresos registrados", R.ingresoRegistrado],
     ["Ingreso estimado", R.ingresoEstimado],
     ["Base usada para el cálculo", R.baseUsada==="estimado"?"Ingreso estimado":"Ingresos registrados"],
@@ -3130,7 +3434,8 @@ async function exportarExcel(){
     ["Aportes a cuentas de ahorro", R.totalAporte],
     ["Retiros de ahorro", R.totalRetiro],
     ["Saldo total en cuentas", R.saldoAhorros],
-    ["Disponible del mes", R.disponible],
+    ["Saldo del periodo (sin arrastre)", R.saldoCierre],
+    ["Disponible del mes (con arrastre)", R.disponible],
     ["Ahorro del mes (no gastado)", R.ahorroReal],
     ["Tasa de ahorro", R.tasaAhorro],
     [],
@@ -3237,6 +3542,20 @@ async function exportarExcel(){
     cu.push(["","","","TOTAL","","","",R.saldoAhorros,R.totalAporte,""]);
     X.utils.book_append_sheet(lib, hojaDesde(X,cu,[24,18,18,14,14,14,14,14,15,12],
       {4:MONEDA,5:MONEDA,6:MONEDA,7:MONEDA,8:MONEDA}), "Cuentas");
+  }
+
+  /* --- Cierres de periodo --- */
+  if(S.cierres.length){
+    const ci = [["Periodo","Cerrado el","Persona","Saldo teórico","Saldo real","Diferencia","Tipo"]];
+    [...S.cierres].sort((a,b)=>a.mes<b.mes?-1:1).forEach(c=>{
+      Object.keys(c.saldos||{}).forEach(n=>{
+        const d = c.diferencias?.[n] ?? 0;
+        ci.push([c.mes, c.fecha, n, c.teoricos?.[n] ?? "", c.saldos[n], d,
+          c.soloRegistro? "Solo registro" : Math.abs(d)<1? "Cuadra" : d<0? "Gasto no registrado" : "Ingreso no registrado"]);
+      });
+    });
+    X.utils.book_append_sheet(lib, hojaDesde(X,ci,[10,12,16,15,15,15,22],
+      {3:MONEDA,4:MONEDA,5:MONEDA}), "Cierres");
   }
 
   /* --- Recomendaciones --- */
