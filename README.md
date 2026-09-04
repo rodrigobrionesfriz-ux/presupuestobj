@@ -181,7 +181,20 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 **Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
 
-**Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector de tarjeta, y el monto se suma solo al saldo de esa tarjeta. El criterio contable es el de devengo: la compra cuenta como gasto del mes en que la haces, y el pago posterior de la tarjeta solo baja la deuda, sin volver a contar como gasto — por eso esa casilla viene desmarcada cuando la tarjeta ya tiene compras registradas. Si corriges un movimiento (cambias el monto, lo pasas a otra tarjeta o a efectivo) o lo eliminas, el saldo se reajusta solo. Y si en un mes cargas más de lo que pagas, aparece una recomendación avisando de cuánto está creciendo la deuda.
+**Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector de tarjeta, y el monto se suma al saldo de esa tarjeta como deuda.
+
+La app distingue **devengo** de **caja**, que es la única forma de que los números cuadren:
+
+| | Cuenta en su sobre | Baja el disponible | Mueve la deuda |
+|---|---|---|---|
+| Compra con débito o efectivo | Sí | Sí | — |
+| Compra con tarjeta de crédito | Sí | **No** | Sube |
+| Pago de la tarjeta | **No** | Sí | Baja |
+| Cuota de un préstamo | Sí (sobre DEU) | Sí | Baja |
+
+Una compra a crédito consume presupuesto pero no saca dinero de la cuenta: sale cuando pagas la tarjeta. Si se restaran las dos cosas, el mismo gasto se descontaría dos veces del disponible. En un préstamo es distinto: no hay compras registradas detrás, así que la cuota **es** el gasto del mes.
+
+Esta distinción alcanza también al arrastre entre periodos y al saldo teórico del cierre, que se calculan sobre movimientos de caja: son los que explican el saldo real del banco. Si corriges un movimiento (cambias el monto, lo pasas a otra tarjeta o a efectivo) o lo eliminas, el saldo se reajusta solo. Y si en un mes cargas más de lo que pagas, aparece una recomendación avisando de cuánto está creciendo la deuda.
 
 **Cuentas de ahorro** — Dónde vive el dinero ahorrado: cuenta del banco, depósito a plazo, fondo, efectivo guardado. Cada una con institución, tipo, titular (una persona o el hogar) y **saldo inicial configurable**, que es lo que había antes de empezar a registrar.
 
@@ -217,7 +230,8 @@ Detalles del diseño:
 - **Cada cierre arranca del saldo declarado en el anterior**, no de un acumulado teórico, así que un error de un mes no se arrastra a los siguientes.
 - **Los ajustes generados por un cierre se excluyen del saldo teórico**: son una conclusión, no un movimiento real. Por eso volver a cerrar el mismo periodo da la misma diferencia y reemplaza el ajuste anterior en lugar de duplicarlo.
 - **Un campo en blanco significa "no lo sé"**, no cero: esa persona queda fuera del cierre en vez de generar un ajuste inventado.
-- **El primer cierre solo registra saldos**, porque no hay con qué comparar. Desde el segundo ya se calculan diferencias.
+- **El primer cierre solo registra saldos**, y la casilla queda bloqueada: sin saldo anterior no hay línea base, y forzar un ajuste inventaría una diferencia contra cero. Desde el segundo cierre ya se calculan.
+- **Cerrar ancla el disponible.** A partir del cierre, el arrastre deja de acumularse desde estimaciones y parte de los saldos reales declarados. En la cinta se lee *saldo real al cierre de ago*, y el periodo cerrado muestra **Saldo cuadrado** con esa cifra en lugar de un disponible teórico. Es lo que hace que cerrar sirva de algo: la desviación acumulada se corta en cada cierre en vez de arrastrarse.
 
 En la vista Ahorro aparece **Gasto hormiga detectado**: el histórico de estas diferencias por periodo, su promedio, la proyección anual y en cuántos cierres hubo fuga. Cuando la cifra es significativa, el motor de recomendaciones la señala. El Excel suma una hoja **Cierres** con el detalle por persona.
 

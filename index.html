@@ -313,6 +313,7 @@ input.grande.importe{text-align:left}
 .cierre-resumen li{display:flex;align-items:center;gap:8px;font-size:13px}
 .cierre-resumen b{margin-left:auto;font-family:var(--tipo-num);font-weight:500}
 .cierre-resumen em{font-style:normal;font-family:var(--tipo-num);font-size:11px;min-width:72px;text-align:right}
+.nota-cuadrado{font-size:11px;margin:9px 0 0;line-height:1.45;color:var(--suave)}
 .clicable{cursor:pointer;transition:background .15s}
 .clicable:hover,.clicable:focus-visible{background:var(--papel)}
 tr.clicable td{transition:background .15s}
@@ -810,7 +811,21 @@ const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const PSEUDO = {
   ahorro:{cod:"AHO", nombre:"Aporte a ahorro",  color:"#3F7D58"},
   retiro:{cod:"RET", nombre:"Retiro de ahorro", color:"#C7913A"},
+  pago:  {cod:"PAG", nombre:"Pago de tarjeta",  color:"#7A4A55"},
 };
+
+/* ============ devengo frente a caja ===============================
+   Una compra con tarjeta de crédito es gasto del periodo —cuenta en su
+   sobre y en las estadísticas— pero el dinero no ha salido de la cuenta:
+   lo que sale es el pago de la tarjeta, más adelante. Si se restaran las
+   dos cosas, el mismo gasto se descontaría dos veces del disponible.
+   afectaCaja() decide qué movimientos mueven dinero de verdad. */
+const afectaCaja = m => {
+  if(m.tipo==="gasto")  return !m.tarjetaId;        // a crédito aún no sale
+  if(m.tipo==="ahorro" || m.tipo==="retiro") return !m.soloCuenta;
+  return true;                                      // ingresos y pagos de tarjeta
+};
+const esCredito = m => m.tipo==="gasto" && !!m.tarjetaId;
 const codDe   = m => PSEUDO[m.tipo]?.cod   || m.categoria;
 const colorDe = m => PSEUDO[m.tipo]?.color || CAT[m.categoria]?.color || "#8A9099";
 const nombreCuenta = id => S.cuentas.find(c=>c.id===id)?.nombre || "";
@@ -1209,22 +1224,36 @@ function mostrarApp(){
    Se cuenta solo desde el primer periodo con ingresos registrados: antes
    de eso los datos están incompletos y el arrastre saldría falseado. */
 function saldoDePeriodo(mm){
-  const dentro = S.movimientos.filter(m=>enPeriodo(m.fecha,mm));
-  const suma = (t,f=()=>true) => dentro.filter(m=>m.tipo===t && f(m)).reduce((a,b)=>a+b.monto,0);
-  return suma("ingreso") - suma("gasto")
-       - suma("ahorro", m=>!m.soloCuenta) + suma("retiro", m=>!m.soloCuenta);
+  const dentro = S.movimientos.filter(m=>enPeriodo(m.fecha,mm) && afectaCaja(m));
+  const suma = t => dentro.filter(m=>m.tipo===t).reduce((a,b)=>a+b.monto,0);
+  return suma("ingreso") + suma("retiro")
+       - suma("gasto") - suma("ahorro") - suma("pago");
 }
-function remanenteAntesDe(mes){
-  if(S.config?.arrastre==="reiniciar") return 0;
-  const conIngreso = S.movimientos.filter(m=>m.tipo==="ingreso").map(m=>m.fecha).sort();
-  if(!conIngreso.length) return 0;
-  let p = periodoDe(conIngreso[0]), acc = 0, vueltas = 0;
-  while(p !== mes && vueltas++ < 120){
-    acc += saldoDePeriodo(p);
-    p = sumaMes(p,1);
+function remanenteInfo(mes){
+  if(S.config?.arrastre==="reiniciar") return {monto:0, ancla:null};
+
+  /* Si hay un cierre anterior, ese es el punto de partida: son saldos
+     declarados, no estimados. A partir de ahí solo se suman los periodos
+     posteriores. Anclar aquí es lo que hace que cerrar el mes sirva de
+     algo: el disponible deja de arrastrar la desviación acumulada. */
+  const previos = S.cierres.filter(c=>c.mes < mes).sort((a,b)=> a.mes<b.mes? 1 : -1);
+  if(previos.length){
+    const ancla = previos[0];
+    let acc = Object.values(ancla.saldos||{}).reduce((a,b)=>a+(b||0),0);
+    let p = sumaMes(ancla.mes,1), vueltas = 0;
+    while(p !== mes && vueltas++ < 120){ acc += saldoDePeriodo(p); p = sumaMes(p,1); }
+    return {monto:acc, ancla};
   }
-  return vueltas>=120 ? 0 : acc;   // fuera de rango: mejor no inventar
+
+  /* Sin ningún cierre todavía: se acumula desde el primer periodo con
+     ingresos registrados, que es lo mejor que se puede hacer a ciegas. */
+  const conIngreso = S.movimientos.filter(m=>m.tipo==="ingreso").map(m=>m.fecha).sort();
+  if(!conIngreso.length) return {monto:0, ancla:null};
+  let p = periodoDe(conIngreso[0]), acc = 0, vueltas = 0;
+  while(p !== mes && vueltas++ < 120){ acc += saldoDePeriodo(p); p = sumaMes(p,1); }
+  return {monto: vueltas>=120? 0 : acc, ancla:null};
 }
+const remanenteAntesDe = mes => remanenteInfo(mes).monto;
 
 /* ============ cierre de periodo: cuadrar con la realidad ==========
    El saldo teórico de una persona al cerrar un periodo es lo que la app
@@ -1240,10 +1269,11 @@ function flujoPersona(nombre,mes){
      conclusión, no un movimiento real. Si se contaran, al volver a cerrar
      el mismo periodo el saldo teórico ya vendría corregido y la diferencia
      saldría distinta. */
-  const suyos = S.movimientos.filter(m=>enPeriodo(m.fecha,mes) && m.miembro===nombre && !m.ajusteCierre);
-  const suma = (t,f=()=>true)=>suyos.filter(m=>m.tipo===t && f(m)).reduce((a,b)=>a+b.monto,0);
-  return suma("ingreso") - suma("gasto")
-       - suma("ahorro", m=>!m.soloCuenta) + suma("retiro", m=>!m.soloCuenta);
+  const suyos = S.movimientos.filter(m=>enPeriodo(m.fecha,mes) && m.miembro===nombre
+    && !m.ajusteCierre && afectaCaja(m));
+  const suma = t=>suyos.filter(m=>m.tipo===t).reduce((a,b)=>a+b.monto,0);
+  return suma("ingreso") + suma("retiro")
+       - suma("gasto") - suma("ahorro") - suma("pago");
 }
 function saldoTeorico(nombre,mes){
   const previo = cierreDe(sumaMes(mes,-1));
@@ -1306,8 +1336,19 @@ function calcular(){
   const retiros = delMes.filter(m=>m.tipo==="retiro" && !m.soloCuenta);
   const totalAporte = aportes.reduce((a,b)=>a+b.monto,0);
   const totalRetiro = retiros.reduce((a,b)=>a+b.monto,0);
-  const remanente = remanenteAntesDe(mes);
-  const disponible = remanente + ingresoBase - totalGasto - totalAporte + totalRetiro;
+  const infoRem = remanenteInfo(mes);
+  const remanente = infoRem.monto;
+  /* El gasto del periodo sigue siendo el devengado —así los sobres y las
+     estadísticas reflejan lo que se consumió— pero el disponible solo
+     descuenta lo que efectivamente salió de la cuenta. */
+  const comprasCredito = gastos.filter(esCredito).reduce((a,b)=>a+b.monto,0);
+  const gastosCaja = totalGasto - comprasCredito;
+  const pagosTarjeta = delMes.filter(m=>m.tipo==="pago").reduce((a,b)=>a+b.monto,0);
+  const anclaRem = infoRem.ancla;
+  const cierrePropio = cierreDe(mes);
+  const declaradoCierre = cierrePropio
+    ? Object.values(cierrePropio.saldos||{}).reduce((a,b)=>a+(b||0),0) : null;
+  const disponible = remanente + ingresoBase - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;
 
   /* Saldo de cada cuenta: el inicial más todo lo aportado menos lo retirado,
      desde siempre y no solo de este mes. */
@@ -1441,6 +1482,8 @@ function calcular(){
     const ingreso = i.reduce((a,b)=>a+b.monto,0);
     const aporte = aportes.filter(x=>x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
     const retiro = retiros.filter(x=>x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
+    const credito = g.filter(esCredito).reduce((a,b)=>a+b.monto,0);
+    const pagos = delMes.filter(x=>x.tipo==="pago" && x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
     /* Base de ingreso de esta persona: lo suyo registrado frente a lo suyo
        estimado, con el mismo criterio que se aplica al hogar. */
     const estP = (S.config.ingresosPersona||{})[nombre] || 0;
@@ -1455,7 +1498,8 @@ function calcular(){
     return {
       nombre, gasto, ingreso, aporte, retiro, baseP,
       neto:ingreso-gasto,
-      disponible: baseP - gasto - aporte + retiro,
+      disponible: baseP - (gasto-credito) - pagos - aporte + retiro,
+      credito, pagos,
       n:g.length, registrados,
       ticket: g.length? gasto/g.length : 0,
       pct: totalGasto>0? gasto/totalGasto : 0,
@@ -1466,14 +1510,15 @@ function calcular(){
   }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0).sort((a,b)=>b.gasto-a.gasto);
   const sinAsignar = gastos.filter(x=>!personasHogar().includes(x.miembro)).reduce((a,b)=>a+b.monto,0);
   const restoDisponible = disponible - porPersona.reduce((a,p)=>a+p.disponible,0);
-  const saldoCierre = ingresoBase - totalGasto - totalAporte + totalRetiro;  // sin arrastre
+  const saldoCierre = ingresoBase - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;  // sin arrastre
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
     gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
-    ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,remanente,saldoCierre,
+    comprasCredito,gastosCaja,pagosTarjeta,
+    ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,remanente,saldoCierre,anclaRem,cierrePropio,declaradoCierre,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
     deudaTotal,pagoMinTotal,deudasCalc,metasCalc};
@@ -1847,13 +1892,13 @@ function modalCierre(mes){
         <p class="cierre-dif" data-dif="${i}">Escribe el saldo real para ver la diferencia.</p>
       </li>`).join("")}</ul>
 
-    <label class="check"><input type="checkbox" id="ci-primero" ${primero?"checked":""}>
+    <label class="check"><input type="checkbox" id="ci-primero" ${primero?"checked disabled":""}>
       <span>Solo registrar saldos, sin generar ajustes</span></label>
     <p class="nota ayuda">${primero
-      ? "En el primer cierre no hay con qué comparar: se guardan los saldos como punto de partida y desde el próximo periodo ya se calculan las diferencias."
+      ? "Es el primer cierre y no hay saldo anterior con el que comparar, así que no se generan ajustes: estos saldos quedan como punto de partida. Desde el próximo cierre ya se calcula la diferencia y el disponible arrancará de aquí."
       : "Desmarca esto para que las diferencias se registren como gastos o ingresos no registrados."}</p>
   `, async()=>{
-    const soloRegistrar = $("#ci-primero").checked;
+    const soloRegistrar = primero || $("#ci-primero").checked;
     /* Un campo en blanco significa "no lo sé", no "cero": esa persona
        queda fuera del cierre en vez de generar un ajuste inventado. */
     const saldos={}, teoricos={}, diferencias={};
@@ -1951,19 +1996,27 @@ function vPanel(R){
   const rec = recomendar(R);
   return `
   <section class="cinta">
-    <div class="cinta-cab"><span>Corte del mes</span><span>${R.esMesActual?`día ${R.diaHoy} de ${R.dias}`:"mes cerrado"}</span></div>
-    ${R.remanente!==0?`<div class="renglon"><span>Viene del periodo anterior</span><i></i><b class="${R.remanente<0?"rojo":"verde"}">${R.remanente>0?"+":""}${fmt(R.remanente)}</b></div>`:""}
+    <div class="cinta-cab"><span>Corte del mes</span><span>${R.cierrePropio? "cuadrado" : R.esMesActual?`día ${R.diaHoy} de ${R.dias}`:"periodo terminado"}</span></div>
+    ${R.remanente!==0?`<div class="renglon"><span>${R.anclaRem
+        ? `Saldo real al cierre de ${mesCorto(R.anclaRem.mes)}`
+        : "Viene del periodo anterior"}</span><i></i><b class="${R.remanente<0?"rojo":"verde"}">${R.remanente>0?"+":""}${fmt(R.remanente)}</b></div>`:""}
     <div class="renglon ${R.baseUsada==="registrado"?"":"tenue"}"><span>Ingresos registrados${R.baseUsada==="registrado"?' <i class="marca-base">base</i>':""}</span><i></i><b>+${fmt(R.ingresoRegistrado)}</b></div>
     ${R.ingresoEstimado>0 && R.ingresoEstimado!==R.ingresoRegistrado
       ? `<div class="renglon ${R.baseUsada==="estimado"?"":"tenue"}"><span>Ingreso estimado${R.baseUsada==="estimado"?' <i class="marca-base">base</i>':""}</span><i></i><b>${fmt(R.ingresoEstimado)}</b></div>`
       : ""}
-    <div class="renglon"><span>Gastos</span><i></i><b>−${fmt(R.totalGasto)}</b></div>
+    <div class="renglon ${R.comprasCredito>0?"tenue":""}"><span>Gastos del periodo</span><i></i><b>−${fmt(R.totalGasto)}</b></div>
+    ${R.comprasCredito>0?`<div class="renglon"><span>· de los cuales a crédito</span><i></i><b class="verde">+${fmt(R.comprasCredito)}</b></div>`:""}
+    ${R.pagosTarjeta>0?`<div class="renglon"><span>Pagos de tarjeta</span><i></i><b>−${fmt(R.pagosTarjeta)}</b></div>`:""}
     ${R.totalAporte>0?`<div class="renglon"><span>Ahorro transferido</span><i></i><b>−${fmt(R.totalAporte)}</b></div>`:""}
     ${R.totalRetiro>0?`<div class="renglon"><span>Retiros de ahorro</span><i></i><b>+${fmt(R.totalRetiro)}</b></div>`:""}
     <div class="renglon tenue"><span>Presupuesto asignado</span><i></i><b>${fmt(R.presupuestoTotal)}</b></div>
     ${R.saldoAhorros>0?`<div class="renglon tenue"><span>Ahorros acumulados</span><i></i><b>${fmt(R.saldoAhorros)}</b></div>`:""}
     ${R.deudaTotal>0?`<div class="renglon tenue"><span>Deuda pendiente</span><i></i><b>${fmt(R.deudaTotal)}</b></div>`:""}
-    <div class="cinta-total"><span>Disponible</span><strong class="${R.disponible<0?"rojo":""}">${fmt(R.disponible)}</strong></div>
+    <div class="cinta-total"><span>${R.cierrePropio? "Saldo cuadrado":"Disponible"}</span>
+      <strong class="${(R.cierrePropio? R.declaradoCierre : R.disponible)<0?"rojo":""}">${fmt(R.cierrePropio? R.declaradoCierre : R.disponible)}</strong></div>
+    ${R.comprasCredito>0 && !R.cierrePropio?`<p class="nota nota-cuadrado">Las compras a crédito cuentan en sus sobres, pero no bajan el disponible: el dinero sale cuando pagas la tarjeta.</p>`:""}
+    ${R.cierrePropio?`<p class="nota nota-cuadrado">Saldos reales declarados el ${esc(R.cierrePropio.fecha)}${
+      R.cierrePropio.soloRegistro? ", como punto de partida" : `, con ${fmt(Math.abs(Object.values(R.cierrePropio.diferencias||{}).reduce((a,b)=>a+b,0)))} de diferencia registrada`}. El periodo siguiente parte de esta cifra.</p>`:""}
     ${R.porPersona.length? `<div class="composicion">
       ${R.porPersona.map(p=>`<span class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0">
         <i style="background:${col(p.color)}"></i>${esc(p.nombre)}
@@ -2121,7 +2174,7 @@ function vEstadisticas(R){
           <div><em>Ingresos</em><b class="verde">+${fmt(p.ingreso)}</b></div>
           <div><em>Aporte neto</em><b class="${p.neto<0?"rojo":"verde"}">${p.neto>=0?"+":""}${fmt(p.neto)}</b></div>
           <div><em>Compras</em><b>${p.n}</b></div>
-          <div><em>Ticket</em><b>${fmt(p.ticket)}</b></div>
+          <div><em>A crédito</em><b>${fmt(p.credito)}</b></div>
           <div><em>Prescindible</em><b>${p.gasto>0?Math.round(p.prescindible/p.gasto*100):0}%</b></div>
           <div><em>Más gasta en</em><b>${p.topCat? esc(CAT[p.topCat.cod]?.nombre||p.topCat.cod) : "—"}</b></div>
         </div>
@@ -3113,21 +3166,39 @@ function abonarMeta(id){
 
 function abonarDeuda(id){
   const d = S.deudas.find(x=>x.id===id); if(!d) return;
+  const R = calcular();
   const compras = esTarjeta(d)? comprasDelMes(id,S.mes) : 0;
-  const yaContado = esTarjeta(d) && S.movimientos.some(m=>m.tarjetaId===id);
+  /* En una tarjeta con compras registradas, esas compras ya se contaron como
+     gasto del periodo. El pago solo mueve dinero: baja el saldo de la cuenta
+     y la deuda, pero no vuelve a contar como gasto. En un préstamo, en cambio,
+     no hay compras anotadas: el pago es el gasto. */
+  const soloCaja = esTarjeta(d) && S.movimientos.some(m=>m.tarjetaId===id);
   modal(`Pago a ${d.nombre}`,`
     <label class="campo"><span>Monto del pago</span><input class="grande importe" id="pg-monto" type="text" inputmode="numeric" value="${vf(d.pagoMensual)}"></label>
-    <label class="check"><input type="checkbox" id="pg-mov" ${yaContado?"":"checked"}><span>Registrarlo también como gasto del mes</span></label>
-    ${yaContado
-      ? `<p class="nota aviso-credito">Las compras de esta tarjeta ya contaron como gasto cuando las registraste${compras>0?` (${fmt(compras)} este mes)`:""}. Si marcas la casilla, ese dinero contaría dos veces: lo normal es dejarla sin marcar y que el pago solo baje el saldo.</p>`
-      : `<p class="nota">Saldo actual: ${fmt(d.saldo)}.</p>`}
+    <label class="campo"><span>¿Quién lo paga?</span>
+      <select id="pg-miembro">${personasHogar().map(x=>`<option ${miNombre()===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+    ${soloCaja
+      ? `<p class="nota aviso-credito">Las compras de esta tarjeta ya se contaron como gasto cuando las registraste${compras>0?` (${fmt(compras)} este periodo)`:""}. El pago sale de tu disponible y baja la deuda, sin volver a contar como gasto.</p>`
+      : `<label class="check"><input type="checkbox" id="pg-mov" checked><span>Contarlo como gasto del periodo</span></label>
+         <p class="nota">Saldo actual: ${fmt(d.saldo)}. En un préstamo la cuota sí es el gasto del mes, porque no hay compras registradas detrás.</p>`}
   `, async()=>{
     const v=num($("#pg-monto").value);
     if(v<=0) return "Escribe un monto mayor que cero.";
+    const quien = $("#pg-miembro").value;
     await DB.actualizar("deudas",id,{saldo:Math.max(0,(d.saldo||0)-v)});
-    if($("#pg-mov").checked) await DB.agregar("movimientos",{tipo:"gasto",monto:v,categoria:"DEU",
-      fecha:hoyISO(),metodo:"Transferencia",tarjetaId:"",miembro:S.config.miembros[0]||"Yo",
-      nota:`Pago ${d.nombre}`,esencial:true});
+    const comun = { monto:v, fecha:hoyISO(), metodo:"Transferencia", tarjetaId:"", cuentaId:"",
+      soloCuenta:false, miembro:quien, esencial:true, deudaId:id,
+      uid:S.uid||"", autor:miNombre(), creado:Date.now() };
+    if(soloCaja){
+      await DB.agregar("movimientos",{...comun, tipo:"pago", categoria:"OTR", sub:"",
+        nota:`Pago ${d.nombre}`});
+    }else if($("#pg-mov").checked){
+      await DB.agregar("movimientos",{...comun, tipo:"gasto", categoria:"DEU", sub:"",
+        nota:`Pago ${d.nombre}`});
+    }else{
+      await DB.agregar("movimientos",{...comun, tipo:"pago", categoria:"OTR", sub:"",
+        nota:`Pago ${d.nombre}`});
+    }
     avisar("Pago registrado");
   },"Registrar pago");
 }
@@ -3426,7 +3497,10 @@ async function exportarExcel(){
     ["Ingresos registrados", R.ingresoRegistrado],
     ["Ingreso estimado", R.ingresoEstimado],
     ["Base usada para el cálculo", R.baseUsada==="estimado"?"Ingreso estimado":"Ingresos registrados"],
-    ["Gastos", R.totalGasto],
+    ["Gastos del periodo (devengado)", R.totalGasto],
+    ["  de los cuales a crédito", R.comprasCredito],
+    ["Salida real de caja por gastos", R.gastosCaja],
+    ["Pagos de tarjeta", R.pagosTarjeta],
     ["  de los cuales fijos", R.gastoFijo],
     ["  de los cuales variables", R.gastoVariable],
     ["Gasto esencial", R.esenciales],
@@ -3455,14 +3529,14 @@ async function exportarExcel(){
   X.utils.book_append_sheet(lib, hojaDesde(X,resumen,[34,18],{1:MONEDA}), "Resumen");
 
   /* --- Movimientos --- */
-  const ETIQ_TIPO = {gasto:"Gasto", ingreso:"Ingreso", ahorro:"Aporte a ahorro", retiro:"Retiro de ahorro"};
+  const ETIQ_TIPO = {gasto:"Gasto", ingreso:"Ingreso", ahorro:"Aporte a ahorro", retiro:"Retiro de ahorro", pago:"Pago de tarjeta"};
   const movs = [["Fecha","Tipo","Cta.","Categoría","Sub-sobre","Concepto","Monto","Medio de pago",
-                 "Tarjeta","Cuenta de ahorro","¿Afecta el mes?","Persona","Registrado por","Esencial"]];
+                 "Tarjeta","Cuenta de ahorro","¿Sale de la cuenta?","Persona","Registrado por","Esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>movs.push([
     m.fecha, ETIQ_TIPO[m.tipo]||m.tipo, codDe(m),
     PSEUDO[m.tipo]?.nombre || CAT[m.categoria]?.nombre || m.categoria, m.sub||"", m.nota||"",
     m.monto, m.metodo, S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"",
-    nombreCuenta(m.cuentaId), m.cuentaId? (m.soloCuenta?"No":"Sí") : "Sí",
+    nombreCuenta(m.cuentaId), afectaCaja(m)? "Sí" : "No",
     m.miembro||"", nombreDe(m.uid)||m.autor||"", m.esencial?"Sí":"No"
   ]));
   X.utils.book_append_sheet(lib, hojaDesde(X,movs,[11,16,7,20,18,28,14,15,18,20,15,14,16,9],{6:MONEDA}), "Movimientos");
