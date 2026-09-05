@@ -1230,20 +1230,40 @@ function saldoDePeriodo(mm){
   return suma("ingreso") + suma("retiro")
        - suma("gasto") - suma("ahorro") - suma("pago");
 }
+/* Flujo de caja de una persona en un periodo, ajustes de cierre incluidos:
+   sirve para repartir el arrastre, no para calcular el saldo teórico. */
+function flujoCaja(nombre,mes){
+  const suyos = S.movimientos.filter(m=>enPeriodo(m.fecha,mes) && m.miembro===nombre && afectaCaja(m));
+  const suma = t=>suyos.filter(m=>m.tipo===t).reduce((a,b)=>a+b.monto,0);
+  return suma("ingreso") + suma("retiro") - suma("gasto") - suma("ahorro") - suma("pago");
+}
+
 function remanenteInfo(mes){
-  if(S.config?.arrastre==="reiniciar") return {monto:0, ancla:null};
+  if(S.config?.arrastre==="reiniciar") return {monto:0, ancla:null, porPersona:{}};
+
+  /* Reparte un punto de partida por persona y le suma su flujo de los
+     periodos intermedios, para que el arrastre no quede como un bloque
+     anónimo del hogar sino dentro del disponible de cada uno. */
+  const repartir = (base, desde)=>{
+    const mapa = {...base};
+    let p = sumaMes(desde,1), vueltas = 0;
+    while(p !== mes && vueltas++ < 120){
+      personasHogar().forEach(n=>{ mapa[n] = (mapa[n]||0) + flujoCaja(n,p); });
+      p = sumaMes(p,1);
+    }
+    return mapa;
+  };
 
   /* Si hay un cierre anterior, ese es el punto de partida: son saldos
-     declarados, no estimados. A partir de ahí solo se suman los periodos
-     posteriores. Anclar aquí es lo que hace que cerrar el mes sirva de
-     algo: el disponible deja de arrastrar la desviación acumulada. */
+     declarados, no estimados. Anclar aquí es lo que hace que cerrar el mes
+     sirva de algo: el disponible deja de arrastrar la desviación acumulada. */
   const previos = S.cierres.filter(c=>c.mes < mes).sort((a,b)=> a.mes<b.mes? 1 : -1);
   if(previos.length){
     const ancla = previos[0];
     let acc = Object.values(ancla.saldos||{}).reduce((a,b)=>a+(b||0),0);
     let p = sumaMes(ancla.mes,1), vueltas = 0;
     while(p !== mes && vueltas++ < 120){ acc += saldoDePeriodo(p); p = sumaMes(p,1); }
-    return {monto:acc, ancla};
+    return {monto:acc, ancla, porPersona:repartir(ancla.saldos||{}, ancla.mes)};
   }
 
   /* Si el cierre de este mismo periodo declaró con cuánto empezó cada
@@ -1251,16 +1271,18 @@ function remanenteInfo(mes){
   const propio = cierreDe(mes);
   if(propio?.iniciales && Object.keys(propio.iniciales).length){
     const monto = Object.values(propio.iniciales).reduce((a,b)=>a+(b||0),0);
-    return {monto, ancla:{mes:sumaMes(mes,-1), inicial:true}};
+    return {monto, ancla:{mes:sumaMes(mes,-1), inicial:true}, porPersona:{...propio.iniciales}};
   }
 
   /* Sin ningún cierre todavía: se acumula desde el primer periodo con
      ingresos registrados, que es lo mejor que se puede hacer a ciegas. */
   const conIngreso = S.movimientos.filter(m=>m.tipo==="ingreso").map(m=>m.fecha).sort();
-  if(!conIngreso.length) return {monto:0, ancla:null};
-  let p = periodoDe(conIngreso[0]), acc = 0, vueltas = 0;
+  if(!conIngreso.length) return {monto:0, ancla:null, porPersona:{}};
+  const primero = periodoDe(conIngreso[0]);
+  let p = primero, acc = 0, vueltas = 0;
   while(p !== mes && vueltas++ < 120){ acc += saldoDePeriodo(p); p = sumaMes(p,1); }
-  return {monto: vueltas>=120? 0 : acc, ancla:null};
+  if(vueltas>=120) return {monto:0, ancla:null, porPersona:{}};
+  return {monto:acc, ancla:null, porPersona:repartir({}, sumaMes(primero,-1))};
 }
 const remanenteAntesDe = mes => remanenteInfo(mes).monto;
 
@@ -1495,6 +1517,7 @@ function calcular(){
     const pagos = delMes.filter(x=>x.tipo==="pago" && x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
     /* Base de ingreso de esta persona: lo suyo registrado frente a lo suyo
        estimado, con el mismo criterio que se aplica al hogar. */
+    const arrastre = infoRem.porPersona?.[nombre] || 0;
     const estP = (S.config.ingresosPersona||{})[nombre] || 0;
     const baseP = base==="registrado" ? ingreso
                 : base==="estimado"   ? (estP||ingreso)
@@ -1507,7 +1530,8 @@ function calcular(){
     return {
       nombre, gasto, ingreso, aporte, retiro, baseP,
       neto:ingreso-gasto,
-      disponible: baseP - (gasto-credito) - pagos - aporte + retiro,
+      arrastre,
+      disponible: arrastre + baseP - (gasto-credito) - pagos - aporte + retiro,
       credito, pagos,
       n:g.length, registrados,
       ticket: g.length? gasto/g.length : 0,
@@ -1516,7 +1540,7 @@ function calcular(){
       topCat: top? {cod:top[0], monto:top[1]} : null,
       color: colorPersona(nombre),
     };
-  }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0).sort((a,b)=>b.gasto-a.gasto);
+  }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0||p.arrastre!==0).sort((a,b)=>b.gasto-a.gasto);
   const sinAsignar = gastos.filter(x=>!personasHogar().includes(x.miembro)).reduce((a,b)=>a+b.monto,0);
   const restoDisponible = disponible - porPersona.reduce((a,p)=>a+p.disponible,0);
   const saldoCierre = ingresoBase - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;  // sin arrastre
@@ -2072,7 +2096,7 @@ function vPanel(R){
       ${R.porPersona.map(p=>`<span class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0">
         <i style="background:${col(p.color)}"></i>${esc(p.nombre)}
         <b class="${p.disponible<0?"rojo":""}">${fmt(p.disponible)}</b></span>`).join("")}
-      ${Math.abs(R.restoDisponible)>=1?`<span><i style="background:#B9C0B6"></i>${R.remanente!==0?"del hogar":"sin asignar"}<b>${fmt(R.restoDisponible)}</b></span>`:""}
+      ${Math.abs(R.restoDisponible)>=1?`<span title="Movimientos sin persona asignada"><i style="background:#B9C0B6"></i>sin asignar<b>${fmt(R.restoDisponible)}</b></span>`:""}
     </div>`:""}
     ${R.esMesActual?`<div class="cinta-pie">
       <div><em>Ritmo variable</em><b>${fmt(R.ritmoVariable)}/día</b></div>
@@ -2223,6 +2247,7 @@ function vEstadisticas(R){
         </div>
         <div class="persona-datos">
           <div><em>Ingresos</em><b class="verde">+${fmt(p.ingreso)}</b></div>
+          ${p.arrastre?`<div><em>Venía del mes anterior</em><b class="${p.arrastre<0?"rojo":"verde"}">${p.arrastre>0?"+":""}${fmt(p.arrastre)}</b></div>`:""}
           <div><em>Aporte neto</em><b class="${p.neto<0?"rojo":"verde"}">${p.neto>=0?"+":""}${fmt(p.neto)}</b></div>
           <div><em>Compras</em><b>${p.n}</b></div>
           <div><em>A crédito</em><b>${fmt(p.credito)}</b></div>

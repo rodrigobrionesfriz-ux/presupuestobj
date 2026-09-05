@@ -143,7 +143,7 @@ El botón **+** tiene ahora tres pestañas: *Gasto*, *Ingreso* y ***Ahorrar***. 
 
 Desde cada cuenta hay botones directos de *Aportar* y *Retirar*, y al tocarla se ve su historial completo con saldo inicial, total aportado, total retirado y cada movimiento.
 
-**Composición del disponible** — Bajo la cifra grande del panel aparece de quién es ese saldo: *Ana $X · Luis $Y*, y *sin asignar* si queda un resto. Cada nombre se toca para ver sus movimientos del mes. El disponible de cada persona es su ingreso —registrado o estimado— menos sus gastos, menos lo que transfirió a ahorro, más lo que retiró.
+**Composición del disponible** — Bajo la cifra grande del panel aparece de quién es ese saldo: *Ana $X · Luis $Y*. El arrastre del periodo anterior se reparte entre las personas, no se muestra como un bloque del hogar: el cierre guarda el saldo de cada una, así que se sabe a quién pertenece. Solo aparece *sin asignar* si hay movimientos atribuidos a alguien que no está en el hogar. Cada nombre se toca para ver sus movimientos del mes. El disponible de cada persona es su ingreso —registrado o estimado— menos sus gastos, menos lo que transfirió a ahorro, más lo que retiró.
 
 **Metas** — botón *Editar*: objetivo, acumulado y fecha límite.
 
@@ -204,7 +204,7 @@ El botón **+** tiene ahora tres pestañas: *Gasto*, *Ingreso* y ***Ahorrar***. 
 
 Desde cada cuenta hay botones directos de *Aportar* y *Retirar*, y al tocarla se ve su historial completo con saldo inicial, total aportado, total retirado y cada movimiento.
 
-**Composición del disponible** — Bajo la cifra grande del panel aparece de quién es ese saldo: *Ana $X · Luis $Y*, y *sin asignar* si queda un resto. Cada nombre se toca para ver sus movimientos del mes. El disponible de cada persona es su ingreso —registrado o estimado— menos sus gastos, menos lo que transfirió a ahorro, más lo que retiró.
+**Composición del disponible** — Bajo la cifra grande del panel aparece de quién es ese saldo: *Ana $X · Luis $Y*. El arrastre del periodo anterior se reparte entre las personas, no se muestra como un bloque del hogar: el cierre guarda el saldo de cada una, así que se sabe a quién pertenece. Solo aparece *sin asignar* si hay movimientos atribuidos a alguien que no está en el hogar. Cada nombre se toca para ver sus movimientos del mes. El disponible de cada persona es su ingreso —registrado o estimado— menos sus gastos, menos lo que transfirió a ahorro, más lo que retiró.
 
 **Metas** — Objetivos con monto y fecha límite. Calcula cuánto necesitas apartar cada mes y cada semana, y lleva el progreso acumulado.
 
