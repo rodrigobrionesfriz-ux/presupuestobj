@@ -384,7 +384,7 @@ body.menu-abierto nav{transform:none}
 nav::before{content:"Presupuesto familiar";display:block;padding:6px 20px 16px;color:#93A594;
   font-family:var(--tipo-num);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
 nav button{width:100%;text-align:left;background:none;border:none;color:#93A594;padding:14px 20px;cursor:pointer;
-  font-family:var(--tipo-num);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  font-family:var(--tipo-num);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
   border-left:3px solid transparent;transition:background .15s,color .15s}
 nav button:hover{background:rgba(228,233,221,.07);color:var(--papel)}
 nav button.activo{color:var(--papel);border-left-color:var(--margen);background:rgba(228,233,221,.09)}
@@ -1777,8 +1777,10 @@ const corto = v=>{ const a=Math.abs(v);
   if(a>=1e6) return (v/1e6).toFixed(1)+"M"; if(a>=1e3) return Math.round(v/1e3)+"k"; return Math.round(v); };
 
 /* ============================== vistas ============================ */
-const NAV = [["panel","Panel"],["movimientos","Movim."],["estadisticas","Estadíst."],["deudas","Deudas"],
-             ["metas","Metas"],["ahorro","Ahorro"],["ajustes","Ajustes"]];
+/* En la barra lateral cabe el nombre completo: las abreviaturas venían de
+   la antigua barra inferior, donde el espacio se repartía entre siete. */
+const NAV = [["panel","Panel"],["movimientos","Movimientos"],["estadisticas","Estadísticas"],
+             ["deudas","Deudas"],["metas","Metas"],["ahorro","Ahorro"],["ajustes","Ajustes"]];
 
 function render(){
   if($("#app").classList.contains("oculto")) return;
