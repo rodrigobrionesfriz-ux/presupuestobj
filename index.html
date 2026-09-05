@@ -303,6 +303,7 @@ input.grande.importe{text-align:left}
 .cierre-linea{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   font-size:12.5px;color:var(--suave);padding:3px 0}
 .cierre-linea b{font-family:var(--tipo-num);font-weight:500;color:var(--tinta)}
+.cierre-linea input.mini{width:118px;padding:5px 8px;font-size:12.5px;flex:none}
 .cierre-linea.total{border-top:1px solid var(--rayado);margin-top:5px;padding-top:7px;color:var(--tinta);font-weight:500}
 .cierre-dif{font-size:12px;margin:0;padding:7px 9px;border-radius:2px;background:var(--papel);
   border-left:3px solid var(--rayado);color:var(--suave)}
@@ -1245,6 +1246,14 @@ function remanenteInfo(mes){
     return {monto:acc, ancla};
   }
 
+  /* Si el cierre de este mismo periodo declaró con cuánto empezó cada
+     persona, ese es su arranque real y no hay nada que estimar. */
+  const propio = cierreDe(mes);
+  if(propio?.iniciales && Object.keys(propio.iniciales).length){
+    const monto = Object.values(propio.iniciales).reduce((a,b)=>a+(b||0),0);
+    return {monto, ancla:{mes:sumaMes(mes,-1), inicial:true}};
+  }
+
   /* Sin ningún cierre todavía: se acumula desde el primer periodo con
      ingresos registrados, que es lo mejor que se puede hacer a ciegas. */
   const conIngreso = S.movimientos.filter(m=>m.tipo==="ingreso").map(m=>m.fecha).sort();
@@ -1904,34 +1913,41 @@ function modalCierre(mes){
           <span class="punto-p" style="background:${col(colorPersona(d.nombre))}"></span>
           <span class="cierre-nom">${esc(d.nombre)}</span>
         </div>
-        <div class="cierre-linea"><span>Saldo declarado al cierre anterior</span>
-          <b>${d.hayPrevio? fmt(d.base) : "—"}</b></div>
+        ${d.hayPrevio
+          ? `<div class="cierre-linea"><span>Saldo declarado al cierre anterior</span><b>${fmt(d.base)}</b></div>`
+          : `<label class="cierre-linea"><span>Saldo con el que empezó el periodo</span>
+               <input class="importe mini" type="text" inputmode="numeric" data-inicio="${i}" placeholder="0"></label>`}
         <div class="cierre-linea"><span>Movimientos registrados del periodo</span>
           <b class="${d.flujo<0?"rojo":"verde"}">${d.flujo>=0?"+":""}${fmt(d.flujo)}</b></div>
-        <div class="cierre-linea total"><span>Saldo teórico</span><b>${fmt(d.teorico)}</b></div>
+        <div class="cierre-linea total"><span>Saldo teórico</span><b data-teo="${i}">${fmt(d.teorico)}</b></div>
         <label class="campo" style="margin:10px 0 6px"><span>Saldo real de ${esc(d.nombre)}</span>
           <input class="importe" type="text" inputmode="numeric" data-real="${i}"
                  data-teorico="${d.teorico}" value="${vf(previo?.saldos?.[d.nombre])}" placeholder="0"></label>
         <p class="cierre-dif" data-dif="${i}">Escribe el saldo real para ver la diferencia.</p>
       </li>`).join("")}</ul>
 
-    <label class="check"><input type="checkbox" id="ci-primero" ${primero?"checked disabled":""}>
+    <label class="check"><input type="checkbox" id="ci-primero">
       <span>Solo registrar saldos, sin generar ajustes</span></label>
     <p class="nota ayuda">${primero
-      ? "Es el primer cierre y no hay saldo anterior con el que comparar, así que no se generan ajustes: estos saldos quedan como punto de partida. Desde el próximo cierre ya se calcula la diferencia y el disponible arrancará de aquí."
-      : "Desmarca esto para que las diferencias se registren como gastos o ingresos no registrados."}</p>
+      ? "Es el primer cierre: si no indicas con cuánto empezó cada persona, el saldo teórico da por hecho que partieron de cero y la diferencia saldrá inflada. Con el saldo de partida puesto, la diferencia ya es real."
+      : "La diferencia entre el saldo real y el teórico se registra como gasto o ingreso no registrado, y así el gasto del periodo refleja lo que de verdad salió."}</p>
   `, async()=>{
-    const soloRegistrar = primero || $("#ci-primero").checked;
+    const soloRegistrar = $("#ci-primero").checked;
     /* Un campo en blanco significa "no lo sé", no "cero": esa persona
        queda fuera del cierre en vez de generar un ajuste inventado. */
-    const saldos={}, teoricos={}, diferencias={};
+    const saldos={}, teoricos={}, diferencias={}, iniciales={};
     const declarados = datos.filter((d,i)=>document.querySelector(`[data-real="${i}"]`).value.trim()!=="");
     if(!declarados.length) return "Escribe al menos un saldo real.";
     datos.forEach((d,i)=>{
       const campo = document.querySelector(`[data-real="${i}"]`);
       if(campo.value.trim()==="") return;
       const real = num(campo.value);
-      saldos[d.nombre]=real; teoricos[d.nombre]=d.teorico; diferencias[d.nombre]=real-d.teorico;
+      const teo = teoricoDe(d,i);
+      saldos[d.nombre]=real; teoricos[d.nombre]=teo; diferencias[d.nombre]=real-teo;
+      if(!d.hayPrevio){
+        const ini = document.querySelector(`[data-inicio="${i}"]`);
+        if(ini && ini.value.trim()!=="") iniciales[d.nombre] = num(ini.value);
+      }
     });
 
     // Un recierre reemplaza los ajustes que generó el anterior
@@ -1955,7 +1971,7 @@ function modalCierre(mes){
       }
     }
 
-    const registro = {mes, fecha:hoyISO(), saldos, teoricos, diferencias,
+    const registro = {mes, fecha:hoyISO(), saldos, teoricos, diferencias, iniciales,
                       soloRegistro:soloRegistrar, uid:S.uid||"", autor:miNombre()};
     if(previo) await DB.actualizar("cierres", previo.id, registro);
     else await DB.agregar("cierres", registro);
@@ -1963,19 +1979,30 @@ function modalCierre(mes){
     avisar(soloRegistrar? "Saldos registrados" : "Periodo cerrado y cuadrado");
   }, previo? "Volver a cerrar" : "Cerrar el periodo");
 
+  /* El saldo teórico depende del punto de partida: el declarado en el cierre
+     anterior o, si es el primero, el que la persona indique aquí. */
+  const teoricoDe = (d,i)=>{
+    if(d.hayPrevio) return d.teorico;
+    const campo = document.querySelector(`[data-inicio="${i}"]`);
+    return num(campo?.value||0) + d.flujo;
+  };
+
   /* Diferencia en vivo mientras se escribe */
-  const refrescar = ()=>document.querySelectorAll("[data-real]").forEach(campo=>{
-    const i = campo.dataset.real, t = Number(campo.dataset.teorico);
+  const refrescar = ()=>datos.forEach((d,i)=>{
+    const campo = document.querySelector(`[data-real="${i}"]`);
+    const teo = teoricoDe(d,i);
+    const celda = document.querySelector(`[data-teo="${i}"]`);
+    if(celda) celda.textContent = fmt(teo);
     const nota = document.querySelector(`[data-dif="${i}"]`);
     if(!campo.value.trim()){ nota.className="cierre-dif"; nota.textContent="Escribe el saldo real para ver la diferencia."; return; }
-    const dif = num(campo.value) - t;
+    const dif = num(campo.value) - teo;
     if(Math.abs(dif)<1){ nota.className="cierre-dif ok"; nota.textContent="Cuadra exactamente."; }
     else if(dif<0){ nota.className="cierre-dif menos";
-      nota.textContent=`Faltan ${fmt(-dif)}: se registrarán como gastos no registrados.`; }
+      nota.textContent=`Faltan ${fmt(-dif)}: se sumarán al gasto del periodo como no registrados.`; }
     else { nota.className="cierre-dif mas";
       nota.textContent=`Sobran ${fmt(dif)}: se registrarán como ingreso no registrado.`; }
   });
-  document.querySelectorAll("[data-real]").forEach(c=>c.addEventListener("input",refrescar));
+  document.querySelectorAll("[data-real],[data-inicio]").forEach(c=>c.addEventListener("input",refrescar));
   refrescar();
 }
 
@@ -2021,7 +2048,8 @@ function vPanel(R){
   <section class="cinta">
     <div class="cinta-cab"><span>Corte del mes</span><span>${R.cierrePropio? "cuadrado" : R.esMesActual?`día ${R.diaHoy} de ${R.dias}`:"periodo terminado"}</span></div>
     ${R.remanente!==0?`<div class="renglon"><span>${R.anclaRem
-        ? `Saldo real al cierre de ${mesCorto(R.anclaRem.mes)}`
+        ? (R.anclaRem.inicial? "Saldo con el que empezó el periodo"
+                             : `Saldo real al cierre de ${mesCorto(R.anclaRem.mes)}`)
         : "Viene del periodo anterior"}</span><i></i><b class="${R.remanente<0?"rojo":"verde"}">${R.remanente>0?"+":""}${fmt(R.remanente)}</b></div>`:""}
     <div class="renglon ${R.baseUsada==="registrado"?"":"tenue"}"><span>Ingresos registrados${R.baseUsada==="registrado"?' <i class="marca-base">base</i>':""}</span><i></i><b>+${fmt(R.ingresoRegistrado)}</b></div>
     ${R.ingresoEstimado>0 && R.ingresoEstimado!==R.ingresoRegistrado
