@@ -1706,19 +1706,40 @@ function recomendar(R){
 /* ============================ gráficas SVG ======================== */
 function grLinea(datos,{alto=150,ancho=320}={}){
   const max = Math.max(1,...datos.map(d=>Math.max(d.gasto||0,d.limite||0)));
-  const px = (i)=> 24+ i*(ancho-30)/Math.max(1,datos.length-1);
-  const py = (v)=> alto-18-(v/max)*(alto-30);
-  const linea = (campo,extra)=>{
-    const pts = datos.filter(d=>d[campo]!=null).map((d,i)=>`${px(datos.indexOf(d))},${py(d[campo])}`);
-    return pts.length? `<polyline fill="none" points="${pts.join(" ")}" ${extra}/>`:"";
-  };
+  const px = i=> 24 + i*(ancho-30)/Math.max(1,datos.length-1);
+  const py = v=> alto-18-(v/max)*(alto-30);
+  const base = alto-18;
+
+  /* Puntos con datos reales. Con uno solo, una polilínea no pinta nada:
+     por eso además se marcan los vértices y se rellena el área bajo la
+     curva, que es lo que hace visible el gasto en los primeros días del
+     periodo, cuando la línea aún está pegada al eje. */
+  const reales = datos.map((d,i)=>({...d,i})).filter(d=>d.gasto!=null);
+  const conGasto = reales.some(d=>d.gasto>0);
+  const ptsGasto = reales.map(d=>`${px(d.i)},${py(d.gasto)}`);
+  const area = ptsGasto.length>1
+    ? `<polygon points="${px(reales[0].i)},${base} ${ptsGasto.join(" ")} ${px(reales[reales.length-1].i)},${base}"
+        fill="var(--tinta)" opacity=".08"/>` : "";
+  const lineaGasto = ptsGasto.length>1
+    ? `<polyline fill="none" points="${ptsGasto.join(" ")}" stroke="var(--tinta)" stroke-width="2.4"
+        stroke-linejoin="round" stroke-linecap="round"/>` : "";
+  const vertices = reales.length<=14
+    ? reales.map(d=>`<circle cx="${px(d.i)}" cy="${py(d.gasto)}" r="2.4" fill="var(--tinta)"/>`).join("") : "";
+  const ultimo = reales.length
+    ? `<circle cx="${px(reales[reales.length-1].i)}" cy="${py(reales[reales.length-1].gasto)}" r="4"
+        fill="var(--hoja)" stroke="var(--tinta)" stroke-width="2.2"/>` : "";
+
+  const ptsLim = datos.filter(d=>d.limite!=null).map((d,i)=>`${px(i)},${py(d.limite)}`);
+  const lineaLim = ptsLim.length>1
+    ? `<polyline fill="none" points="${ptsLim.join(" ")}" stroke="var(--margen)" stroke-width="1.4" stroke-dasharray="4 4"/>` : "";
+
   const ejes = [0,.5,1].map(f=>`<line x1="24" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}" stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
     <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
-  const etiquetas = datos.filter((d,i)=>i%5===0).map(d=>`<text x="${px(datos.indexOf(d))}" y="${alto-4}" font-size="8" text-anchor="middle">${d.dia}</text>`).join("");
-  return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}
-    ${linea("limite",'stroke="var(--margen)" stroke-width="1.4" stroke-dasharray="4 4"')}
-    ${linea("gasto",'stroke="var(--tinta)" stroke-width="2.2"')}${etiquetas}</svg>
-    <div class="gr-leyenda"><span><i style="background:var(--tinta)"></i>Gasto real</span><span><i style="background:var(--margen)"></i>Presupuesto</span></div>`;
+  const etiquetas = datos.filter((d,i)=>i%5===0).map((d,j)=>`<text x="${px(datos.indexOf(d))}" y="${alto-4}" font-size="8" text-anchor="middle">${d.dia}</text>`).join("");
+
+  return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}${area}${lineaLim}${lineaGasto}${vertices}${ultimo}${etiquetas}</svg>
+    <div class="gr-leyenda"><span><i style="background:var(--tinta)"></i>Gasto real</span><span><i style="background:var(--margen)"></i>Presupuesto</span></div>
+    ${conGasto? "" : `<p class="nota" style="text-align:center;margin:6px 0 0">Todavía no hay gastos registrados en este periodo.</p>`}`;
 }
 function grBarras(items,{alto=150,ancho=320,color="var(--azul, #2E6E8E)",series=null}={}){
   const max = Math.max(1,...items.map(i=>series? Math.max(...series.map(s=>i[s.k])) : i.total));

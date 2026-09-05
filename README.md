@@ -177,6 +177,8 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 **Detalle al tocar** — El gráfico de anillo, las filas de la tabla de categorías, los sobres del panel y las tarjetas de cada persona se tocan para abrir el desglose: cada movimiento con su fecha, concepto, **quién lo hizo**, medio de pago (y tarjeta, si fue a crédito) y monto. Arriba, el total del grupo, cuántos movimientos son, el ticket promedio, qué porcentaje del gasto del mes representan y el reparto entre las dos personas. Desde ahí se toca cualquier movimiento para editarlo.
 
+**Gráfico de ritmo** — Acumulado del periodo contra la línea de presupuesto. La curva de gasto lleva área sombreada, un punto en cada día y una marca hueca en el último dato: en los primeros días del periodo la línea queda pegada al eje y sin eso resulta invisible. Con un único día registrado se dibuja el punto, porque una polilínea de un solo vértice no pinta nada. Si el periodo aún no tiene gastos, lo dice en texto en vez de mostrar un gráfico vacío.
+
 **Estadísticas** — Acumulado del mes contra la línea de presupuesto, reparto por categoría, comparativo de los últimos seis meses, gasto por día de la semana, ticket promedio, frecuencia de compra, medio de pago, gasto por miembro y conceptos más repetidos.
 
 **Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
