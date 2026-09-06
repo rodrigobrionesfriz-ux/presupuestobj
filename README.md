@@ -254,6 +254,15 @@ Afecta a todo de forma coherente: qué movimientos entran en el periodo, los dí
 
 El valor por omisión es el día 1, que equivale al mes natural: si no lo cambias, nada se mueve de sitio.
 
+## Clima
+
+En la cabecera hay un indicador con el icono del tiempo y la temperatura actual. Al tocarlo se abre el **pronóstico de 7 días**: máxima y mínima, lluvia acumulada en mm con barra proporcional, y racha máxima de viento.
+
+- **Por GPS**: usa la ubicación del dispositivo. Si el permiso está denegado o no hay señal, recurre a la última posición conocida.
+- **Ubicaciones fijas**: hasta cinco, buscando por nombre de ciudad. Se guardan en la configuración del hogar, así que las ven ambos.
+
+Los datos vienen de [Open-Meteo](https://open-meteo.com), que no requiere clave de API ni registro. Se refrescan cada media hora y la última respuesta queda guardada en el dispositivo, de modo que el icono aparece al instante al abrir y sigue mostrando algo sin conexión.
+
 ## Navegación
 
 Las secciones viven en una **barra lateral**, no en una barra inferior:

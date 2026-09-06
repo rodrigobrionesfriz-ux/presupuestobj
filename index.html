@@ -63,6 +63,42 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
 .icono{background:none;border:1px solid rgba(228,233,221,.35);color:inherit;width:30px;height:30px;
   border-radius:2px;font-size:17px;line-height:1;cursor:pointer}
 .icono:hover{background:rgba(228,233,221,.12)}
+.clima{display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid rgba(228,233,221,.35);
+  color:inherit;border-radius:2px;padding:3px 7px 3px 5px;cursor:pointer;line-height:1;flex:none;
+  --sol:#E8B84B; --nube:#C7D0C6; --agua:#7FB2D9; --rayo:#E8B84B}
+.clima b{font-family:var(--tipo-num);font-size:12.5px;font-weight:500}
+.clima:hover{background:rgba(228,233,221,.12)}
+.clima.apagado{opacity:.55}
+.ico-clima{display:block;flex:none}
+.clima-lugares{margin-bottom:14px}
+.clima-lugares .borrar{font-size:14px;margin-left:2px;color:inherit;opacity:.6}
+.clima-cab{display:flex;align-items:center;gap:14px;padding:4px 0 14px;
+  --sol:#E8B84B; --nube:#9FB0A0; --agua:#4E8CBF; --rayo:#D9A21B}
+.clima-cab b{display:block;font-family:var(--tipo-num);font-size:30px;font-weight:500;line-height:1}
+.clima-cab span{font-size:12.5px;color:var(--suave)}
+.clima-dias{--sol:#E8B84B; --nube:#9FB0A0; --agua:#4E8CBF; --rayo:#D9A21B;
+  border-top:1px solid var(--rayado)}
+.clima-dia{display:grid;grid-template-columns:34px 24px 1fr 74px 60px;align-items:center;gap:8px;
+  padding:9px 0;border-bottom:1px dotted var(--rayado);font-size:12.5px}
+.cd-nombre{font-family:var(--tipo-num);font-size:11px;text-transform:uppercase;color:var(--suave)}
+.cd-temp{font-family:var(--tipo-num);white-space:nowrap}
+.cd-temp b{font-weight:500}
+.cd-temp em{font-style:normal;color:var(--suave);margin-left:5px}
+.cd-lluvia{display:flex;align-items:center;gap:5px;font-family:var(--tipo-num);font-size:11px;color:var(--suave);justify-content:flex-end;white-space:nowrap}
+.cd-barra{display:inline-flex;align-items:flex-end;width:6px;height:18px;background:var(--papel);
+  border:1px solid var(--rayado);border-radius:1px;overflow:hidden}
+.cd-barra i{display:block;width:100%;background:var(--agua)}
+.cd-viento{font-family:var(--tipo-num);font-size:11px;color:var(--suave);text-align:right}
+.cl-lista{list-style:none;margin:10px 0 0;padding:0}
+.cl-lista li{padding:10px 2px;border-bottom:1px dotted var(--rayado);cursor:pointer}
+.cl-lista li:hover{background:var(--papel)}
+.cl-lista b{display:block;font-size:13.5px;font-weight:500}
+.cl-lista span{font-size:11.5px;color:var(--suave)}
+@media(max-width:430px){
+  .estado-conn span{display:none}
+  .clima-dia{grid-template-columns:30px 22px 1fr 68px 54px;gap:6px;font-size:12px}
+  .cd-lluvia,.cd-viento{font-size:10.5px}
+}
 .estado-conn{font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
   color:#A8B8A6;display:flex;align-items:center;gap:6px}
 .punto{width:7px;height:7px;border-radius:50%;background:var(--verde);display:inline-block}
@@ -713,6 +749,7 @@ html[data-tema="oscuro"] [data-acento="lila"]{--acento-color:#A371F7}
         <h1>Presupuesto familiar</h1>
         <p class="sub" id="sub-hogar">Libro de cuentas del hogar</p>
       </div>
+      <button class="clima apagado" id="btn-clima" aria-label="Ver el clima" title="Clima"></button>
       <button class="icono" id="btn-tema" aria-label="Cambiar tema" title="Cambiar tema">◐</button>
       <span class="estado-conn"><i class="punto" id="punto"></i><span id="estado-txt">en línea</span></span>
     </div>
@@ -2976,6 +3013,219 @@ document.addEventListener("input", e=>{
   try{ el.setSelectionRange(pos,pos); }catch{}
 });
 
+/* ============ clima =============================================== 
+   Datos de Open-Meteo: sin clave de API ni registro. Se guarda la última
+   respuesta en el dispositivo para que el icono aparezca al instante y
+   siga mostrando algo sin conexión. */
+const CLIMA_TTL = 30*60*1000;                 // media hora
+const climaCache = {};
+
+const WMO = c=>
+   c===0 ? {t:"despejado", i:"sol"}
+ : c<=2  ? {t:"poco nuboso", i:"solnube"}
+ : c===3 ? {t:"nublado", i:"nube"}
+ : c<=48 ? {t:"niebla", i:"niebla"}
+ : c<=57 ? {t:"llovizna", i:"llovizna"}
+ : c<=67 ? {t:"lluvia", i:"lluvia"}
+ : c<=77 ? {t:"nieve", i:"nieve"}
+ : c<=82 ? {t:"chubascos", i:"lluvia"}
+ : c<=86 ? {t:"nieve", i:"nieve"}
+ : {t:"tormenta", i:"tormenta"};
+
+function iconoClima(codigo,px=20){
+  const {i} = WMO(codigo??0);
+  const sol = `<circle cx="9" cy="9" r="4.2" fill="var(--sol)"/>${
+    [0,45,90,135,180,225,270,315].map(a=>{
+      const r=(a*Math.PI)/180, x1=9+Math.cos(r)*6.2, y1=9+Math.sin(r)*6.2,
+            x2=9+Math.cos(r)*8, y2=9+Math.sin(r)*8;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--sol)" stroke-width="1.5" stroke-linecap="round"/>`;
+    }).join("")}`;
+  const nube = (x=4,y=9,s=1)=>`<path transform="translate(${x},${y}) scale(${s})"
+    d="M3 8a3 3 0 0 1 .6-6 4.3 4.3 0 0 1 8.2 1A2.6 2.6 0 0 1 11.5 8Z"
+    fill="var(--nube)"/>`;
+  const gotas = n=>[...Array(n)].map((_,k)=>
+    `<line x1="${6+k*4}" y1="15" x2="${5+k*4}" y2="19" stroke="var(--agua)" stroke-width="1.6" stroke-linecap="round"/>`).join("");
+  const cuerpo = {
+    sol,
+    solnube: `<g opacity=".9">${sol}</g>${nube(5,8,.9)}`,
+    nube: nube(3,6,1.05),
+    niebla: `${nube(3,4,1)}${[0,1,2].map(k=>`<line x1="3" y1="${14+k*2.6}" x2="${15-k*2}" y2="${14+k*2.6}" stroke="var(--nube)" stroke-width="1.4" stroke-linecap="round"/>`).join("")}`,
+    llovizna: `${nube(3,3,1)}${gotas(2)}`,
+    lluvia: `${nube(3,3,1)}${gotas(3)}`,
+    nieve: `${nube(3,3,1)}${[0,1,2].map(k=>`<circle cx="${6+k*4}" cy="${17}" r="1.5" fill="var(--agua)"/>`).join("")}`,
+    tormenta: `${nube(3,3,1)}<path d="M10 14l-3 4h3l-1.5 4 4.5-5h-3z" fill="var(--rayo)"/>`,
+  }[i];
+  return `<svg class="ico-clima" viewBox="0 0 20 21" width="${px}" height="${px*1.05}" aria-hidden="true">${cuerpo}</svg>`;
+}
+
+const ubicaciones = ()=>(S.config?.ubicaciones||[]).slice(0,5);
+const climaSel = ()=>leerLocal("pf-clima-sel") || "gps";
+
+function posicionGPS(){
+  return new Promise((ok,fallo)=>{
+    if(!navigator.geolocation) return fallo(new Error("sin geolocalización"));
+    navigator.geolocation.getCurrentPosition(
+      p=>ok({lat:p.coords.latitude, lon:p.coords.longitude, nombre:"Mi ubicación"}),
+      e=>fallo(e), {timeout:9000, maximumAge:15*60*1000});
+  });
+}
+
+async function traerClima(lat,lon){
+  const clave = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const guardado = climaCache[clave] || (()=>{ try{ return JSON.parse(leerLocal("pf-clima:"+clave)||"null"); }catch{ return null; } })();
+  if(guardado && Date.now()-guardado.ts < CLIMA_TTL){ climaCache[clave]=guardado; return guardado.datos; }
+  const url = "https://api.open-meteo.com/v1/forecast"
+    + `?latitude=${lat}&longitude=${lon}`
+    + "&current=temperature_2m,weather_code"
+    + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
+    + "&timezone=auto&forecast_days=7";
+  const r = await fetch(url);
+  if(!r.ok) throw new Error("clima "+r.status);
+  const datos = await r.json();
+  const paquete = {ts:Date.now(), datos};
+  climaCache[clave]=paquete;
+  guardarLocal("pf-clima:"+clave, JSON.stringify(paquete));
+  return datos;
+}
+
+/* Resuelve la ubicación activa y trae su pronóstico */
+async function climaActivo(){
+  const sel = climaSel();
+  let lugar;
+  if(sel==="gps"){
+    const rec = (()=>{ try{ return JSON.parse(leerLocal("pf-clima-gps")||"null"); }catch{ return null; } })();
+    try{
+      lugar = await posicionGPS();
+      guardarLocal("pf-clima-gps", JSON.stringify(lugar));
+    }catch(e){
+      if(!rec) throw e;          // sin permiso y sin nada guardado
+      lugar = rec;               // última posición conocida
+    }
+  }else{
+    lugar = ubicaciones().find(u=>u.id===sel) || ubicaciones()[0];
+    if(!lugar) throw new Error("sin ubicación");
+  }
+  return {lugar, datos: await traerClima(lugar.lat, lugar.lon)};
+}
+
+async function pintarClima(){
+  const btn = $("#btn-clima"); if(!btn) return;
+  try{
+    const {lugar,datos} = await climaActivo();
+    const t = Math.round(datos.current?.temperature_2m ?? 0);
+    btn.innerHTML = `${iconoClima(datos.current?.weather_code, 19)}<b>${t}°</b>`;
+    btn.title = `${lugar.nombre} · ${WMO(datos.current?.weather_code).t}`;
+    btn.classList.remove("apagado");
+  }catch{
+    btn.innerHTML = `${iconoClima(3,19)}<b>—</b>`;
+    btn.title = "Toca para activar el clima";
+    btn.classList.add("apagado");
+  }
+}
+
+async function buscarLugar(q){
+  const r = await fetch("https://geocoding-api.open-meteo.com/v1/search"
+    + `?name=${encodeURIComponent(q)}&count=6&language=es&format=json`);
+  if(!r.ok) throw new Error("búsqueda");
+  return (await r.json()).results || [];
+}
+
+const DIA_CORTO = f=>{
+  const d = aDate(f);
+  return d.toLocaleDateString("es",{weekday:"short"}).replace(".","");
+};
+
+function modalClima(){
+  const sel = climaSel();
+  const lista = ubicaciones();
+  modalInfo("Clima", "Pronóstico de 7 días", `
+    <div class="chips clima-lugares">
+      <button class="chip ${sel==="gps"?"activo":""}" data-lugar="gps">Mi ubicación</button>
+      ${lista.map(u=>`<button class="chip ${sel===u.id?"activo":""}" data-lugar="${u.id}">${esc(u.nombre)}
+        <span class="borrar" data-quitar-lugar="${u.id}" role="button" tabindex="0" aria-label="Quitar">×</span></button>`).join("")}
+      ${lista.length<5?`<button class="chip" data-lugar="nuevo">+ Añadir</button>`:""}
+    </div>
+    <div id="clima-cuerpo"><p class="nota">Cargando el pronóstico…</p></div>
+    <div id="clima-buscar" class="oculto">
+      <div class="fila-btns" style="margin-top:12px">
+        <input id="cl-q" placeholder="Ciudad o localidad">
+        <button class="btn" id="cl-buscar">Buscar</button>
+      </div>
+      <div id="cl-resultados"></div>
+      <p class="nota ayuda">Puedes guardar hasta 5 ubicaciones. Se comparten con el hogar.</p>
+    </div>`);
+
+  const cuerpo = ()=>$("#clima-cuerpo");
+  const pintar = async()=>{
+    try{
+      const {lugar,datos} = await climaActivo();
+      const d = datos.daily;
+      const lluvia = Math.max(1,...d.precipitation_sum.map(x=>x||0));
+      cuerpo().innerHTML = `
+        <div class="clima-cab">
+          ${iconoClima(datos.current?.weather_code, 40)}
+          <div><b>${Math.round(datos.current?.temperature_2m??0)}°</b>
+            <span>${esc(lugar.nombre)} · ${WMO(datos.current?.weather_code).t}</span></div>
+        </div>
+        <div class="clima-dias">${d.time.map((f,k)=>`
+          <div class="clima-dia">
+            <span class="cd-nombre">${k===0?"Hoy":DIA_CORTO(f)}</span>
+            ${iconoClima(d.weather_code[k], 22)}
+            <span class="cd-temp"><b>${Math.round(d.temperature_2m_max[k])}°</b><em>${Math.round(d.temperature_2m_min[k])}°</em></span>
+            <span class="cd-lluvia">
+              <span class="cd-barra"><i style="height:${Math.round((d.precipitation_sum[k]||0)/lluvia*100)}%"></i></span>
+              ${(d.precipitation_sum[k]||0).toFixed(1)} mm</span>
+            <span class="cd-viento">${Math.round(d.wind_speed_10m_max[k])} km/h</span>
+          </div>`).join("")}</div>
+        <p class="nota ayuda">Máxima y mínima, lluvia acumulada y racha máxima de viento. Datos de Open-Meteo, actualizados cada media hora.</p>`;
+    }catch(e){
+      cuerpo().innerHTML = `<p class="aviso-credito">No se pudo obtener el clima. Permite el acceso a tu ubicación en el navegador, o añade una ciudad con <b>+ Añadir</b>.</p>`;
+    }
+  };
+  pintar();
+
+  const host = $("#modal-host");
+  host.querySelectorAll("[data-lugar]").forEach(b=>b.onclick=e=>{
+    if(e.target.closest("[data-quitar-lugar]")) return;
+    if(b.dataset.lugar==="nuevo"){
+      $("#clima-buscar").classList.remove("oculto"); $("#cl-q").focus(); return;
+    }
+    guardarLocal("pf-clima-sel", b.dataset.lugar);
+    host.querySelectorAll("[data-lugar]").forEach(x=>x.classList.remove("activo"));
+    b.classList.add("activo");
+    cuerpo().innerHTML = `<p class="nota">Cargando el pronóstico…</p>`;
+    pintar(); pintarClima();
+  });
+  host.querySelectorAll("[data-quitar-lugar]").forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const id = b.dataset.quitarLugar;
+    await DB.guardarHogar({config:{...S.config, ubicaciones: ubicaciones().filter(u=>u.id!==id)}});
+    if(climaSel()===id) guardarLocal("pf-clima-sel","gps");
+    cerrarModal(); setTimeout(modalClima,150);
+  });
+  const btnBuscar = $("#cl-buscar");
+  if(btnBuscar) btnBuscar.onclick = async()=>{
+    const q = $("#cl-q").value.trim();
+    const caja = $("#cl-resultados");
+    if(!q) return;
+    caja.innerHTML = `<p class="nota">Buscando…</p>`;
+    try{
+      const res = await buscarLugar(q);
+      caja.innerHTML = res.length
+        ? `<ul class="cl-lista">${res.map((r,k)=>`<li data-res="${k}" role="button" tabindex="0">
+            <b>${esc(r.name)}</b><span>${esc([r.admin1,r.country].filter(Boolean).join(", "))}</span></li>`).join("")}</ul>`
+        : `<p class="nota">Sin resultados.</p>`;
+      caja.querySelectorAll("[data-res]").forEach(li=>li.onclick=async()=>{
+        const r = res[Number(li.dataset.res)];
+        const nuevo = {id:uid(), nombre:r.name, lat:r.latitude, lon:r.longitude};
+        await DB.guardarHogar({config:{...S.config, ubicaciones:[...ubicaciones(), nuevo].slice(0,5)}});
+        guardarLocal("pf-clima-sel", nuevo.id);
+        cerrarModal(); setTimeout(modalClima,150); pintarClima();
+      });
+    }catch{ caja.innerHTML = `<p class="nota">No se pudo buscar. Revisa la conexión.</p>`; }
+  };
+}
+
 function iniciarHistorial(){
   try{
     history.replaceState({pf:"base"}, "");
@@ -4047,6 +4297,9 @@ cargarFondoLocal();
 registrarSW();
 $("#btn-tema").onclick=alternarTema;
 $("#btn-menu").onclick=()=>menuAbierto()? cerrarMenu() : abrirMenu();
+$("#btn-clima").onclick=modalClima;
+pintarClima();
+setInterval(pintarClima, CLIMA_TTL);
 $("#velo").onclick=cerrarMenu;
 addEventListener("resize",()=>{ if(enEscritorio() && menuAbierto()) cerrarMenu(); });
 $("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);render()};

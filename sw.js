@@ -24,6 +24,7 @@ const AJENOS = [
   "firebaseio.com",
   "firebaseapp.com",
   "cloudfunctions.net",
+  "open-meteo.com",
 ];
 
 self.addEventListener("install", (e) => {
