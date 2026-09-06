@@ -112,6 +112,7 @@ El botón **◐** de la cabecera va rotando entre cuatro temas, y la elección s
 - **Papel de contabilidad** — fondo verde claro con rayado de libro contable.
 - **Claro** — fondo limpio sin rayado y bordes remarcados en tono oscuro, con mayor contraste. Se lee mejor a plena luz.
 - **SAP Fiori** — paleta corporativa de SAP: shell `#354A5F`, azul de marca `#0A6ED1` para las acciones y los colores semánticos de Fiori aplicados con su significado real: `#107E3E` positivo cuando el sobre va bien, `#E9730C` crítico al acercarse al límite, `#BB0000` negativo al excederlo y `#6A6D70` neutro. Tarjetas con esquinas de 8px y sombra suave, botones con el estilo *emphasized* y *transparent* de Fiori.
+- **Cálido** — cabecera slate `#2E353D`, lienzo hueso `#F1EFEA`, tarjetas blancas con esquinas de 12px y naranja `#D9782D` como acento: botones principales, pestaña activa y botón flotante. Los semánticos se apagan un punto para acompañar — verde `#2F7D3A`, rojo `#C2402D`, ámbar `#C88A1E`.
 - **Oscuro** — paleta tipo GitHub Dark: lienzo `#0D1117`, tarjetas `#161B22` con filo de color en la cabecera, y los semánticos `#3FB950` positivo, `#F85149` negativo, `#D29922` atención, `#58A6FF` enlace. Los colores de categoría se aclaran automáticamente para mantener contraste sobre fondo negro.
 - **Femenino** — ciruela profunda `#3B2230`, granate `#A8385A`, oro viejo `#C9A227`, salvia y lavanda sobre fondo rosa empolvado, con los títulos en la serif Fraunces y la cabecera en degradado. Todos los pares de color cumplen contraste WCAG AA para texto.
 
@@ -256,7 +257,17 @@ El valor por omisión es el día 1, que equivale al mes natural: si no lo cambia
 
 ## Clima
 
-En la cabecera hay un indicador con el icono del tiempo y la temperatura actual. Al tocarlo se abre el **pronóstico de 7 días**: máxima y mínima, lluvia acumulada en mm con barra proporcional, y racha máxima de viento.
+En la cabecera hay un indicador con el icono del tiempo, la temperatura y la **velocidad del viento en color** según su intensidad:
+
+| km/h | Tramo | Color |
+|---|---|---|
+| menos de 12 | calma | neutro |
+| 12 – 28 | brisa | verde |
+| 29 – 49 | viento moderado | ámbar |
+| 50 – 74 | viento fuerte | rojo |
+| 75 o más | temporal | rojo invertido |
+
+Es Beaufort resumido a cinco tramos con significado práctico: cuándo se puede tender ropa, cuándo hay que asegurar cosas fuera y cuándo conviene no salir. Los mismos colores se repiten en la columna de viento del pronóstico, con su leyenda al pie. Cada tema usa sus propios colores semánticos. Al tocarlo se abre el **pronóstico de 7 días**: máxima y mínima, lluvia acumulada en mm con barra proporcional, y racha máxima de viento.
 
 - **Por GPS**: usa la ubicación del dispositivo. Si el permiso está denegado o no hay señal, recurre a la última posición conocida.
 - **Ubicaciones fijas**: hasta cinco, buscando por nombre de ciudad. Se guardan en la configuración del hogar, así que las ven ambos.
@@ -281,6 +292,12 @@ Android manda el botón atrás al historial del navegador, así que por defecto 
 1. Si hay una ventana abierta, atrás la cierra —igual que la ✕, Cancelar o Esc, que están sincronizados con el mismo mecanismo—.
 2. Si no hay ventana, vuelve a la pestaña anterior: Ahorro → Estadísticas → Movimientos → Panel.
 3. Cuando ya no queda nada dentro de la app, avisa: *"Estás al principio · pulsa atrás otra vez para cerrar la app"*. Solo la segunda pulsación, dentro de los cuatro segundos siguientes, la cierra.
+
+## Paleta de los gráficos
+
+En los temas **cálido** y **oscuro** los once colores de categoría se armonizan al vuelo: se conserva el tono de cada uno pero se unifican saturación y luminosidad, para que la paleta se lea como una familia en vez de once colores sueltos compitiendo.
+
+Unificarlo todo tendría un efecto secundario: educación y ocio, ambas ámbar con dos grados de diferencia, quedarían indistinguibles. Por eso las categorías se ordenan por tono y la luminosidad alterna en tres escalones, de modo que dos vecinas nunca caen en el mismo nivel. Funciona igual con los sobres propios que crees, sin tener que asignarles nada.
 
 ## Formato de los importes
 

@@ -72,6 +72,27 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
 .clima.viejo b{opacity:.7}
 .clima.viejo::after{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.5;margin-left:1px}
 .ico-clima{display:block;flex:none}
+.chip-viento{display:inline-flex;align-items:center;gap:2px;margin-left:5px;padding-left:6px;
+  border-left:1px solid rgba(228,233,221,.3);line-height:1}
+.chip-viento b{font-size:11px}
+/* Escala de viento: los mismos colores en el chip y en el pronóstico */
+.v-calma{color:var(--suave)}
+.v-brisa{color:var(--verde)}
+.v-moderado{color:var(--ambar)}
+.v-fuerte{color:var(--margen)}
+.v-temporal{color:var(--hoja);background:var(--margen);border-radius:2px;padding:1px 4px}
+.clima .v-calma{color:#B9C4BB}
+.clima .v-brisa{color:#7BC48F}
+.clima .v-moderado{color:#E8B84B}
+.clima .v-fuerte{color:#E8836B}
+.clima .v-temporal{color:#fff;background:#C0392B}
+.cd-viento{display:flex;align-items:center;gap:3px;justify-content:flex-end}
+.cd-viento svg{flex:none}
+.leyenda-viento{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:12px;padding-top:11px;
+  border-top:1px dotted var(--rayado);font-family:var(--tipo-num);font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase}
+.leyenda-viento span{display:inline-flex;align-items:center;gap:4px}
+
 .clima-lugares{margin-bottom:14px}
 .clima-lugares .borrar{font-size:14px;margin-left:2px;color:inherit;opacity:.6}
 .clima-cab{display:flex;align-items:center;gap:14px;padding:4px 0 14px;
@@ -736,6 +757,80 @@ html[data-tema="oscuro"] [data-acento="rojo"]{--acento-color:#F85149}
 html[data-tema="oscuro"] [data-acento="azul"]{--acento-color:#58A6FF}
 html[data-tema="oscuro"] [data-acento="ambar"]{--acento-color:#D29922}
 html[data-tema="oscuro"] [data-acento="lila"]{--acento-color:#A371F7}
+
+/* ==================================================================
+   TEMA CÁLIDO — cabecera slate, lienzo hueso y naranja como acento.
+   La paleta de los gráficos se armoniza a tonos medios: mismo peso
+   visual para las once categorías, sin que ninguna grite más que otra.
+   ================================================================== */
+html[data-tema="calido"]{
+  --papel:#F1EFEA;   /* lienzo cálido */
+  --hoja:#FFFFFF;    /* tarjeta       */
+  --tinta:#1F242A;   /* texto         */
+  --suave:#6E757C;   /* secundario    */
+  --rayado:#E6E1D8;  /* separador     */
+  --borde:#DDD7CC;
+  --margen:#C2402D;  /* negativo      */
+  --verde:#2F7D3A;   /* positivo      */
+  --ambar:#C88A1E;   /* atención      */
+  --azul:#3D7C8F;    /* informativo   */
+  --naranja:#D9782D; /* acento        */
+  --shell:#2E353D;   /* cabecera      */
+}
+html[data-tema="calido"] body{background-image:none}
+html[data-tema="calido"] .tarjeta{border-radius:12px;border-color:var(--borde);
+  box-shadow:0 1px 2px rgba(31,36,42,.05)}
+html[data-tema="calido"] .cinta{border-radius:12px 12px 0 0}
+html[data-tema="calido"] header{background:var(--shell);border-bottom:none;color:#F1EFEA}
+html[data-tema="calido"] header h1{color:#FFFFFF}
+html[data-tema="calido"] header .sub,html[data-tema="calido"] .estado-conn{color:#A7B0B9}
+html[data-tema="calido"] .barra-mes{border-top-color:rgba(241,239,234,.18)}
+html[data-tema="calido"] .mes-txt{color:#F1EFEA}
+html[data-tema="calido"] .logo{border-color:#7A858F;color:#E7E3DC}
+html[data-tema="calido"] .icono{border-color:#59636D;color:#E7E3DC}
+html[data-tema="calido"] nav{background:var(--shell);border-right:none}
+html[data-tema="calido"] nav::before{color:#8B959E}
+html[data-tema="calido"] nav button{color:#A7B0B9;border-radius:0}
+html[data-tema="calido"] nav button:hover{background:rgba(241,239,234,.07);color:#fff}
+html[data-tema="calido"] nav button.activo{color:#fff;border-left-color:var(--naranja);
+  background:rgba(217,120,45,.16)}
+html[data-tema="calido"] .fab{background:var(--naranja);border-radius:16px;
+  box-shadow:0 4px 14px rgba(217,120,45,.35)}
+html[data-tema="calido"] .fab:hover{background:#C46A22}
+html[data-tema="calido"] .btn{border-radius:10px;border-color:var(--borde);background:var(--hoja);
+  color:var(--tinta)}
+html[data-tema="calido"] .btn:hover{background:#F6F4F0}
+html[data-tema="calido"] .btn.primario{background:var(--naranja);border-color:var(--naranja);color:#fff}
+html[data-tema="calido"] .btn.primario:hover{background:#C46A22;border-color:#C46A22}
+html[data-tema="calido"] .btn.peligro{border-color:var(--margen);color:var(--margen)}
+html[data-tema="calido"] input,html[data-tema="calido"] select,html[data-tema="calido"] textarea{
+  border-radius:10px;border-color:var(--borde)}
+html[data-tema="calido"] input:focus,html[data-tema="calido"] select:focus,
+html[data-tema="calido"] textarea:focus{outline:2px solid var(--naranja);outline-offset:0;border-color:var(--naranja)}
+html[data-tema="calido"] .chip{border-radius:999px;border-color:var(--borde)}
+html[data-tema="calido"] .chip.activo{background:#FBEFE4;border-color:var(--naranja);color:#A85A18}
+html[data-tema="calido"] .toggle{border-radius:10px;border-color:var(--borde);overflow:hidden}
+html[data-tema="calido"] .toggle button{color:var(--suave)}
+html[data-tema="calido"] .toggle button.activo{background:var(--naranja);color:#fff}
+html[data-tema="calido"] .barra{border-radius:999px;background:#EDE9E1;border-color:var(--rayado)}
+html[data-tema="calido"] .fill{border-radius:999px}
+html[data-tema="calido"] .split{border-radius:999px;border-color:var(--rayado)}
+html[data-tema="calido"] .hoja{border-radius:16px 16px 0 0;border-top:4px solid var(--naranja)}
+html[data-tema="calido"] .enlace{color:var(--naranja)}
+html[data-tema="calido"] .libro{border-left-color:var(--naranja)}
+html[data-tema="calido"] .aviso{background:var(--shell);border-radius:10px}
+html[data-tema="calido"] .codigo-hogar{border-color:var(--naranja);color:#A85A18;background:#FBEFE4}
+html[data-tema="calido"] .cerrar-modal{border-radius:10px}
+html[data-tema="calido"] .gr line{stroke:var(--rayado)}
+/* Los estados conservan su significado, con el aire de píldora de la referencia */
+html[data-tema="calido"] .marca-fija,html[data-tema="calido"] .marca-base,
+html[data-tema="calido"] .chip-ahorro{border-radius:999px;padding:2px 8px}
+html[data-tema="calido"] [data-acento]{border-top:3px solid var(--acento-color)}
+html[data-tema="calido"] [data-acento="verde"]{--acento-color:#2F7D3A}
+html[data-tema="calido"] [data-acento="rojo"]{--acento-color:#C2402D}
+html[data-tema="calido"] [data-acento="azul"]{--acento-color:#3D7C8F}
+html[data-tema="calido"] [data-acento="ambar"]{--acento-color:var(--naranja)}
+html[data-tema="calido"] [data-acento="lila"]{--acento-color:#7A6A96}
 </style>
 </head>
 <body>
@@ -813,6 +908,7 @@ function sincronizarCategorias(){
   const propias = (S?.config?.categorias||[]).filter(c=>c&&c.cod&&!CATEGORIAS_BASE.some(b=>b.cod===c.cod));
   CATEGORIAS = [...CATEGORIAS_BASE, ...propias.map(c=>({...c,propia:true}))];
   CAT = Object.fromEntries(CATEGORIAS.map(c=>[c.cod,c]));
+  recalcularPaleta();
 }
 const esPropia = cod=>!!CAT[cod]?.propia;
 /* Sub-sobres: divisiones dentro de una categoría. "Alimentación" puede
@@ -829,7 +925,10 @@ const opcionesSub = (cod,actual="")=>{
 };
 /* Los colores de categoría están pensados sobre papel claro; sobre un fondo
    oscuro pierden contraste, así que se aclaran y saturan al vuelo. */
-function aclarar(hex,luz=62,sat=68){
+/* Unifica saturación y luminosidad conservando el tono de cada categoría.
+   Es lo que hace que una paleta suelta de once colores se vea como una
+   familia: dejan de competir entre sí y el gráfico se lee de un vistazo. */
+function armonizar(hex,sat,luz){
   const m=/^#?([\da-f]{6})$/i.exec(hex||""); if(!m) return hex;
   const n=parseInt(m[1],16), r=(n>>16)/255, g=((n>>8)&255)/255, b=(n&255)/255;
   const max=Math.max(r,g,b), min=Math.min(r,g,b); let h=0;
@@ -837,7 +936,41 @@ function aclarar(hex,luz=62,sat=68){
   if(d){ h = max===r? ((g-b)/d+(g<b?6:0)) : max===g? ((b-r)/d+2) : ((r-g)/d+4); h*=60; }
   return `hsl(${Math.round(h)} ${sat}% ${luz}%)`;
 }
-const col = c => S.tema==="oscuro" ? aclarar(c) : c;
+const aclarar = (hex,luz=62,sat=68)=>armonizar(hex,sat,luz);
+/* Cada tema puede pedir su propio ajuste de la paleta de gráficos */
+const AJUSTE_PALETA = {
+  oscuro: {sat:68, luz:62},   // sobre negro hay que subir luz y saturación
+  calido: {sat:44, luz:45},   // tonos medios y terrosos, sin estridencias
+};
+const tonoDe = hex=>{
+  const m=/^#?([\da-f]{6})$/i.exec(hex||""); if(!m) return 0;
+  const n=parseInt(m[1],16), r=(n>>16)/255, g=((n>>8)&255)/255, b=(n&255)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  if(!d) return 0;
+  let t = max===r? ((g-b)/d+(g<b?6:0)) : max===g? ((b-r)/d+2) : ((r-g)/d+4);
+  return t*60;
+};
+
+/* Unificar saturación y luz haría que dos categorías de tono parecido
+   —educación y ocio, ambas ámbar— quedaran indistinguibles. Se ordenan
+   por tono y se alterna la luminosidad en tres escalones, de modo que
+   dos vecinas nunca caen en el mismo nivel. */
+let PALETA_ARMONICA = {};
+function recalcularPaleta(){
+  PALETA_ARMONICA = {};
+  const a = AJUSTE_PALETA[S.tema]; if(!a) return;
+  [...CATEGORIAS].map(c=>({hex:c.color, h:tonoDe(c.color)}))
+    .sort((x,y)=>x.h-y.h)
+    .forEach((c,i)=>{
+      const luz = a.luz + ((i%3)-1)*9;
+      PALETA_ARMONICA[c.hex] = `hsl(${Math.round(c.h)} ${a.sat}% ${luz}%)`;
+    });
+}
+const col = c => {
+  if(PALETA_ARMONICA[c]) return PALETA_ARMONICA[c];
+  const a = AJUSTE_PALETA[S.tema];
+  return a ? armonizar(c, a.sat, a.luz) : c;
+};
 const PALETA_CAT = ["#3F7D58","#2E6E8E","#6B6BA8","#C25B54","#8A6A3B","#A34E6B",
                     "#D08A2C","#4F8C8C","#5A5F6B","#7A4A55","#8A9099","#B5651D"];
 /* Categorías cuyo cargo es mensual y no se repite a diario: no deben promediarse
@@ -2610,14 +2743,16 @@ function vAjustes(R){
     <div class="chips">
       <button class="chip ${S.tema==="papel"?"activo":""}" data-tema-sel="papel"><b>PAP</b> Papel de contabilidad</button>
       <button class="chip ${S.tema==="claro"?"activo":""}" data-tema-sel="claro"><b>CLA</b> Claro con bordes marcados</button>
+      <button class="chip ${S.tema==="calido"?"activo":""}" data-tema-sel="calido"><b>CAL</b> Cálido</button>
       <button class="chip ${S.tema==="oscuro"?"activo":""}" data-tema-sel="oscuro"><b>OSC</b> Oscuro</button>
       <button class="chip ${S.tema==="fiori"?"activo":""}" data-tema-sel="fiori"><b>SAP</b> Fiori</button>
       <button class="chip ${S.tema==="femenino"?"activo":""}" data-tema-sel="femenino"><b>FEM</b> Femenino</button>
     </div>
-    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori — verde positivo, naranja crítico, rojo negativo. El tema <b>oscuro</b> sigue la paleta de GitHub Dark, con filo de color en cada tarjeta y los colores de categoría aclarados para que mantengan contraste sobre fondo negro. El tema <b>femenino</b> combina ciruela, rosa empolvado y oro viejo, con títulos en serif.</p>
+    <p class="nota" style="margin-top:10px">El tema <b>claro</b> quita el rayado del fondo y remarca los bordes en tono oscuro. El tema <b>Fiori</b> usa la paleta de SAP: azul de marca para las acciones y los colores semánticos de Fiori — verde positivo, naranja crítico, rojo negativo. El tema <b>cálido</b> combina cabecera slate, lienzo hueso y naranja como acento, con esquinas redondeadas y los colores de los gráficos armonizados a tonos medios. El tema <b>oscuro</b> sigue la paleta de GitHub Dark, con filo de color en cada tarjeta y los colores de categoría aclarados para que mantengan contraste sobre fondo negro. El tema <b>femenino</b> combina ciruela, rosa empolvado y oro viejo, con títulos en serif.</p>
     <div class="paleta">
       ${({femenino:[["#3B2230","Ciruela"],["#A8385A","Granate"],["#C9A227","Oro"],["#4E7C6A","Salvia"],["#8A6FA8","Lavanda"],["#DCC2CB","Rosa"],["#FAF2F3","Fondo"]],
-          oscuro:[["#0D1117","Lienzo"],["#161B22","Tarjeta"],["#3FB950","Positivo"],["#F85149","Negativo"],["#D29922","Atención"],["#58A6FF","Enlace"],["#A371F7","Lila"]]}[S.tema]
+          oscuro:[["#0D1117","Lienzo"],["#161B22","Tarjeta"],["#3FB950","Positivo"],["#F85149","Negativo"],["#D29922","Atención"],["#58A6FF","Enlace"],["#A371F7","Lila"]],
+          calido:[["#2E353D","Cabecera"],["#D9782D","Acento"],["#F1EFEA","Lienzo"],["#2F7D3A","Positivo"],["#C2402D","Negativo"],["#C88A1E","Atención"],["#3D7C8F","Informativo"]]}[S.tema]
         || [["#354A5F","Shell"],["#0A6ED1","Marca"],["#107E3E","Positivo"],["#E9730C","Crítico"],["#BB0000","Negativo"],["#6A6D70","Neutro"],["#F5F6F7","Fondo"]])
         .map(([c,n])=>`<span class="muestra"><i style="background:${c}"></i>${n}<b>${c}</b></span>`).join("")}
     </div>
@@ -3036,6 +3171,20 @@ const WMO = c=>
  : c<=86 ? {t:"nieve", i:"nieve"}
  : {t:"tormenta", i:"tormenta"};
 
+/* Escala de viento en km/h, resumida de Beaufort a cinco tramos con
+   significado práctico: hasta cuándo se puede tender ropa, cuándo hay que
+   asegurar cosas fuera y cuándo conviene no salir. */
+const escalaViento = v=>
+   v<12 ? {clase:"v-calma",    nombre:"calma"}
+ : v<29 ? {clase:"v-brisa",    nombre:"brisa"}
+ : v<50 ? {clase:"v-moderado", nombre:"viento moderado"}
+ : v<75 ? {clase:"v-fuerte",   nombre:"viento fuerte"}
+ : {clase:"v-temporal", nombre:"temporal"};
+
+const iconoViento = (px=13)=>`<svg viewBox="0 0 16 12" width="${px+3}" height="${px}" aria-hidden="true"
+  fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+  <path d="M1 3h7.2a1.9 1.9 0 1 0-1.9-1.9"/><path d="M1 6.2h9.4a1.9 1.9 0 1 1-1.9 1.9"/><path d="M1 9.4h4.6"/></svg>`;
+
 function iconoClima(codigo,px=20){
   const {i} = WMO(codigo??0);
   const sol = `<circle cx="9" cy="9" r="4.2" fill="var(--sol)"/>${
@@ -3080,7 +3229,7 @@ async function traerClima(lat,lon){
   if(guardado && Date.now()-guardado.ts < CLIMA_TTL){ climaCache[clave]=guardado; return guardado; }
   const url = "https://api.open-meteo.com/v1/forecast"
     + `?latitude=${lat}&longitude=${lon}`
-    + "&current=temperature_2m,weather_code"
+    + "&current=temperature_2m,weather_code,wind_speed_10m"
     + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
     + "&timezone=auto&forecast_days=7";
   try{
@@ -3135,8 +3284,13 @@ function climaRecordado(){
 }
 function dibujarChip(estado,{viejo=false}={}){
   const btn = $("#btn-clima"); if(!btn || !estado) return;
-  btn.innerHTML = `${iconoClima(estado.codigo, 19)}<b>${estado.temp}°</b>`;
-  btn.title = `${estado.lugar} · ${WMO(estado.codigo).t} · ${antiguedad(estado.ts)}`;
+  const v = estado.viento;
+  const esc_ = v==null? null : escalaViento(v);
+  btn.innerHTML = `${iconoClima(estado.codigo, 19)}<b>${estado.temp}°</b>`
+    + (esc_? `<span class="chip-viento ${esc_.clase}">${iconoViento(12)}<b>${Math.round(v)}</b></span>` : "");
+  btn.title = `${estado.lugar} · ${WMO(estado.codigo).t}`
+    + (esc_? ` · ${esc_.nombre} ${Math.round(v)} km/h` : "")
+    + ` · ${antiguedad(estado.ts)}`;
   btn.classList.remove("apagado");
   btn.classList.toggle("viejo", viejo);
 }
@@ -3149,6 +3303,7 @@ async function pintarClima(){
     const {lugar,datos,ts} = await climaActivo();
     const estado = {codigo:datos.current?.weather_code ?? 3,
                     temp:Math.round(datos.current?.temperature_2m ?? 0),
+                    viento:datos.current?.wind_speed_10m ?? null,
                     lugar:lugar.nombre, ts};
     recordarClima(estado);
     dibujarChip(estado, {viejo: Date.now()-ts > CLIMA_TTL});
@@ -3215,8 +3370,13 @@ function modalClima(){
             <span class="cd-lluvia">
               <span class="cd-barra"><i style="height:${Math.round((d.precipitation_sum[k]||0)/lluvia*100)}%"></i></span>
               ${(d.precipitation_sum[k]||0).toFixed(1)} mm</span>
-            <span class="cd-viento">${Math.round(d.wind_speed_10m_max[k])} km/h</span>
+            <span class="cd-viento ${escalaViento(d.wind_speed_10m_max[k]||0).clase}"
+              title="${escalaViento(d.wind_speed_10m_max[k]||0).nombre}">${iconoViento(11)}${Math.round(d.wind_speed_10m_max[k])}</span>
           </div>`).join("")}</div>
+        <div class="leyenda-viento">
+          ${[[6,"calma"],[20,"brisa"],[38,"moderado"],[60,"fuerte"],[85,"temporal"]]
+            .map(([v,n])=>`<span class="${escalaViento(v).clase}">${iconoViento(10)}${n}</span>`).join("")}
+        </div>
         <p class="nota ayuda">Máxima y mínima, lluvia acumulada y racha máxima de viento. Datos de Open-Meteo, que se refrescan cada media hora; sin conexión se sigue mostrando la última lectura.</p>`;
     }catch(e){
       cuerpo().innerHTML = `<p class="aviso-credito">No se pudo obtener el clima. Permite el acceso a tu ubicación en el navegador, o añade una ciudad con <b>+ Añadir</b>.</p>`;
@@ -4152,9 +4312,9 @@ async function cargarEjemplo(){
 const guardarLocal=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
 const leerLocal=k=>{try{return localStorage.getItem(k)}catch{return null}};
 
-const TEMAS = ["papel","claro","oscuro","fiori","femenino"];
-const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", oscuro:"#161B22", fiori:"#354A5F", femenino:"#3B2230"};
-const NOMBRE_TEMA = {papel:"papel", claro:"claro", oscuro:"oscuro", fiori:"fiori", femenino:"femenino"};
+const TEMAS = ["papel","claro","calido","oscuro","fiori","femenino"];
+const COLOR_BARRA = {papel:"#16241C", claro:"#101A14", calido:"#2E353D", oscuro:"#161B22", fiori:"#354A5F", femenino:"#3B2230"};
+const NOMBRE_TEMA = {papel:"papel", claro:"claro", calido:"cálido", oscuro:"oscuro", fiori:"fiori", femenino:"femenino"};
 
 /* ================= marca de agua personal ========================= 
    La foto es de cada persona, no del hogar: se guarda en su perfil
