@@ -69,6 +69,8 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
 .clima b{font-family:var(--tipo-num);font-size:12.5px;font-weight:500}
 .clima:hover{background:rgba(228,233,221,.12)}
 .clima.apagado{opacity:.55}
+.clima.viejo b{opacity:.7}
+.clima.viejo::after{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.5;margin-left:1px}
 .ico-clima{display:block;flex:none}
 .clima-lugares{margin-bottom:14px}
 .clima-lugares .borrar{font-size:14px;margin-left:2px;color:inherit;opacity:.6}
@@ -76,6 +78,8 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
   --sol:#E8B84B; --nube:#9FB0A0; --agua:#4E8CBF; --rayo:#D9A21B}
 .clima-cab b{display:block;font-family:var(--tipo-num);font-size:30px;font-weight:500;line-height:1}
 .clima-cab span{font-size:12.5px;color:var(--suave)}
+.cl-edad{display:block;font-style:normal;font-family:var(--tipo-num);font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;margin-top:2px;opacity:.8}
 .clima-dias{--sol:#E8B84B; --nube:#9FB0A0; --agua:#4E8CBF; --rayo:#D9A21B;
   border-top:1px solid var(--rayado)}
 .clima-dia{display:grid;grid-template-columns:34px 24px 1fr 74px 60px;align-items:center;gap:8px;
@@ -3073,19 +3077,26 @@ function posicionGPS(){
 async function traerClima(lat,lon){
   const clave = `${lat.toFixed(2)},${lon.toFixed(2)}`;
   const guardado = climaCache[clave] || (()=>{ try{ return JSON.parse(leerLocal("pf-clima:"+clave)||"null"); }catch{ return null; } })();
-  if(guardado && Date.now()-guardado.ts < CLIMA_TTL){ climaCache[clave]=guardado; return guardado.datos; }
+  if(guardado && Date.now()-guardado.ts < CLIMA_TTL){ climaCache[clave]=guardado; return guardado; }
   const url = "https://api.open-meteo.com/v1/forecast"
     + `?latitude=${lat}&longitude=${lon}`
     + "&current=temperature_2m,weather_code"
     + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
     + "&timezone=auto&forecast_days=7";
-  const r = await fetch(url);
-  if(!r.ok) throw new Error("clima "+r.status);
-  const datos = await r.json();
-  const paquete = {ts:Date.now(), datos};
-  climaCache[clave]=paquete;
-  guardarLocal("pf-clima:"+clave, JSON.stringify(paquete));
-  return datos;
+  try{
+    const r = await fetch(url);
+    if(!r.ok) throw new Error("clima "+r.status);
+    const datos = await r.json();
+    const paquete = {ts:Date.now(), datos};
+    climaCache[clave]=paquete;
+    guardarLocal("pf-clima:"+clave, JSON.stringify(paquete));
+    return paquete;
+  }catch(e){
+    /* Sin conexión se sigue mostrando lo último que se supo, por viejo que
+       sea: un dato de hace horas informa más que un hueco. */
+    if(guardado) return guardado;      // conserva su fecha original
+    throw e;
+  }
 }
 
 /* Resuelve la ubicación activa y trae su pronóstico */
@@ -3105,18 +3116,46 @@ async function climaActivo(){
     lugar = ubicaciones().find(u=>u.id===sel) || ubicaciones()[0];
     if(!lugar) throw new Error("sin ubicación");
   }
-  return {lugar, datos: await traerClima(lugar.lat, lugar.lon)};
+  const paquete = await traerClima(lugar.lat, lugar.lon);
+  return {lugar, datos:paquete.datos, ts:paquete.ts};
+}
+
+const antiguedad = ts=>{
+  const min = Math.round((Date.now()-ts)/60000);
+  if(min<2) return "ahora mismo";
+  if(min<60) return `hace ${min} min`;
+  const hrs = Math.round(min/60);
+  return hrs<24? `hace ${hrs} h` : `hace ${Math.round(hrs/24)} d`;
+};
+
+/* Lo último que se llegó a mostrar, para que el icono nunca quede vacío */
+function recordarClima(estado){ guardarLocal("pf-clima-ultimo", JSON.stringify(estado)); }
+function climaRecordado(){
+  try{ return JSON.parse(leerLocal("pf-clima-ultimo")||"null"); }catch{ return null; }
+}
+function dibujarChip(estado,{viejo=false}={}){
+  const btn = $("#btn-clima"); if(!btn || !estado) return;
+  btn.innerHTML = `${iconoClima(estado.codigo, 19)}<b>${estado.temp}°</b>`;
+  btn.title = `${estado.lugar} · ${WMO(estado.codigo).t} · ${antiguedad(estado.ts)}`;
+  btn.classList.remove("apagado");
+  btn.classList.toggle("viejo", viejo);
 }
 
 async function pintarClima(){
   const btn = $("#btn-clima"); if(!btn) return;
+  const previo = climaRecordado();
+  if(previo) dibujarChip(previo, {viejo:Date.now()-previo.ts > CLIMA_TTL});  // al instante
   try{
-    const {lugar,datos} = await climaActivo();
-    const t = Math.round(datos.current?.temperature_2m ?? 0);
-    btn.innerHTML = `${iconoClima(datos.current?.weather_code, 19)}<b>${t}°</b>`;
-    btn.title = `${lugar.nombre} · ${WMO(datos.current?.weather_code).t}`;
-    btn.classList.remove("apagado");
+    const {lugar,datos,ts} = await climaActivo();
+    const estado = {codigo:datos.current?.weather_code ?? 3,
+                    temp:Math.round(datos.current?.temperature_2m ?? 0),
+                    lugar:lugar.nombre, ts};
+    recordarClima(estado);
+    dibujarChip(estado, {viejo: Date.now()-ts > CLIMA_TTL});
   }catch{
+    /* No se pudo actualizar: se conserva lo último conocido en vez de
+       borrarlo. Solo si nunca hubo dato se muestra el chip apagado. */
+    if(previo){ dibujarChip(previo,{viejo:true}); return; }
     btn.innerHTML = `${iconoClima(3,19)}<b>—</b>`;
     btn.title = "Toca para activar el clima";
     btn.classList.add("apagado");
@@ -3158,14 +3197,15 @@ function modalClima(){
   const cuerpo = ()=>$("#clima-cuerpo");
   const pintar = async()=>{
     try{
-      const {lugar,datos} = await climaActivo();
+      const {lugar,datos,ts} = await climaActivo();
       const d = datos.daily;
       const lluvia = Math.max(1,...d.precipitation_sum.map(x=>x||0));
       cuerpo().innerHTML = `
         <div class="clima-cab">
           ${iconoClima(datos.current?.weather_code, 40)}
           <div><b>${Math.round(datos.current?.temperature_2m??0)}°</b>
-            <span>${esc(lugar.nombre)} · ${WMO(datos.current?.weather_code).t}</span></div>
+            <span>${esc(lugar.nombre)} · ${WMO(datos.current?.weather_code).t}
+              <em class="cl-edad">actualizado ${antiguedad(ts)}</em></span></div>
         </div>
         <div class="clima-dias">${d.time.map((f,k)=>`
           <div class="clima-dia">
@@ -3177,7 +3217,7 @@ function modalClima(){
               ${(d.precipitation_sum[k]||0).toFixed(1)} mm</span>
             <span class="cd-viento">${Math.round(d.wind_speed_10m_max[k])} km/h</span>
           </div>`).join("")}</div>
-        <p class="nota ayuda">Máxima y mínima, lluvia acumulada y racha máxima de viento. Datos de Open-Meteo, actualizados cada media hora.</p>`;
+        <p class="nota ayuda">Máxima y mínima, lluvia acumulada y racha máxima de viento. Datos de Open-Meteo, que se refrescan cada media hora; sin conexión se sigue mostrando la última lectura.</p>`;
     }catch(e){
       cuerpo().innerHTML = `<p class="aviso-credito">No se pudo obtener el clima. Permite el acceso a tu ubicación en el navegador, o añade una ciudad con <b>+ Añadir</b>.</p>`;
     }

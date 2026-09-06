@@ -261,7 +261,9 @@ En la cabecera hay un indicador con el icono del tiempo y la temperatura actual.
 - **Por GPS**: usa la ubicación del dispositivo. Si el permiso está denegado o no hay señal, recurre a la última posición conocida.
 - **Ubicaciones fijas**: hasta cinco, buscando por nombre de ciudad. Se guardan en la configuración del hogar, así que las ven ambos.
 
-Los datos vienen de [Open-Meteo](https://open-meteo.com), que no requiere clave de API ni registro. Se refrescan cada media hora y la última respuesta queda guardada en el dispositivo, de modo que el icono aparece al instante al abrir y sigue mostrando algo sin conexión.
+Los datos vienen de [Open-Meteo](https://open-meteo.com), que no requiere clave de API ni registro. Se refrescan cada media hora.
+
+**El icono nunca se vacía.** Al abrir la app se pinta al instante con la última lectura guardada, antes incluso de consultar la red. Si la petición falla o el GPS está denegado, conserva ese valor en vez de borrarlo: un dato de hace unas horas informa más que un hueco. En ese caso lleva un punto atenuado al lado y el título dice cuándo se obtuvo — *"Valdivia · lluvia · hace 5 h"*—, y la ventana del pronóstico lo repite bajo el nombre del lugar. Solo aparece el guion cuando nunca se ha llegado a obtener nada.
 
 ## Navegación
 
