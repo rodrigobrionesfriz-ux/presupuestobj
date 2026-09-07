@@ -406,7 +406,13 @@ input.grande.importe{text-align:left}
 .kpi.medio .kpi-barra i{background:var(--ambar)}
 .kpi.malo b{color:var(--margen)}
 .kpi.malo .kpi-barra i{background:var(--margen)}
-@media(max-width:380px){.kpis{grid-template-columns:1fr}}
+/* Siempre dos de ancho: seis KPI en tres filas caben incluso en 360px */
+@media(max-width:380px){
+  .kpi{padding:9px 10px}
+  .kpi b{font-size:16px}
+  .kpi em{font-size:9px;letter-spacing:.06em}
+  .kpi span{font-size:10.5px}
+}
 .clicable{cursor:pointer;transition:background .15s}
 .clicable:hover,.clicable:focus-visible{background:var(--papel)}
 tr.clicable td{transition:background .15s}
@@ -2288,30 +2294,38 @@ function grLineas(series,etiquetas,{alto=170,ancho=320}={}){
   const ejes = [0,.5,1].map(f=>`<line x1="30" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}"
       stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
     <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
+  const marcar = n<=12;      // con muchos días los puntos ensucian
   const lineas = series.map(s=>{
     const pts = s.valores.map((v,i)=>`${px(i)},${py(v)}`);
-    const puntos = s.valores.map((v,i)=>`<circle cx="${px(i)}" cy="${py(v)}" r="2.1" fill="${col(s.color)}"/>`).join("");
+    const puntos = marcar
+      ? s.valores.map((v,i)=>`<circle cx="${px(i)}" cy="${py(v)}" r="2.1" fill="${col(s.color)}"/>`).join("")
+      : `<circle cx="${px(n-1)}" cy="${py(s.valores[n-1])}" r="2.6" fill="${col(s.color)}"/>`;
     return `<polyline fill="none" points="${pts.join(" ")}" stroke="${col(s.color)}" stroke-width="2"
       stroke-linejoin="round" stroke-linecap="round"/>${puntos}`;
   }).join("");
-  const et = etiquetas.map((e,i)=>`<text x="${px(i)}" y="${alto-5}" font-size="8" text-anchor="middle">${esc(e)}</text>`).join("");
+  const et = etiquetas.map((e,i)=> e===""? ""
+    : `<text x="${px(i)}" y="${alto-5}" font-size="8" text-anchor="middle">${esc(e)}</text>`).join("");
   return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}${lineas}${et}</svg>
     <div class="gr-leyenda">${series.map(s=>`<span><i style="background:${col(s.color)}"></i>${esc(s.nombre)}</span>`).join("")}</div>`;
 }
 
-/* Evolución de las categorías con más peso en los últimos periodos */
-function seriesTopCategorias(R,cuantas=6,periodos=6){
+/* Acumulado día a día de las categorías con más peso, dentro del periodo
+   en curso: muestra cuál se dispara y cuándo, no cómo fueron otros meses. */
+function seriesTopCategorias(R,cuantas=6){
   const top = R.porCat.filter(c=>c.total>0).slice(0,cuantas);
-  const meses = [];
-  for(let k=periodos-1;k>=0;k--) meses.push(sumaMes(R.mes,-k));
+  const todas = fechasPeriodo(R.mes);
+  const dias = R.esMesActual? todas.slice(0,R.diaHoy) : todas;
+  const paso = Math.max(1, Math.ceil(dias.length/6));
   return {
-    etiquetas: meses.map(mesCorto),
-    series: top.map(c=>({
-      nombre:c.cod, color:c.color,
-      valores: meses.map(mm=>S.movimientos
-        .filter(m=>m.tipo==="gasto" && m.categoria===c.cod && enPeriodo(m.fecha,mm))
-        .reduce((a,b)=>a+b.monto,0)),
-    })),
+    // Solo se rotulan algunos días: con treinta puntos las etiquetas se pisan
+    etiquetas: dias.map((f,i)=> (i%paso===0 || i===dias.length-1) ? f.slice(8).replace(/^0/,"") : ""),
+    series: top.map(c=>{
+      let acc = 0;
+      return {nombre:c.cod, color:c.color, valores: dias.map(f=>{
+        acc += R.gastos.filter(g=>g.categoria===c.cod && g.fecha===f).reduce((a,b)=>a+b.monto,0);
+        return acc;
+      })};
+    }),
   };
 }
 
@@ -2359,7 +2373,7 @@ function vResumen(R){
   </section>
 
   <section class="tarjeta" data-acento="lila">
-    <div class="cab"><h2>Principales gastos</h2><span class="cod">6 periodos</span></div>
+    <div class="cab"><h2>Principales gastos</h2><span class="cod">acumulado del periodo</span></div>
     ${series.length
       ? grLineas(series,etiquetas)
       : `<p class="nota">Aún no hay gastos suficientes para dibujar la evolución.</p>`}
