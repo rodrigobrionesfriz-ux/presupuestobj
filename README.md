@@ -259,7 +259,7 @@ El valor por omisión es el día 1, que equivale al mes natural: si no lo cambia
 
 ## Clima
 
-En la cabecera hay un indicador con el icono del tiempo, la temperatura y la **velocidad del viento en color** según su intensidad:
+En la cabecera, junto a las flechas del periodo, hay un indicador con el icono del tiempo, el **nombre de la ubicación**, la temperatura y la **velocidad del viento en color** según su intensidad:
 
 | km/h | Tramo | Color |
 |---|---|---|
@@ -271,7 +271,7 @@ En la cabecera hay un indicador con el icono del tiempo, la temperatura y la **v
 
 Es Beaufort resumido a cinco tramos con significado práctico: cuándo se puede tender ropa, cuándo hay que asegurar cosas fuera y cuándo conviene no salir. Los mismos colores se repiten en la columna de viento del pronóstico, con su leyenda al pie. Cada tema usa sus propios colores semánticos. Al tocarlo se abre el **pronóstico de 7 días**: máxima y mínima, lluvia acumulada en mm con barra proporcional, y racha máxima de viento.
 
-- **Por GPS**: usa la ubicación del dispositivo. Si el permiso está denegado o no hay señal, recurre a la última posición conocida.
+- **Por GPS**: usa la ubicación del dispositivo. El nombre del lugar se resuelve a partir de las coordenadas y se guarda, así que en vez de *Mi ubicación* aparece *Antuco*, tanto en el chip como en el detalle, donde además se marca como *tu ubicación*. Si el permiso está denegado o no hay señal, recurre a la última posición conocida.
 - **Ubicaciones fijas**: hasta cinco, buscando por nombre de ciudad. Se guardan en la configuración del hogar, así que las ven ambos.
 
 Los datos vienen de [Open-Meteo](https://open-meteo.com), que no requiere clave de API ni registro. Se refrescan cada media hora.

@@ -57,9 +57,17 @@ header{position:sticky;top:0;z-index:20;background:var(--tinta);color:var(--pape
   border-radius:2px;padding:3px 6px}
 header h1{font-weight:800;font-size:19px;line-height:1.1}
 header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;text-transform:uppercase}
-.barra-mes{display:flex;align-items:center;justify-content:space-between;margin-top:12px;
+.barra-mes{display:flex;align-items:center;gap:8px;margin-top:12px;
   border-top:1px solid rgba(228,233,221,.22);padding-top:9px}
-.mes-txt{font-family:var(--tipo-num);font-size:13.5px;letter-spacing:.06em;text-transform:uppercase}
+.mes-txt{flex:1;min-width:0;text-align:center;font-family:var(--tipo-num);font-size:13.5px;
+  letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mes-corto{display:none}
+@media(max-width:560px){
+  .mes-largo{display:none}
+  .mes-corto{display:inline}
+}
+header .marca>div{min-width:0}
 .icono{background:none;border:1px solid rgba(228,233,221,.35);color:inherit;width:30px;height:30px;
   border-radius:2px;font-size:17px;line-height:1;cursor:pointer}
 .icono:hover{background:rgba(228,233,221,.12)}
@@ -72,6 +80,10 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
 .clima.viejo b{opacity:.7}
 .clima.viejo::after{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.5;margin-left:1px}
 .ico-clima{display:block;flex:none}
+.chip-lugar{max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:11.5px;opacity:.85;letter-spacing:.01em}
+.cl-gps{font-style:normal;font-family:var(--tipo-num);font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;border:1px solid var(--borde);border-radius:999px;padding:1px 6px;margin-left:4px}
 .chip-viento{display:inline-flex;align-items:center;gap:2px;margin-left:5px;padding-left:6px;
   border-left:1px solid rgba(228,233,221,.3);line-height:1}
 .chip-viento b{font-size:11px}
@@ -121,6 +133,9 @@ header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;tex
 .cl-lista span{font-size:11.5px;color:var(--suave)}
 @media(max-width:430px){
   .estado-conn span{display:none}
+  .chip-lugar{max-width:70px}
+  .barra-mes{gap:6px}
+  .mes-txt{font-size:12px;letter-spacing:.03em}
   .clima-dia{grid-template-columns:30px 22px 1fr 68px 54px;gap:6px;font-size:12px}
   .cd-lluvia,.cd-viento{font-size:10.5px}
 }
@@ -516,6 +531,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   main{padding-left:11px;padding-right:11px}
   .tarjeta{padding:14px 12px}
 }
+@media(max-width:380px){.chip-lugar{max-width:56px}}
 @media(max-width:400px){.cinta-pie{grid-template-columns:1fr}.campos-2{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
@@ -864,11 +880,11 @@ html[data-tema="calido"] [data-acento="lila"]{--acento-color:#7A6A96}
         <h1>Presupuesto familiar</h1>
         <p class="sub" id="sub-hogar">Libro de cuentas del hogar</p>
       </div>
-      <button class="clima apagado" id="btn-clima" aria-label="Ver el clima" title="Clima"></button>
       <button class="icono" id="btn-tema" aria-label="Cambiar tema" title="Cambiar tema">◐</button>
       <span class="estado-conn"><i class="punto" id="punto"></i><span id="estado-txt">en línea</span></span>
     </div>
     <div class="barra-mes">
+      <button class="clima apagado" id="btn-clima" aria-label="Ver el clima" title="Clima"></button>
       <button class="icono" id="mes-ant" aria-label="Mes anterior">‹</button>
       <span class="mes-txt" id="mes-txt"></span>
       <button class="icono" id="mes-sig" aria-label="Mes siguiente">›</button>
@@ -1088,6 +1104,13 @@ const fechasPeriodo = mes=>{
   return salida;
 };
 /* Etiqueta del periodo: "Agosto de 2026" con ciclo el 1, "10 ago – 9 sep 2026" si no */
+/* Versión corta para la cabecera del móvil: "sept 2026" en vez de
+   "Septiembre de 2026", que no cabe junto al clima. */
+const etiquetaPeriodoCorta = mes=>{
+  if(diaCiclo()===1) return `${mesCorto(mes)} ${mes.slice(0,4)}`;
+  const corto = f=>aDate(f).toLocaleDateString("es",{day:"numeric",month:"short"}).replace(".","");
+  return `${corto(inicioPeriodo(mes))}–${corto(finPeriodo(mes))}`;
+};
 const etiquetaPeriodo = mes=>{
   if(diaCiclo()===1) return mesLargo(mes);
   const corto = f=>aDate(f).toLocaleDateString("es",{day:"numeric",month:"short"}).replace(".","");
@@ -2011,7 +2034,8 @@ function render(){
   if($("#app").classList.contains("oculto")) return;
   sincronizarCategorias();
   const R = calcular();
-  $("#mes-txt").textContent = etiquetaPeriodo(S.mes);
+  $("#mes-txt").innerHTML = `<span class="mes-largo">${esc(etiquetaPeriodo(S.mes))}</span>`
+    + `<span class="mes-corto">${esc(etiquetaPeriodoCorta(S.mes))}</span>`;
   $("#sub-hogar").textContent = S.modo==="nube"? `Hogar ${S.hogarId||""}` : "Modo local · sin sincronizar";
   $("#punto").className = "punto"+(S.modo==="local"?" local":"");
   $("#estado-txt").textContent = S.modo==="nube"? "en línea":"local";
@@ -3339,6 +3363,23 @@ function posicionGPS(){
   });
 }
 
+/* El GPS da coordenadas, no un nombre. Se resuelve una vez y se guarda:
+   "Antuco" dice mucho más que "Mi ubicación" cuando hay varias guardadas. */
+async function nombreDeCoordenadas(lat,lon){
+  const clave = `pf-lugar:${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const guardado = leerLocal(clave);
+  if(guardado) return guardado;
+  try{
+    const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client"
+      + `?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
+    if(!r.ok) throw new Error("geo");
+    const d = await r.json();
+    const n = d.locality || d.city || d.principalSubdivision || "";
+    if(n) guardarLocal(clave, n);
+    return n;
+  }catch{ return ""; }
+}
+
 async function traerClima(lat,lon){
   const clave = `${lat.toFixed(2)},${lon.toFixed(2)}`;
   const guardado = climaCache[clave] || (()=>{ try{ return JSON.parse(leerLocal("pf-clima:"+clave)||"null"); }catch{ return null; } })();
@@ -3377,6 +3418,9 @@ async function climaActivo(){
       if(!rec) throw e;          // sin permiso y sin nada guardado
       lugar = rec;               // última posición conocida
     }
+    const nombre = await nombreDeCoordenadas(lugar.lat, lugar.lon);
+    if(nombre) lugar = {...lugar, nombre, esGPS:true};
+    else lugar = {...lugar, esGPS:true};
   }else{
     lugar = ubicaciones().find(u=>u.id===sel) || ubicaciones()[0];
     if(!lugar) throw new Error("sin ubicación");
@@ -3402,7 +3446,9 @@ function dibujarChip(estado,{viejo=false}={}){
   const btn = $("#btn-clima"); if(!btn || !estado) return;
   const v = estado.viento;
   const esc_ = v==null? null : escalaViento(v);
-  btn.innerHTML = `${iconoClima(estado.codigo, 19)}<b>${estado.temp}°</b>`
+  btn.innerHTML = `${iconoClima(estado.codigo, 19)}`
+    + (estado.lugar? `<span class="chip-lugar">${esc(estado.lugar)}</span>` : "")
+    + `<b>${estado.temp}°</b>`
     + (esc_? `<span class="chip-viento ${esc_.clase}">${iconoViento(12)}<b>${Math.round(v)}</b></span>` : "");
   btn.title = `${estado.lugar} · ${WMO(estado.codigo).t}`
     + (esc_? ` · ${esc_.nombre} ${Math.round(v)} km/h` : "")
@@ -3475,7 +3521,7 @@ function modalClima(){
         <div class="clima-cab">
           ${iconoClima(datos.current?.weather_code, 40)}
           <div><b>${Math.round(datos.current?.temperature_2m??0)}°</b>
-            <span>${esc(lugar.nombre)} · ${WMO(datos.current?.weather_code).t}
+            <span>${esc(lugar.nombre)}${lugar.esGPS?' <em class="cl-gps">tu ubicación</em>':""} · ${WMO(datos.current?.weather_code).t}
               <em class="cl-edad">actualizado ${antiguedad(ts)}</em></span></div>
         </div>
         <div class="clima-dias">${d.time.map((f,k)=>`
