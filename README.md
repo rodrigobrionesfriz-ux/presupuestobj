@@ -158,6 +158,8 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 ## Qué incluye
 
+**Resumen** — Un mini panel de una sola pantalla, primero en la barra lateral y accesible también con el botón **▦** de la cabecera. Sin detalle: seis tarjetas de KPI con su porcentaje y barra de avance —disponible sobre ingresos, gastado sobre presupuesto, ahorro y su tasa, avance del periodo, gasto prescindible y deuda con su carga sobre el ingreso—, un gráfico de líneas con la evolución de las seis categorías con más peso en los últimos seis periodos, y el gasto por persona del periodo en curso con el color de cada una.
+
 **Panel** — Corte del mes en formato de cinta de sumadora: ingresos registrados, ingreso estimado, gastos, deuda pendiente y disponible. La etiqueta *base* señala cuál de los dos ingresos se está usando para calcular. Por omisión se toma el mayor de los dos: a mitad de mes manda la estimación, porque parte del sueldo aún no ha entrado, y al cerrar el mes se impone lo realmente recibido. En Ajustes se puede fijar a mano. Ritmo de gasto variable, proyección a fin de mes con su desglose, y cuánto puedes gastar por día para no pasarte. Sobres por categoría que cambian de verde a ámbar a rojo, y reparto entre gasto esencial y prescindible.
 
 **Sub-sobres** — Cada sobre se divide por dentro sin multiplicar los sobres del panel: *Alimentación* puede separarse en supermercado, feria y carnicería. Se crean desde tres sitios, según dónde te haga falta:

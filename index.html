@@ -376,6 +376,22 @@ input.grande.importe{text-align:left}
 .cierre-resumen b{margin-left:auto;font-family:var(--tipo-num);font-weight:500}
 .cierre-resumen em{font-style:normal;font-family:var(--tipo-num);font-size:11px;min-width:72px;text-align:right}
 .nota-cuadrado{font-size:11px;margin:9px 0 0;line-height:1.45;color:var(--suave)}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpis.dos-col{margin-top:14px}
+.kpi{border:1px solid var(--borde);border-radius:6px;padding:11px 12px;background:var(--papel)}
+.kpi em{display:block;font-style:normal;font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--suave);margin-bottom:5px}
+.kpi b{display:block;font-family:var(--tipo-num);font-size:19px;font-weight:500;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi span{display:block;font-size:11px;color:var(--suave);margin-top:5px;line-height:1.35}
+.kpi-barra{height:4px;background:var(--rayado);border-radius:999px;overflow:hidden;margin-top:8px}
+.kpi-barra i{display:block;height:100%;background:var(--verde);border-radius:999px}
+.kpi.bueno b{color:var(--verde)}
+.kpi.medio b{color:var(--ambar)}
+.kpi.medio .kpi-barra i{background:var(--ambar)}
+.kpi.malo b{color:var(--margen)}
+.kpi.malo .kpi-barra i{background:var(--margen)}
+@media(max-width:380px){.kpis{grid-template-columns:1fr}}
 .clicable{cursor:pointer;transition:background .15s}
 .clicable:hover,.clicable:focus-visible{background:var(--papel)}
 tr.clicable td{transition:background .15s}
@@ -856,6 +872,7 @@ html[data-tema="calido"] [data-acento="lila"]{--acento-color:#7A6A96}
       <button class="icono" id="mes-ant" aria-label="Mes anterior">‹</button>
       <span class="mes-txt" id="mes-txt"></span>
       <button class="icono" id="mes-sig" aria-label="Mes siguiente">›</button>
+      <button class="icono" id="btn-resumen" aria-label="Ver el resumen" title="Resumen en cifras">▦</button>
     </div>
   </header>
   <main id="vista"></main>
@@ -1958,7 +1975,8 @@ function grBarras(items,{alto=150,ancho=320,color="var(--azul, #2E6E8E)",series=
       const bw = (w-8)/series.length;
       return series.map((s,j)=>`<rect x="${x0+4+j*bw}" y="${py(it[s.k])}" width="${bw-2}" height="${Math.max(0,alto-18-py(it[s.k]))}" fill="${s.c}"/>`).join("");
     }
-    return `<rect x="${x0+4}" y="${py(it.total)}" width="${w-8}" height="${Math.max(0,alto-18-py(it.total))}" fill="${color}"/>`;
+    // Si el dato trae color propio —una persona, una categoría— manda ese
+    return `<rect x="${x0+4}" y="${py(it.total)}" width="${w-8}" height="${Math.max(0,alto-18-py(it.total))}" fill="${it.color? col(it.color) : color}"/>`;
   }).join("");
   const ejes=[0,.5,1].map(f=>`<line x1="26" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}" stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
     <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
@@ -1986,7 +2004,7 @@ const corto = v=>{ const a=Math.abs(v);
 /* ============================== vistas ============================ */
 /* En la barra lateral cabe el nombre completo: las abreviaturas venían de
    la antigua barra inferior, donde el espacio se repartía entre siete. */
-const NAV = [["panel","Panel"],["movimientos","Movimientos"],["estadisticas","Estadísticas"],
+const NAV = [["resumen","Resumen"],["panel","Panel"],["movimientos","Movimientos"],["estadisticas","Estadísticas"],
              ["deudas","Deudas"],["metas","Metas"],["ahorro","Ahorro"],["ajustes","Ajustes"]];
 
 function render(){
@@ -2001,7 +2019,7 @@ function render(){
   const v = $("#vista");
   const vacio = S.movimientos.length===0 && S.deudas.length===0 && S.metas.length===0;
   v.innerHTML = (vacio? bloqueVacio():"") + ({
-    panel:vPanel, movimientos:vMovimientos, estadisticas:vEstadisticas,
+    resumen:vResumen, panel:vPanel, movimientos:vMovimientos, estadisticas:vEstadisticas,
     deudas:vDeudas, metas:vMetas, ahorro:vAhorro, ajustes:vAjustes
   }[S.vista]||vPanel)(R);
   conectar(R);
@@ -2234,6 +2252,104 @@ function modalGuardarRemanente(){
     render();                       // el aviso ya no tiene que reaparecer
     avisar("Remanente apartado");
   }, "Apartar en la cuenta");
+}
+
+/* Varias series en un mismo gráfico: la evolución de las categorías que
+   más pesan, para ver cuál se está desbocando y cuál va bajando. */
+function grLineas(series,etiquetas,{alto=170,ancho=320}={}){
+  const max = Math.max(1,...series.flatMap(s=>s.valores));
+  const n = etiquetas.length;
+  const px = i=> 30 + i*(ancho-38)/Math.max(1,n-1);
+  const py = v=> alto-20-(v/max)*(alto-34);
+  const ejes = [0,.5,1].map(f=>`<line x1="30" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}"
+      stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
+    <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
+  const lineas = series.map(s=>{
+    const pts = s.valores.map((v,i)=>`${px(i)},${py(v)}`);
+    const puntos = s.valores.map((v,i)=>`<circle cx="${px(i)}" cy="${py(v)}" r="2.1" fill="${col(s.color)}"/>`).join("");
+    return `<polyline fill="none" points="${pts.join(" ")}" stroke="${col(s.color)}" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round"/>${puntos}`;
+  }).join("");
+  const et = etiquetas.map((e,i)=>`<text x="${px(i)}" y="${alto-5}" font-size="8" text-anchor="middle">${esc(e)}</text>`).join("");
+  return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}${lineas}${et}</svg>
+    <div class="gr-leyenda">${series.map(s=>`<span><i style="background:${col(s.color)}"></i>${esc(s.nombre)}</span>`).join("")}</div>`;
+}
+
+/* Evolución de las categorías con más peso en los últimos periodos */
+function seriesTopCategorias(R,cuantas=6,periodos=6){
+  const top = R.porCat.filter(c=>c.total>0).slice(0,cuantas);
+  const meses = [];
+  for(let k=periodos-1;k>=0;k--) meses.push(sumaMes(R.mes,-k));
+  return {
+    etiquetas: meses.map(mesCorto),
+    series: top.map(c=>({
+      nombre:c.cod, color:c.color,
+      valores: meses.map(mm=>S.movimientos
+        .filter(m=>m.tipo==="gasto" && m.categoria===c.cod && enPeriodo(m.fecha,mm))
+        .reduce((a,b)=>a+b.monto,0)),
+    })),
+  };
+}
+
+function kpi(etiqueta,valor,pie,{tono="",pct=null}={}){
+  return `<div class="kpi ${tono}">
+    <em>${etiqueta}</em>
+    <b>${valor}</b>
+    ${pct!==null?`<div class="kpi-barra"><i style="width:${clamp(pct,0,100)}%"></i></div>`:""}
+    <span>${pie}</span>
+  </div>`;
+}
+
+function vResumen(R){
+  const ing = R.ingresoBase||0;
+  const usoPres = R.presupuestoTotal>0? R.totalGasto/R.presupuestoTotal*100 : 0;
+  const avance = R.dias>0? R.diaHoy/R.dias*100 : 0;
+  const cargaDeuda = ing>0? R.pagosTarjeta/ing*100 : 0;
+  const pctPresc = R.totalGasto>0? R.prescindibles/R.totalGasto*100 : 0;
+  const {series,etiquetas} = seriesTopCategorias(R);
+  const personas = R.porPersona.filter(p=>p.gasto>0)
+    .map(p=>({mes:p.nombre.split(" ")[0], total:p.gasto, color:p.color}));
+
+  return `
+  <section class="tarjeta" data-acento="azul">
+    <div class="cab"><h2>Resumen</h2><span class="cod">${etiquetaPeriodo(R.mes)}</span></div>
+    <div class="kpis">
+      ${kpi("Disponible", fmt(R.disponible),
+            ing>0? `${Math.round(R.disponible/ing*100)}% de los ingresos` : "sin ingresos registrados",
+            {tono:R.disponible<0?"malo":"bueno"})}
+      ${kpi("Gastado", fmt(R.totalGasto),
+            R.presupuestoTotal>0? `${Math.round(usoPres)}% del presupuesto` : "sin presupuesto asignado",
+            {tono: usoPres>100?"malo": usoPres>85?"medio":"", pct:usoPres})}
+      ${kpi("Ahorro del periodo", fmt(R.ahorroReal),
+            ing>0? `tasa del ${Math.round(R.tasaAhorro*100)}%` : "—",
+            {tono:R.ahorroReal<0?"malo":"bueno"})}
+      ${kpi("Avance del periodo", `día ${R.diaHoy}`,
+            `de ${R.dias} · quedan ${R.restantes}`, {pct:avance})}
+      ${kpi("Gasto prescindible", fmt(R.prescindibles),
+            `${Math.round(pctPresc)}% del gasto`,
+            {tono: pctPresc>30?"medio":"", pct:pctPresc})}
+      ${kpi("Deuda pendiente", fmt(R.deudaTotal),
+            ing>0? `pagos: ${Math.round(cargaDeuda)}% del ingreso` : "—",
+            {tono:R.deudaTotal>0?"medio":""})}
+    </div>
+  </section>
+
+  <section class="tarjeta" data-acento="lila">
+    <div class="cab"><h2>Principales gastos</h2><span class="cod">6 periodos</span></div>
+    ${series.length
+      ? grLineas(series,etiquetas)
+      : `<p class="nota">Aún no hay gastos suficientes para dibujar la evolución.</p>`}
+  </section>
+
+  <section class="tarjeta" data-acento="verde">
+    <div class="cab"><h2>Gasto por persona</h2><span class="cod">${mesCorto(R.mes)}</span></div>
+    ${personas.length
+      ? grBarras(personas,{color:"var(--azul)"}) + `<div class="kpis dos-col">
+          ${R.porPersona.filter(p=>p.gasto>0).map(p=>kpi(p.nombre,
+              fmt(p.gasto), `${Math.round(p.pct*100)}% del gasto · ${cuenta(p.n,"compra","compras")}`,
+              {pct:p.pct*100})).join("")}</div>`
+      : `<p class="nota">Sin gastos atribuidos a ninguna persona en este periodo.</p>`}
+  </section>`;
 }
 
 function vPanel(R){
@@ -4498,6 +4614,7 @@ registrarSW();
 $("#btn-tema").onclick=alternarTema;
 $("#btn-menu").onclick=()=>menuAbierto()? cerrarMenu() : abrirMenu();
 $("#btn-clima").onclick=modalClima;
+$("#btn-resumen").onclick=()=>irAVista("resumen");
 pintarClima();
 setInterval(pintarClima, CLIMA_TTL);
 $("#velo").onclick=cerrarMenu;
