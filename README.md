@@ -188,9 +188,19 @@ Las tarjetas van siempre en dos columnas, tres filas, también en pantallas de 3
 
 **Pagos de deuda** — Al registrar un gasto en la categoría `DEU` aparece el selector *¿A qué deuda se aplica?*, y el monto se resta del saldo de esa entidad. Funciona igual desde el botón **+** que desde *Registrar pago* de cada deuda: ambos caminos crean el mismo tipo de movimiento y aplican el descuento por la misma vía, así que no hay doble resta. Corregir el monto de un pago ajusta el saldo por la diferencia, y eliminarlo lo devuelve.
 
+**Intereses rotativos** — Al editar una deuda, el saldo que escribes se compara con el que tenía y la diferencia se registra sola:
+
+- **Si sube**, es lo que creció la deuda sin que compraras nada: intereses del rotativo, comisiones, seguros. Se anota como gasto del periodo en la categoría `DEU` y suma a la deuda, igual que una compra a crédito — cuenta como costo pero no baja el disponible, porque el dinero aún no ha salido.
+- **Si baja**, es un pago que no se había anotado: se registra como tal y sí baja el disponible.
+- **Si es un error de tecleo**, la casilla *solo corregir la cifra* cambia el número sin dejar rastro.
+
+Mientras escribes, la ventana dice qué va a registrar. Los intereses se cuentan aparte de las compras en la lista de deudas y en el Excel, porque mezclarlos falsearía el aviso de *"cargas más de lo que pagas"*. Cuando pesan, el motor lo señala con su proyección anual.
+
 **Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
 
-**Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector de tarjeta, y el monto se suma al saldo de esa tarjeta como deuda.
+**Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector *¿A qué tarjeta o deuda se carga?*, con **todas** las deudas registradas —no solo las tipadas como tarjeta: una línea de crédito o un "cuotas sin tarjeta" también reciben cargos—. Viene preseleccionada la primera, para que una compra no quede sin asignar por descuido; *Sin asignar a ninguna deuda* sigue estando como opción explícita al final. El monto se suma al saldo de esa deuda, y corregir o eliminar la compra lo devuelve.
+
+Es el mismo criterio que en los pagos: el movimiento guarda a qué entidad apunta, y el saldo se mueve por una sola vía.
 
 La app distingue **devengo** de **caja**, que es la única forma de que los números cuadren:
 

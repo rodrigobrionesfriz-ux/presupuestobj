@@ -1908,6 +1908,18 @@ function recomendar(R){
     }
   });
 
+  /* intereses rotativos detectados al cuadrar el saldo */
+  const interesPeriodo = S.movimientos
+    .filter(m=>m.esInteres && enPeriodo(m.fecha,R.mes))
+    .reduce((a,b)=>a+b.monto,0);
+  if(interesPeriodo>0){
+    push({nivel:"alto",grupo:"presupuesto",ahorro:interesPeriodo,
+      etiqueta:"Intereses del rotativo",
+      titulo:`${fmt(interesPeriodo)} se fueron solo en intereses y cargos`,
+      detalle:`Es lo que creció la deuda sin que compraras nada: intereses del rotativo, comisiones y seguros. Al año, a este ritmo, son ${fmt(interesPeriodo*12)}.`,
+      accion:"Pagar el total facturado en vez del mínimo elimina este cargo por completo; si no alcanza, prioriza la deuda de tasa más alta."});
+  }
+
   /* deudas */
   if(R.deudasCalc.length){
     const cara = R.deudasCalc[0];
@@ -2651,8 +2663,11 @@ function vDeudas(R){
           <span>${esc(x.tipo||"Préstamo")} · pago ${fmt(x.pagoMensual)}</span>
           <span>${x.viable? (x.meses?`${x.meses} meses · ${fmt(x.interes)} de intereses`:"liquidada") : "el pago no cubre intereses"}</span>
         </div>
-        ${esTarjeta(x)&&comprasDelMes(x.id,S.mes)>0
+        ${comprasDelMes(x.id,S.mes)>0
           ? `<div class="sobre-pie"><span class="cod">compras de ${mesCorto(S.mes)}</span><span class="ambar mono">+${fmt(comprasDelMes(x.id,S.mes))}</span></div>`
+          : ""}
+        ${interesesDelMes(x.id,S.mes)>0
+          ? `<div class="sobre-pie"><span class="cod">intereses de ${mesCorto(S.mes)}</span><span class="rojo mono">+${fmt(interesesDelMes(x.id,S.mes))}</span></div>`
           : ""}
         <div class="fila-btns" style="margin-top:8px">
           <button class="btn mini" data-abonar-deuda="${x.id}">Registrar pago</button>
@@ -3141,8 +3156,13 @@ const cerrarModal = ()=>{
 };
 
 /* ============ compras a crédito: cargo a la tarjeta ================ */
-const esTarjeta = d=>(d?.tipo||"")==="Tarjeta de crédito";
-const tarjetas = ()=>S.deudas.filter(esTarjeta);
+/* Cualquier deuda puede recibir una compra a crédito: una línea, un
+   "cuotas sin tarjeta", un crédito rotativo. Limitarlo a las tipadas como
+   tarjeta dejaba fuera casos reales y la compra se quedaba sin asignar. */
+const tarjetas = ()=>S.deudas;
+/* Si una deuda ya tiene compras registradas, su pago es solo caja: esas
+   compras ya contaron como gasto. No depende del tipo, sino del uso. */
+const tieneCompras = id=>S.movimientos.some(m=>m.tarjetaId===id);
 const cargoDe = mov => (mov && mov.tipo==="gasto" && mov.tarjetaId)
   ? {tarjetaId:mov.tarjetaId, monto:mov.monto} : null;
 
@@ -3160,7 +3180,12 @@ async function ajustarTarjeta(antes,despues){
   }
 }
 const comprasDelMes = (idT,mes)=>S.movimientos
-  .filter(m=>m.tarjetaId===idT && m.tipo==="gasto" && enPeriodo(m.fecha,mes))
+  .filter(m=>m.tarjetaId===idT && m.tipo==="gasto" && !m.esInteres && enPeriodo(m.fecha,mes))
+  .reduce((a,b)=>a+b.monto,0);
+/* Los intereses también engordan la deuda, pero no son compras: mezclarlos
+   falsearía el aviso de "gastas más de lo que pagas". */
+const interesesDelMes = (idT,mes)=>S.movimientos
+  .filter(m=>m.tarjetaId===idT && m.esInteres && enPeriodo(m.fecha,mes))
   .reduce((a,b)=>a+b.monto,0);
 
 /* ============ detalle: qué hay dentro de una cifra ================ */
@@ -3730,13 +3755,15 @@ function modalMovimiento(id=null){
     </div>
     <div id="bloque-tarjeta" class="${(tipoIni==="gasto"&&(m?.metodo||METODOS[0])==="Crédito")?"":"oculto"}">
       ${tarjetas().length? `
-        <label class="campo"><span>¿A qué tarjeta se carga?</span>
+        <label class="campo"><span>¿A qué tarjeta o deuda se carga?</span>
           <select id="m-tarjeta">
-            <option value="">Sin asignar</option>
-            ${tarjetas().map(t=>`<option value="${t.id}" ${m?.tarjetaId===t.id?"selected":""}>${esc(t.nombre)} · saldo ${fmt(t.saldo)}</option>`).join("")}
+            ${tarjetas().map((t,i)=>`<option value="${t.id}" ${
+              m? (m.tarjetaId===t.id?"selected":"") : (i===0?"selected":"")
+            }>${esc(t.nombre)} · saldo ${fmt(t.saldo)}</option>`).join("")}
+            <option value="" ${m && !m.tarjetaId?"selected":""}>Sin asignar a ninguna deuda</option>
           </select></label>
-        <p class="nota aviso-credito">El monto se suma al saldo de la tarjeta. La compra cuenta como gasto del mes; el pago posterior de la tarjeta no vuelve a contar.</p>`
-      : `<p class="nota aviso-credito">No tienes tarjetas registradas. Créalas en <b>Deudas → Añadir deuda o tarjeta</b> para que las compras a crédito se sumen solas a su saldo.</p>`}
+        <p class="nota aviso-credito">El monto se suma al saldo de esa deuda. La compra cuenta como gasto del periodo; el pago posterior no vuelve a contar.</p>`
+      : `<p class="nota aviso-credito">No tienes deudas registradas. Créalas en <b>Deudas → Añadir deuda o tarjeta</b> para que las compras a crédito se sumen solas a su saldo.</p>`}
     </div>
     <label class="campo"><span id="etq-miembro">${esAhorro?"¿Quién transfiere?":"¿De quién es el gasto?"}</span>
       <select id="m-miembro">${miembros.map(x=>`<option ${miembroIni===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
@@ -3847,12 +3874,17 @@ function modalMovimiento(id=null){
 function modalDeuda(id=null){
   const d = id? S.deudas.find(x=>x.id===id) : null;
   const tipos = ["Tarjeta de crédito","Préstamo personal","Crédito automotriz","Hipoteca","Otro"];
+  const saldoPrevio = d? (d.saldo||0) : 0;
+
   modal(d? "Editar deuda":"Nueva deuda o tarjeta",`
     <label class="campo"><span>Nombre</span><input id="d-nombre" placeholder="Tarjeta banco, crédito auto…" value="${esc(d?.nombre||"")}"></label>
     <div class="campos-2">
       <label class="campo"><span>Saldo actual</span><input id="d-saldo" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(d?.saldo)}"></label>
       <label class="campo"><span>Tasa anual %</span><input id="d-tasa" type="number" inputmode="decimal" step="0.01" placeholder="36" value="${d?.tasaAnual??""}"></label>
     </div>
+    ${d?`<p class="cierre-dif" id="d-dif">Si cambias el saldo, la app registrará la diferencia.</p>
+        <label class="check"><input type="checkbox" id="d-corregir">
+          <span>Solo corregir la cifra, sin registrar nada</span></label>`:""}
     <div class="campos-2">
       <label class="campo"><span>Pago mensual</span><input id="d-pago" type="text" inputmode="numeric" class="importe" placeholder="0" value="${vf(d?.pagoMensual)}"></label>
       <label class="campo"><span>Tipo</span><select id="d-tipo">${tipos.map(t=>`<option ${d?.tipo===t?"selected":""}>${t}</option>`).join("")}</select></label>
@@ -3863,11 +3895,61 @@ function modalDeuda(id=null){
     const nombre=$("#d-nombre").value.trim(), saldo=num($("#d-saldo").value);
     if(!nombre) return "Ponle un nombre para identificarla.";
     if(saldo<0) return "El saldo no puede ser negativo.";
-    const datos={nombre,saldo,tasaAnual:numDec($("#d-tasa").value),pagoMensual:num($("#d-pago").value),tipo:$("#d-tipo").value};
-    if(d){ datos.original=Math.max(num($("#d-original").value),saldo); await DB.actualizar("deudas",id,datos); avisar("Deuda actualizada"); }
-    else { datos.original=saldo; await DB.agregar("deudas",datos); avisar("Deuda registrada"); }
+    const datos={nombre,tasaAnual:numDec($("#d-tasa").value),
+                 pagoMensual:num($("#d-pago").value),tipo:$("#d-tipo").value};
+
+    if(!d){ datos.saldo=saldo; datos.original=saldo; await DB.agregar("deudas",datos); avisar("Deuda registrada"); return; }
+
+    const dif = saldo - saldoPrevio;
+    const corregir = $("#d-corregir").checked;
+    datos.original = Math.max(num($("#d-original").value), saldo);
+
+    /* Un saldo que sube sin compras detrás son intereses y cargos del
+       rotativo: se registran como gasto del periodo y suman a la deuda,
+       igual que una compra a crédito. Si baja, es un pago que no se anotó.
+       En ambos casos el saldo lo mueve el propio movimiento, no la edición,
+       para que no se descuadre. */
+    if(corregir || dif===0){
+      datos.saldo = saldo;
+      await DB.actualizar("deudas",id,datos);
+      avisar(corregir&&dif!==0? "Saldo corregido" : "Deuda actualizada");
+      return;
+    }
+    await DB.actualizar("deudas",id,datos);
+    const comun = { fecha:hoyISO(), metodo:"Transferencia", cuentaId:"", soloCuenta:false,
+      miembro:miNombre(), esencial:true, sub:"", uid:S.uid||"", autor:miNombre(), creado:Date.now() };
+    if(dif>0){
+      const mov = {...comun, tipo:"gasto", monto:dif, categoria:"DEU", tarjetaId:id, deudaId:"",
+        esInteres:true, nota:`Intereses y cargos · ${esc(d.nombre)}`};
+      await DB.agregar("movimientos",mov);
+      await ajustarTarjeta(null, cargoDe(mov));
+      avisar(`${fmt(dif)} registrados como intereses`);
+    }else{
+      const mov = {...comun, tipo:"pago", monto:-dif, categoria:"OTR", tarjetaId:"", deudaId:id,
+        nota:`Pago no registrado · ${esc(d.nombre)}`};
+      await DB.agregar("movimientos",mov);
+      await ajustarDeuda(null, pagoDe(mov));
+      avisar(`${fmt(-dif)} registrados como pago`);
+    }
   }, d? "Guardar cambios":"Guardar deuda",
      d&&esAdmin()? {texto:"Eliminar", accion:async()=>{await DB.borrar("deudas",id); avisar("Deuda eliminada")}} : null);
+
+  /* Aviso en vivo de qué se va a registrar */
+  const campo = $("#d-saldo"), nota = $("#d-dif"), chk = $("#d-corregir");
+  if(campo && nota){
+    const refrescar = ()=>{
+      const dif = num(campo.value) - saldoPrevio;
+      if(chk?.checked){ nota.className="cierre-dif"; nota.textContent="Se cambiará la cifra sin dejar rastro del movimiento."; return; }
+      if(dif===0){ nota.className="cierre-dif"; nota.textContent=`Saldo sin cambios respecto a ${fmt(saldoPrevio)}.`; }
+      else if(dif>0){ nota.className="cierre-dif menos";
+        nota.textContent=`Sube ${fmt(dif)}: se registrarán como intereses y cargos del periodo.`; }
+      else { nota.className="cierre-dif ok";
+        nota.textContent=`Baja ${fmt(-dif)}: se registrará como un pago que no se había anotado.`; }
+    };
+    campo.addEventListener("input",refrescar);
+    chk?.addEventListener("change",refrescar);
+    refrescar();
+  }
 }
 
 function modalMeta(id=null){
@@ -3907,12 +3989,12 @@ function abonarMeta(id){
 function abonarDeuda(id){
   const d = S.deudas.find(x=>x.id===id); if(!d) return;
   const R = calcular();
-  const compras = esTarjeta(d)? comprasDelMes(id,S.mes) : 0;
+  const compras = comprasDelMes(id,S.mes);
   /* En una tarjeta con compras registradas, esas compras ya se contaron como
      gasto del periodo. El pago solo mueve dinero: baja el saldo de la cuenta
      y la deuda, pero no vuelve a contar como gasto. En un préstamo, en cambio,
      no hay compras anotadas: el pago es el gasto. */
-  const soloCaja = esTarjeta(d) && S.movimientos.some(m=>m.tarjetaId===id);
+  const soloCaja = tieneCompras(id);
   modal(`Pago a ${d.nombre}`,`
     <label class="campo"><span>Monto del pago</span><input class="grande importe" id="pg-monto" type="text" inputmode="numeric" value="${vf(d.pagoMensual)}"></label>
     <label class="campo"><span>¿Quién lo paga?</span>
@@ -4318,14 +4400,14 @@ async function exportarExcel(){
   /* --- Deudas --- */
   if(S.deudas.length){
     const deu = [["Deuda","Tipo","Saldo","Deuda inicial","Tasa anual","Pago mensual",
-                  "Meses para liquidar","Intereses totales","Compras del mes"]];
+                  "Meses para liquidar","Intereses proyectados","Compras del periodo","Intereses del periodo"]];
     R.deudasCalc.forEach(d=>deu.push([
       d.nombre, d.tipo||"", d.saldo, d.original||d.saldo, (d.tasaAnual||0)/100, d.pagoMensual,
       isFinite(d.meses)?d.meses:"no se liquida", isFinite(d.interes)?d.interes:"",
-      esTarjeta(d)? comprasDelMes(d.id,R.mes) : ""
+      comprasDelMes(d.id,R.mes) || "", interesesDelMes(d.id,R.mes) || ""
     ]));
-    X.utils.book_append_sheet(lib, hojaDesde(X,deu,[22,20,14,14,11,14,18,16,16],
-      {2:MONEDA,3:MONEDA,4:'0.00%',5:MONEDA,7:MONEDA,8:MONEDA}), "Deudas");
+    X.utils.book_append_sheet(lib, hojaDesde(X,deu,[22,20,14,14,11,14,18,20,18,18],
+      {2:MONEDA,3:MONEDA,4:'0.00%',5:MONEDA,7:MONEDA,8:MONEDA,9:MONEDA}), "Deudas");
   }
 
   /* --- Metas --- */
