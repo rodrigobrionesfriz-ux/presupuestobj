@@ -2142,6 +2142,29 @@ function avisoRemanente(R){
 }
 
 /* ============ cerrar el periodo ==================================== */
+/* ============ pagos de deuda: rebajar la entidad correcta ==========
+   Un gasto de la categoría DEU, o un pago de tarjeta, baja el saldo de la
+   deuda a la que apunta. Se aplica igual venga del botón "Registrar pago"
+   o del registro normal, para que no dependa de por dónde se entró. */
+const esPagoDeuda = m => !!m && !!m.deudaId &&
+  (m.tipo==="pago" || (m.tipo==="gasto" && m.categoria==="DEU"));
+const pagoDe = m => esPagoDeuda(m) ? {deudaId:m.deudaId, monto:m.monto} : null;
+
+async function ajustarDeuda(antes,despues){
+  const cambios={};
+  if(antes?.deudaId)   cambios[antes.deudaId]   = (cambios[antes.deudaId]||0)   + antes.monto;  // deshacer
+  if(despues?.deudaId) cambios[despues.deudaId] = (cambios[despues.deudaId]||0) - despues.monto;
+  for(const [idD,delta] of Object.entries(cambios)){
+    if(!delta) continue;
+    const d = S.deudas.find(x=>x.id===idD); if(!d) continue;
+    const saldo = Math.max(0,(d.saldo||0)+delta);
+    await DB.actualizar("deudas",idD,{saldo, original:Math.max(d.original||0,saldo)});
+  }
+}
+const opcionesDeuda = (actual="")=>
+  `<option value="">Sin asignar</option>` +
+  S.deudas.map(d=>`<option value="${d.id}" ${actual===d.id?"selected":""}>${esc(d.nombre)} · saldo ${fmt(d.saldo)}</option>`).join("");
+
 function modalCierre(mes){
   const personas = personasHogar();
   if(!personas.length){ avisar("Añade primero a los integrantes del hogar"); return; }
@@ -2518,7 +2541,7 @@ function vMovimientos(R){
           return `<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
           <span class="cod" style="color:${col(colorDe(m))}">${esc(codDe(m))}</span>
           <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}${m.sub?`<em class="etq-sub">${esc(m.sub)}</em>`:""}</b>
-            <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:m.cuentaId?` · ${esc(nombreCuenta(m.cuentaId))}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
+            <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:m.cuentaId?` · ${esc(nombreCuenta(m.cuentaId))}`:m.deudaId?` · ${esc(S.deudas.find(d=>d.id===m.deudaId)?.nombre||"deuda")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
           <span class="mov-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
         </div>`;}).join("")}
@@ -3169,7 +3192,8 @@ function listaDetalle(movs){
   if(!movs.length) return `<p class="nota">No hay movimientos en este grupo durante ${etiquetaPeriodo(S.mes)}.</p>`;
   return `<div class="detalle-lista">${movs.map(m=>{
     const autor = nombreDe(m.uid)||m.autor||"";
-    const tarjeta = S.deudas.find(d=>d.id===m.tarjetaId)?.nombre || nombreCuenta(m.cuentaId);
+    const tarjeta = S.deudas.find(d=>d.id===m.tarjetaId)?.nombre || nombreCuenta(m.cuentaId)
+      || S.deudas.find(d=>d.id===m.deudaId)?.nombre;
     return `<div class="detalle-fila" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar este movimiento">
       <div class="detalle-fecha"><b>${fechaCorta(m.fecha).split(" ")[0]}</b><em>${fechaCorta(m.fecha).split(" ")[1]||""}</em></div>
       <div class="detalle-txt">
@@ -3675,6 +3699,13 @@ function modalMovimiento(id=null){
         <input id="m-sub-input" class="oculto" placeholder="Nombre del sub-sobre nuevo">
       </label>
     </div>
+    <div id="bloque-deuda" class="${(tipoIni==="gasto"&&catIni==="DEU")?"":"oculto"}">
+      ${S.deudas.length? `
+        <label class="campo"><span>¿A qué deuda se aplica?</span>
+          <select id="m-deuda">${opcionesDeuda(m?.deudaId)}</select></label>
+        <p class="nota aviso-credito">El monto se resta del saldo de esa deuda. Si la dejas sin asignar, cuenta como gasto pero ninguna deuda baja.</p>`
+      : `<p class="nota aviso-credito">No tienes deudas registradas. Créalas en <b>Deudas</b> para que los pagos rebajen su saldo.</p>`}
+    </div>
     <div id="bloque-ahorro" class="${esAhorro?"":"oculto"}">
       ${S.cuentas.length? `
         <label class="campo"><span>¿A qué cuenta de ahorro?</span>
@@ -3739,23 +3770,27 @@ function modalMovimiento(id=null){
         }
       }
     }
-    const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", sub, fecha:$("#m-fecha").value,
+    const deudaId = (tipo==="gasto" && cat==="DEU") ? ($("#m-deuda")?.value||"") : "";
+    const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", sub, deudaId, fecha:$("#m-fecha").value,
       metodo, tarjetaId, cuentaId, soloCuenta, miembro:$("#m-miembro").value,
       nota:$("#m-nota").value.trim(), esencial: tipo==="gasto"? $("#m-esencial").checked : true };
     if(m){
       await DB.actualizar("movimientos",id,datos);
       await ajustarTarjeta(cargoDe(m), cargoDe({...m,...datos}));
+      await ajustarDeuda(pagoDe(m), pagoDe({...m,...datos}));
       avisar("Movimiento actualizado");
     }else{
       // Se estampa quién lo registra: el uid es el dato fiable, el nombre solo la etiqueta.
       await DB.agregar("movimientos",{...datos, uid:S.uid||"", autor:miNombre(), creado:Date.now()});
       await ajustarTarjeta(null, cargoDe(datos));
+      await ajustarDeuda(null, pagoDe(datos));
       avisar(tarjetaId? "Compra cargada a la tarjeta" : (tipo==="gasto"?"Gasto registrado":"Ingreso registrado"));
     }
   }, m? "Guardar cambios":"Guardar movimiento",
      m? {texto:"Eliminar", accion:async()=>{
           await DB.borrar("movimientos",id);
           await ajustarTarjeta(cargoDe(m), null);
+          await ajustarDeuda(pagoDe(m), null);
           avisar("Movimiento eliminado");
         }} : null);
 
@@ -3769,6 +3804,8 @@ function modalMovimiento(id=null){
     activo.classList.add("activo");
     const modo = activo===g? "gasto" : activo===ing? "ingreso" : "ahorro";
     $("#bloque-cat").classList.toggle("oculto", modo!=="gasto");
+    const catActual = document.querySelector("#m-cats .activo")?.dataset.cat;
+    $("#bloque-deuda").classList.toggle("oculto", !(modo==="gasto" && catActual==="DEU"));
     $("#bloque-ahorro").classList.toggle("oculto", modo!=="ahorro");
     const etq=$("#etq-miembro");
     if(etq) etq.textContent = modo==="ahorro"? "¿Quién transfiere?"
@@ -3794,6 +3831,7 @@ function modalMovimiento(id=null){
     b.classList.add("activo"); const c=CAT[b.dataset.cat];
     b.style.borderColor=col(c.color); b.style.color=col(c.color); $("#m-esencial").checked=c.esencial;
     const sel=$("#m-sub"); if(sel) sel.innerHTML = opcionesSub(b.dataset.cat, "");
+    const bd=$("#bloque-deuda"); if(bd) bd.classList.toggle("oculto", b.dataset.cat!=="DEU");
     const inp=$("#m-sub-input"); if(inp){ inp.value=""; inp.classList.add("oculto"); }
   });
   const btnSub = $("#m-sub-nuevo");
@@ -3887,20 +3925,16 @@ function abonarDeuda(id){
     const v=num($("#pg-monto").value);
     if(v<=0) return "Escribe un monto mayor que cero.";
     const quien = $("#pg-miembro").value;
-    await DB.actualizar("deudas",id,{saldo:Math.max(0,(d.saldo||0)-v)});
     const comun = { monto:v, fecha:hoyISO(), metodo:"Transferencia", tarjetaId:"", cuentaId:"",
-      soloCuenta:false, miembro:quien, esencial:true, deudaId:id,
-      uid:S.uid||"", autor:miNombre(), creado:Date.now() };
-    if(soloCaja){
-      await DB.agregar("movimientos",{...comun, tipo:"pago", categoria:"OTR", sub:"",
-        nota:`Pago ${d.nombre}`});
-    }else if($("#pg-mov").checked){
-      await DB.agregar("movimientos",{...comun, tipo:"gasto", categoria:"DEU", sub:"",
-        nota:`Pago ${d.nombre}`});
-    }else{
-      await DB.agregar("movimientos",{...comun, tipo:"pago", categoria:"OTR", sub:"",
-        nota:`Pago ${d.nombre}`});
-    }
+      soloCuenta:false, miembro:quien, esencial:true, deudaId:id, sub:"",
+      nota:`Pago ${d.nombre}`, uid:S.uid||"", autor:miNombre(), creado:Date.now() };
+    /* Un único camino: se crea el movimiento y el saldo lo rebaja ajustarDeuda,
+       igual que si el pago se hubiera registrado desde el botón +. */
+    const mov = (!soloCaja && $("#pg-mov")?.checked)
+      ? {...comun, tipo:"gasto", categoria:"DEU"}
+      : {...comun, tipo:"pago",  categoria:"OTR"};
+    await DB.agregar("movimientos", mov);
+    await ajustarDeuda(null, pagoDe(mov));
     avisar("Pago registrado");
   },"Registrar pago");
 }

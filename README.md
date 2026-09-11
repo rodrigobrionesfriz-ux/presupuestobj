@@ -186,6 +186,8 @@ Las tarjetas van siempre en dos columnas, tres filas, también en pantallas de 3
 
 **Estadísticas** — Acumulado del mes contra la línea de presupuesto, reparto por categoría, comparativo de los últimos seis meses, gasto por día de la semana, ticket promedio, frecuencia de compra, medio de pago, gasto por miembro y conceptos más repetidos.
 
+**Pagos de deuda** — Al registrar un gasto en la categoría `DEU` aparece el selector *¿A qué deuda se aplica?*, y el monto se resta del saldo de esa entidad. Funciona igual desde el botón **+** que desde *Registrar pago* de cada deuda: ambos caminos crean el mismo tipo de movimiento y aplican el descuento por la misma vía, así que no hay doble resta. Corregir el monto de un pago ajusta el saldo por la diferencia, y eliminarlo lo devuelve.
+
 **Deudas** — Tarjetas y préstamos con saldo, tasa y pago mensual. Calcula meses hasta liquidar e intereses totales, ordena por método avalancha (primero la tasa más alta) y simula qué pasa si abonas extra cada mes.
 
 **Compras a crédito** — Al elegir *Crédito* como medio de pago aparece el selector de tarjeta, y el monto se suma al saldo de esa tarjeta como deuda.
