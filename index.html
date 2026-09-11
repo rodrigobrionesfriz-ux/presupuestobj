@@ -182,6 +182,8 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .cinta-pie em{display:block;font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
   color:var(--suave);margin-bottom:3px}
 .cinta-pie b{font-size:12.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.reserva{display:block;font-style:normal;font-size:9.5px;color:var(--suave);margin-top:3px;line-height:1.3}
+.desglose .tenue{opacity:.55}
 
 /* ---------------- sobres y barras ---------------- */
 .sobres{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:13px}
@@ -1674,8 +1676,12 @@ function calcular(){
   const proyectado = esMesActual
     ? totalGasto + ritmoVariable*restantes + fijosPendientes
     : totalGasto;
-  const margenRestante = presupuestoTotal - totalGasto - fijosPendientes;
+  /* Margen = presupuesto del periodo menos lo gastado a la fecha. Los cargos
+     fijos que aún no llegan no se descuentan aquí: se informan aparte, para
+     que la cifra diaria sea la que uno espera y no una ya recortada. */
+  const margenRestante = presupuestoTotal - totalGasto;
   const disponibleDiario = restantes>0? margenRestante/restantes : 0;
+  const margenTrasFijos = margenRestante - fijosPendientes;
 
   /* Ahorro real del hogar: lo que entra menos lo que sale, sumando a las dos
      personas. Distinto del "ahorro potencial", que son oportunidades de recorte. */
@@ -1808,7 +1814,7 @@ function calcular(){
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
-    gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,detalleFijos,margenRestante,disponibleDiario,
+    gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,detalleFijos,margenRestante,margenTrasFijos,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
     comprasCredito,gastosCaja,pagosTarjeta,
@@ -2466,6 +2472,8 @@ function vResumen(R){
               : R.restantes>0? fmt(R.disponibleDiario) : fmt(R.margenRestante),
             R.presupuestoTotal<=0? "asigna presupuesto a los sobres"
               : R.margenRestante<=0? `excedido en ${fmt(-R.margenRestante)}`
+              : R.fijosPendientes>0
+                ? `quedan ${fmt(R.margenRestante)} y ${fmt(R.fijosPendientes)} son de fijos por llegar`
               : R.restantes>0
                 ? (R.ritmoDiario>0
                     ? `${R.disponibleDiario<R.ritmoDiario?"un "+Math.round((1-R.disponibleDiario/R.ritmoDiario)*100)+"% menos que tu ritmo":"por encima de tu ritmo"} · ${cuenta(R.restantes,"día","días")}`
@@ -2473,7 +2481,7 @@ function vResumen(R){
                 : "último día del periodo",
             {tono: R.presupuestoTotal<=0? ""            // sin listón no hay nada que juzgar
                  : R.margenRestante<=0? "malo"
-                 : (R.restantes>0 && R.disponibleDiario<R.ritmoDiario)? "medio" : "bueno"})}
+                 : (R.margenTrasFijos<=0 || (R.restantes>0 && R.disponibleDiario<R.ritmoDiario))? "medio" : "bueno"})}
       ${kpi("Ahorro del periodo", fmt(R.ahorroReal),
             ing>0? `tasa del ${Math.round(R.tasaAhorro*100)}%` : "—",
             {tono:R.ahorroReal<0?"malo":"bueno"})}
@@ -2548,13 +2556,15 @@ function vPanel(R){
       <div><em>Puedes gastar</em><b class="${R.margenRestante<=0?"rojo":""}">${
         R.presupuestoTotal<=0? "—"
         : R.margenRestante<=0? "sin margen"
-        : R.restantes>0? fmt(R.disponibleDiario)+"/día" : fmt(R.margenRestante)}</b></div>
+        : R.restantes>0? fmt(R.disponibleDiario)+"/día" : fmt(R.margenRestante)}</b>
+        ${R.fijosPendientes>0 && R.margenRestante>0
+          ? `<i class="reserva">${fmt(R.fijosPendientes)} comprometidos en fijos</i>`:""}</div>
     </div>
     <div class="desglose">
       <span>Ya gastado <b>${fmt(R.totalGasto)}</b></span>
       <span>+ variable ${R.restantes} días <b>${fmt(R.ritmoVariable*R.restantes)}</b></span>
-      ${R.fijosPendientes>0?`<span class="clicable" data-accion="ver-fijos" role="button" tabindex="0"
-        title="Ver qué cargos se dan por pendientes">+ fijos por pagar <b>${fmt(R.fijosPendientes)}</b> ›</span>`:""}
+      <span class="clicable ${R.fijosPendientes>0?"":"tenue"}" data-accion="ver-fijos" role="button" tabindex="0"
+        title="Ver qué cargos se dan por pendientes">+ fijos por pagar <b>${fmt(R.fijosPendientes)}</b> ›</span>
       <span class="total">= ${fmt(R.proyectado)}</span>
     </div>`:""}
   </section>
