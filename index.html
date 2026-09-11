@@ -300,6 +300,7 @@ svg.gr{width:100%;height:auto;display:block;overflow:visible;color:var(--rayado)
   border-top:1px dotted var(--rayado);font-size:10.5px;color:var(--suave);align-items:baseline}
 .desglose b{font-weight:500;color:var(--tinta);margin-left:4px}
 .desglose .total{margin-left:auto;font-size:11.5px;color:var(--tinta);font-weight:500}
+.desglose .clicable{border-radius:3px;padding:1px 3px;margin:-1px -3px}
 .consejo h3{font-size:16px;font-weight:700;margin:0 0 6px;line-height:1.25}
 .consejo p{margin:0;font-size:13.5px;line-height:1.55;color:#374A3D}
 .accion{margin-top:7px!important;font-weight:500;color:var(--tinta)!important}
@@ -1545,6 +1546,49 @@ function historialNoRegistrado(mes,n=6){
   return salida;
 }
 
+/* ============ cargos fijos que aún no se han pagado ================
+   Antes se daba por pendiente cualquier gasto del periodo anterior en una
+   categoría fija cuyo texto no se repitiera literalmente. Eso inflaba la
+   cifra con compras puntuales —una reparación, un cargo único— y con
+   conceptos escritos de otra forma ("Luz" frente a "Luz y agua").
+   Ahora solo cuenta lo que de verdad se repite mes a mes. */
+const claveConcepto = s => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .toLowerCase().replace(/·.*$/,"")           // quita sufijos tipo "· sept"
+  .replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+
+function fijosPendientesDetalle(mes, gastosDelMes){
+  /* Un cargo se da por pagado si este periodo hay un gasto de su misma
+     categoría cuyo concepto coincide, lo contiene o está contenido en él
+     —"Arriendo" y "Arriendo casa" son lo mismo—, o bien con un importe casi
+     idéntico, que es la señal más fiable cuando el texto cambió del todo. */
+  const yaPagado = x=>gastosDelMes.some(g=>{
+    if(g.categoria!==x.categoria) return false;
+    const a = claveConcepto(g.nota), b = claveConcepto(x.nota);
+    if(a && b && (a===b || a.includes(b) || b.includes(a))) return true;
+    return x.monto>0 && Math.abs(g.monto - x.monto) <= x.monto*0.1;
+  });
+  const historial = {};
+  /* Se recorre de lo más antiguo a lo más reciente para quedarse con el
+     último importe conocido de cada cargo. */
+  for(let k=3;k>=1;k--){
+    const mm = sumaMes(mes,-k);
+    S.movimientos
+      .filter(m=>m.tipo==="gasto" && esFijaCat(m.categoria) && !m.esInteres && !m.ajusteCierre
+                 && enPeriodo(m.fecha,mm))
+      .forEach(m=>{
+        const c = claveConcepto(m.nota); if(!c) return;
+        if(!historial[c]) historial[c] = {periodos:new Set(), nota:m.nota, categoria:m.categoria, monto:0};
+        historial[c].periodos.add(mm);
+        historial[c].monto = m.monto;
+      });
+  }
+  /* Recurrente = aparece en al menos dos de los tres periodos anteriores.
+     Con uno solo no hay forma de distinguir un fijo de un gasto puntual. */
+  return Object.values(historial)
+    .filter(x=>x.periodos.size>=2 && !yaPagado(x))
+    .sort((a,b)=>b.monto-a.monto);
+}
+
 function calcular(){
   const mes = S.mes, mesAnt = sumaMes(mes,-1);
   const delMes = S.movimientos.filter(m=>enPeriodo(m.fecha,mes));
@@ -1625,11 +1669,8 @@ function calcular(){
   const gastoFijo = gastos.filter(g=>esFijaCat(g.categoria)).reduce((a,b)=>a+b.monto,0);
   const gastoVariable = totalGasto-gastoFijo;
   const ritmoVariable = gastoVariable/Math.max(1,diaHoy);
-  const conceptosMes = new Set(gastos.map(g=>(g.nota||"").trim().toLowerCase()).filter(Boolean));
-  const fijosPendientes = gastosAnt
-    .filter(g=>esFijaCat(g.categoria))
-    .filter(g=>{const k=(g.nota||"").trim().toLowerCase(); return k && !conceptosMes.has(k);})
-    .reduce((a,b)=>a+b.monto,0);
+  const detalleFijos = fijosPendientesDetalle(mes, gastos);
+  const fijosPendientes = detalleFijos.reduce((a,x)=>a+x.monto,0);
   const proyectado = esMesActual
     ? totalGasto + ritmoVariable*restantes + fijosPendientes
     : totalGasto;
@@ -1767,7 +1808,7 @@ function calcular(){
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
-    gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,margenRestante,disponibleDiario,
+    gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,detalleFijos,margenRestante,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
     comprasCredito,gastosCaja,pagosTarjeta,
@@ -2287,6 +2328,24 @@ function modalCierre(mes){
   refrescar();
 }
 
+/* Qué cargos se están dando por pendientes, para poder comprobarlo */
+function modalFijosPendientes(){
+  const R = calcular();
+  const lista = R.detalleFijos;
+  modalInfo("Cargos fijos por pagar", etiquetaPeriodo(R.mes),
+    `<p class="nota">Cargos que se repiten mes a mes y que este periodo todavía no aparecen registrados. Se suman a la proyección de cierre porque van a llegar.</p>
+     ${lista.length? `<div class="detalle-lista">${lista.map(x=>`
+       <div class="detalle-fila" style="cursor:default">
+         <span class="cod" style="color:${col(CAT[x.categoria]?.color||"#8A9099")}">${esc(x.categoria)}</span>
+         <div class="detalle-txt"><b>${esc(x.nota)}</b>
+           <small>visto en ${cuenta(x.periodos.size,"periodo","periodos")} de los 3 anteriores</small></div>
+         <span class="detalle-monto">${fmt(x.monto)}</span>
+       </div>`).join("")}</div>
+       <div class="cierre-linea total"><span>Total pendiente</span><b>${fmt(R.fijosPendientes)}</b></div>`
+     : `<p class="nota">No queda ningún cargo fijo por pagar en este periodo.</p>`}
+     <p class="nota ayuda">Solo se cuentan los que aparecen en al menos dos de los tres periodos anteriores: con uno solo no hay forma de distinguir un cargo fijo de una compra puntual. Si alguno ya lo pagaste con otro nombre, edita el movimiento para que coincida y dejará de contarse.</p>`);
+}
+
 function modalGuardarRemanente(){
   const R = calcular();
   if(!S.cuentas.length){
@@ -2494,7 +2553,8 @@ function vPanel(R){
     <div class="desglose">
       <span>Ya gastado <b>${fmt(R.totalGasto)}</b></span>
       <span>+ variable ${R.restantes} días <b>${fmt(R.ritmoVariable*R.restantes)}</b></span>
-      ${R.fijosPendientes>0?`<span>+ fijos por pagar <b>${fmt(R.fijosPendientes)}</b></span>`:""}
+      ${R.fijosPendientes>0?`<span class="clicable" data-accion="ver-fijos" role="button" tabindex="0"
+        title="Ver qué cargos se dan por pendientes">+ fijos por pagar <b>${fmt(R.fijosPendientes)}</b> ›</span>`:""}
       <span class="total">= ${fmt(R.proyectado)}</span>
     </div>`:""}
   </section>
@@ -3139,6 +3199,7 @@ function acciones(a,R){
     "nueva-cuenta":()=>modalCuenta(),
     "mas-sobres":()=>{ S.verTodosSobres=!S.verTodosSobres; render(); },
     "guardar-remanente":()=>modalGuardarRemanente(),
+    "ver-fijos":()=>modalFijosPendientes(),
     "ocultar-remanente":()=>{ guardarLocal(`pf-remanente:${S.mes}`,"visto"); render(); },
     fondo:()=>elegirFondo(),
     "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
