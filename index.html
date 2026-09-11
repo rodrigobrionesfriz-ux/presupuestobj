@@ -2378,6 +2378,10 @@ function vResumen(R){
   const usoPres = R.presupuestoTotal>0? R.totalGasto/R.presupuestoTotal*100 : 0;
   const avance = R.dias>0? R.diaHoy/R.dias*100 : 0;
   const cargaDeuda = ing>0? R.pagosTarjeta/ing*100 : 0;
+  /* Lo que el presupuesto permite gastar cada día, y cómo va el ritmo real
+     frente a ese listón: es la lectura que dice si hay que frenar hoy. */
+  const permitidoDia = R.dias>0? R.presupuestoTotal/R.dias : 0;
+  const ritmoPct = permitidoDia>0? R.ritmoDiario/permitidoDia*100 : 0;
   const pctPresc = R.totalGasto>0? R.prescindibles/R.totalGasto*100 : 0;
   const {series,etiquetas} = seriesTopCategorias(R);
   const personas = R.porPersona.filter(p=>p.gasto>0)
@@ -2393,6 +2397,24 @@ function vResumen(R){
       ${kpi("Gastado", fmt(R.totalGasto),
             R.presupuestoTotal>0? `${Math.round(usoPres)}% del presupuesto` : "sin presupuesto asignado",
             {tono: usoPres>100?"malo": usoPres>85?"medio":"", pct:usoPres})}
+      ${kpi("Ritmo diario actual", `${fmt(R.ritmoDiario)}`,
+            permitidoDia>0
+              ? `el presupuesto da para ${fmt(permitidoDia)}/día`
+              : `promedio de ${cuenta(R.diaHoy,"día","días")}`,
+            {tono: ritmoPct>100?"malo": ritmoPct>85?"medio":"", pct:ritmoPct})}
+      ${kpi("Puedes gastar al día", 
+            R.presupuestoTotal<=0? "—" : R.margenRestante<=0? "sin margen"
+              : R.restantes>0? fmt(R.disponibleDiario) : fmt(R.margenRestante),
+            R.presupuestoTotal<=0? "asigna presupuesto a los sobres"
+              : R.margenRestante<=0? `excedido en ${fmt(-R.margenRestante)}`
+              : R.restantes>0
+                ? (R.ritmoDiario>0
+                    ? `${R.disponibleDiario<R.ritmoDiario?"un "+Math.round((1-R.disponibleDiario/R.ritmoDiario)*100)+"% menos que tu ritmo":"por encima de tu ritmo"} · ${cuenta(R.restantes,"día","días")}`
+                    : `durante ${cuenta(R.restantes,"día","días")}`)
+                : "último día del periodo",
+            {tono: R.presupuestoTotal<=0? ""            // sin listón no hay nada que juzgar
+                 : R.margenRestante<=0? "malo"
+                 : (R.restantes>0 && R.disponibleDiario<R.ritmoDiario)? "medio" : "bueno"})}
       ${kpi("Ahorro del periodo", fmt(R.ahorroReal),
             ing>0? `tasa del ${Math.round(R.tasaAhorro*100)}%` : "—",
             {tono:R.ahorroReal<0?"malo":"bueno"})}
