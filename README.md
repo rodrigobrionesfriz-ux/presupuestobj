@@ -294,6 +294,12 @@ Los datos vienen de [Open-Meteo](https://open-meteo.com), que no requiere clave 
 
 **El icono nunca se vacía.** Al abrir la app se pinta al instante con la última lectura guardada, antes incluso de consultar la red. Si la petición falla o el GPS está denegado, conserva ese valor en vez de borrarlo: un dato de hace unas horas informa más que un hueco. En ese caso lleva un punto atenuado al lado y el título dice cuándo se obtuvo — *"Valdivia · lluvia · hace 5 h"*—, y la ventana del pronóstico lo repite bajo el nombre del lugar. Solo aparece el guion cuando nunca se ha llegado a obtener nada.
 
+## Cabecera fija
+
+La cabecera —título, clima, periodo y botón de menú— queda fija arriba: el menú ☰ está siempre a un toque sin tener que subir al principio de la página. Se usa `position:fixed` y no `sticky` porque, con `overflow-x:hidden` en el body, sticky deja de anclarse al viewport en varios navegadores móviles. El hueco bajo la cabecera se reserva midiendo su alto real, que cambia según el ancho de pantalla.
+
+**El nombre del hogar es editable.** Aparece bajo el título y se toca para cambiarlo; también hay un campo en Ajustes → Sincronización. Es solo una etiqueta: el **código del hogar no cambia nunca**, así que nadie pierde la conexión al renombrarlo. La ventana lo recuerda mostrando el código al pie.
+
 ## Navegación
 
 Las secciones viven en una **barra lateral**, no en una barra inferior:

@@ -42,7 +42,8 @@ html,body{margin:0;padding:0;overflow-x:hidden;max-width:100%}
 body{
   font-family:var(--tipo-ui);color:var(--tinta);background:var(--papel);
   background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(107,128,110,.12) 27px 28px);
-  min-height:100vh;padding-bottom:calc(34px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;
+  min-height:100vh;padding-top:var(--alto-cab,108px);
+  padding-bottom:calc(34px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;
 }
 h1,h2,h3{font-family:var(--tipo-titulo);letter-spacing:-.02em;margin:0}
 .oculto{display:none!important}
@@ -50,13 +51,19 @@ h1,h2,h3{font-family:var(--tipo-titulo);letter-spacing:-.02em;margin:0}
 .rojo{color:var(--margen)!important}.verde{color:var(--verde)!important}.ambar{color:var(--ambar)!important}
 
 /* ---------------- cabecera ---------------- */
-header{position:sticky;top:0;z-index:20;background:var(--tinta);color:var(--papel);
+/* Fija, no pegajosa: con overflow-x:hidden en body, position:sticky deja de
+   anclarse al viewport en varios navegadores móviles y la cabecera se va con
+   el scroll, dejando el menú fuera de alcance. */
+header{position:fixed;top:0;left:0;right:0;z-index:40;background:var(--tinta);color:var(--papel);
   padding:calc(12px + env(safe-area-inset-top)) 18px 12px;border-bottom:3px solid var(--margen)}
 .marca{display:flex;align-items:center;gap:11px}
 .logo{font-family:var(--tipo-num);font-weight:600;font-size:15px;border:1.5px solid var(--papel);
   border-radius:2px;padding:3px 6px}
 header h1{font-weight:800;font-size:19px;line-height:1.1}
-header .sub{margin:2px 0 0;font-size:11px;color:#A8B8A6;letter-spacing:.09em;text-transform:uppercase}
+header .sub{display:block;margin:2px 0 0;padding:0;background:none;border:none;text-align:left;
+  font-family:inherit;font-size:11px;color:#A8B8A6;letter-spacing:.09em;text-transform:uppercase;
+  cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header .sub:hover{color:var(--papel);text-decoration:underline;text-underline-offset:3px}
 .barra-mes{display:flex;align-items:center;gap:8px;margin-top:12px;
   border-top:1px solid rgba(228,233,221,.22);padding-top:9px}
 .mes-txt{flex:1;min-width:0;text-align:center;font-family:var(--tipo-num);font-size:13.5px;
@@ -519,6 +526,7 @@ body.menu-abierto .velo{opacity:1;pointer-events:auto}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--margen);outline-offset:2px}
 @media(min-width:960px){
   body{padding-left:var(--ancho-lateral)}
+  header{left:var(--ancho-lateral)}
   nav{transform:none;box-shadow:none}
   .velo{display:none}
   #btn-menu{display:none}
@@ -1185,21 +1193,22 @@ let FB = null;
 const DB = {
   async guardarHogar(patch){
     Object.assign(S, patch);
-    if(S.modo==="nube") await FB.actualizarHogar(patch);
+    // Si la conexión aún no está lista, el cambio queda al menos en pantalla
+    if(S.modo==="nube" && FB) await FB.actualizarHogar(patch);
     else render();
   },
   async agregar(col,obj){
     const doc = {...obj, id:obj.id||uid(), creado:Date.now()};
-    if(S.modo==="nube") return await FB.agregar(col,doc);
+    if(S.modo==="nube" && FB) return await FB.agregar(col,doc);
     S[col] = [...S[col],doc]; render();
     return doc;
   },
   async actualizar(col,id,patch){
-    if(S.modo==="nube") await FB.actualizar(col,id,patch);
+    if(S.modo==="nube" && FB) await FB.actualizar(col,id,patch);
     else { S[col]=S[col].map(x=>x.id===id?{...x,...patch}:x); render(); }
   },
   async borrar(col,id){
-    if(S.modo==="nube") await FB.borrar(col,id);
+    if(S.modo==="nube" && FB) await FB.borrar(col,id);
     else { S[col]=S[col].filter(x=>x.id!==id); render(); }
   },
 };
@@ -1297,6 +1306,7 @@ async function iniciarFirebase(){
       if(patch.config) p.config=patch.config;
       if(patch.presupuestos) p.presupuestos=patch.presupuestos;
       if(patch.perfiles) p.perfiles=patch.perfiles;
+      if(patch.nombre!==undefined) p.nombre=patch.nombre;
       return Object.keys(p).length? updateDoc(doc(db,"hogares",S.hogarId),p) : Promise.resolve();
     },
     async agregar(col,obj){
@@ -2095,13 +2105,22 @@ const corto = v=>{ const a=Math.abs(v);
 const NAV = [["resumen","Resumen"],["panel","Panel"],["movimientos","Movimientos"],["estadisticas","Estadísticas"],
              ["deudas","Deudas"],["metas","Metas"],["ahorro","Ahorro"],["ajustes","Ajustes"]];
 
+/* La cabecera tiene una o dos filas según el ancho: se mide su alto real
+   para reservar justo ese hueco bajo ella. */
+function ajustarCabecera(){
+  const cab = $("header"); if(!cab) return;
+  document.documentElement.style.setProperty("--alto-cab", cab.offsetHeight+"px");
+}
+
 function render(){
   if($("#app").classList.contains("oculto")) return;
   sincronizarCategorias();
   const R = calcular();
   $("#mes-txt").innerHTML = `<span class="mes-largo">${esc(etiquetaPeriodo(S.mes))}</span>`
     + `<span class="mes-corto">${esc(etiquetaPeriodoCorta(S.mes))}</span>`;
-  $("#sub-hogar").textContent = S.modo==="nube"? `Hogar ${S.hogarId||""}` : "Modo local · sin sincronizar";
+  $("#sub-hogar").textContent = S.modo==="nube"
+    ? (S.nombreHogar || "Mi hogar")
+    : "Modo local · sin sincronizar";
   $("#punto").className = "punto"+(S.modo==="local"?" local":"");
   $("#estado-txt").textContent = S.modo==="nube"? "en línea":"local";
   $("#nav").innerHTML = NAV.map(([k,t])=>`<button data-vista="${k}" class="${S.vista===k?"activo":""}">${t}</button>`).join("");
@@ -2112,6 +2131,7 @@ function render(){
     deudas:vDeudas, metas:vMetas, ahorro:vAhorro, ajustes:vAjustes
   }[S.vista]||vPanel)(R);
   conectar(R);
+  ajustarCabecera();
   revisarAlertas(R);
 }
 
@@ -2335,6 +2355,25 @@ function modalCierre(mes){
 }
 
 /* Qué cargos se están dando por pendientes, para poder comprobarlo */
+/* El nombre es solo la etiqueta que se ve arriba: el código del hogar, que
+   es lo que usa la sincronización, no cambia nunca. */
+function modalNombreHogar(){
+  if(S.modo!=="nube"){ avisar("En modo local no hay hogar que renombrar"); return; }
+  modal("Nombre del hogar",`
+    <p class="nota">Es la etiqueta que aparece bajo el título. Cámbiala cuando quieras: el código de sincronización no se toca y todos siguen conectados igual.</p>
+    <label class="campo"><span>Nombre</span>
+      <input id="nh-nombre" placeholder="Casa Briones Jara" value="${esc(S.nombreHogar||"")}" maxlength="40"></label>
+    <p class="nota ayuda">Código del hogar: <b class="mono">${esc(S.hogarId||"")}</b> · no cambia</p>
+  `, async()=>{
+    const v = $("#nh-nombre").value.trim();
+    if(!v) return "Escribe un nombre.";
+    await DB.guardarHogar({nombre:v});
+    S.nombreHogar = v;
+    render();
+    avisar("Nombre actualizado");
+  }, "Guardar nombre");
+}
+
 function modalFijosPendientes(){
   const R = calcular();
   const lista = R.detalleFijos;
@@ -3013,7 +3052,11 @@ function vAjustes(R){
   <section class="tarjeta">
     <div class="cab"><h2>Sincronización</h2><span class="cod">${S.modo==="nube"?"firebase":"local"}</span></div>
     ${S.modo==="nube"? `
-      <p class="nota">Comparte este código para que otro teléfono vea el mismo libro en tiempo real.</p>
+      <div class="fila-btns" style="margin-bottom:12px">
+        <input id="cfg-nombre-hogar" placeholder="Nombre del hogar" value="${esc(S.nombreHogar||"")}" maxlength="40">
+        <button class="btn" data-accion="renombrar-hogar">Renombrar</button>
+      </div>
+      <p class="nota">Comparte este código para que otro teléfono vea el mismo libro en tiempo real. El nombre es solo una etiqueta: cambiarlo no afecta al código.</p>
       <div class="codigo-hogar">${esc(S.hogarId||"")}</div>
       <p class="nota">Sesión: ${esc(S.nombreUsuario||"")}${esAdmin()?' · <b>administrador</b>':""}</p>
       <p class="nota">Administra este hogar <b>${esc(correoAdmin())}</b>. Solo esa cuenta puede borrar movimientos en bloque o eliminar deudas, metas y sobres. Cualquiera puede registrar, corregir y borrar movimientos uno a uno.</p>
@@ -3229,6 +3272,11 @@ function acciones(a,R){
     },
     instalar:()=>instalarApp(),
     "copiar-codigo":()=>{navigator.clipboard?.writeText(S.hogarId||"");avisar("Código copiado")},
+    "renombrar-hogar":async()=>{
+      const v = $("#cfg-nombre-hogar").value.trim();
+      if(!v){ avisar("Escribe un nombre"); return; }
+      await DB.guardarHogar({nombre:v}); S.nombreHogar=v; render(); avisar("Nombre actualizado");
+    },
     salir:()=>{ if(FB) FB.salir(); },
     "borrar-todo":()=>modalBorrado(),
     "solicitar-borrado":()=>solicitarBorrado(),
@@ -4883,11 +4931,12 @@ registrarSW();
 $("#btn-tema").onclick=alternarTema;
 $("#btn-menu").onclick=()=>menuAbierto()? cerrarMenu() : abrirMenu();
 $("#btn-clima").onclick=modalClima;
+$("#sub-hogar").onclick=modalNombreHogar;
 $("#btn-resumen").onclick=()=>irAVista("resumen");
 pintarClima();
 setInterval(pintarClima, CLIMA_TTL);
 $("#velo").onclick=cerrarMenu;
-addEventListener("resize",()=>{ if(enEscritorio() && menuAbierto()) cerrarMenu(); });
+addEventListener("resize",()=>{ ajustarCabecera(); if(enEscritorio() && menuAbierto()) cerrarMenu(); });
 $("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);render()};
 $("#mes-sig").onclick=()=>{S.mes=sumaMes(S.mes,1);render()};
 $("#fab").onclick=()=>modalMovimiento();
