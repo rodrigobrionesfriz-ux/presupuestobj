@@ -1552,20 +1552,25 @@ function flujoCajaEntre(nombre,desde,hasta,desdeTs=0){
             && posterior(m) && m.fecha<=hasta)
     .reduce((a,m)=> a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
 }
-/* Lo que esta persona debería tener el día `corte`: su último saldo declarado
-   más lo que ha entrado y salido desde entonces. Sin declaración previa se
-   arranca al principio del periodo, y el saldo de partida lo pone el usuario. */
+/* Lo que esta persona debería tener el día `corte`.
+   Se calcula EXACTAMENTE igual que el disponible por persona del panel:
+   su parte del arrastre más sus movimientos de caja del periodo hasta esa
+   fecha. Antes se encadenaba desde la última declaración, que es otro
+   camino, y por eso las dos cifras no coincidían. */
 function saldoAFecha(nombre,corte){
-  /* Se incluye una declaración del mismo día: encadenar dos cortes en la
-     misma fecha es habitual. El flujo cuenta solo lo posterior, así que un
-     movimiento anterior a la última declaración no altera el saldo: ese día
-     ya se comprobó lo que había de verdad. */
-  const previas = declaraciones().filter(d=>d.fecha<=corte && d.saldos[nombre]!==undefined);
-  const base = previas.length? previas[previas.length-1] : null;
-  const desde = base? base.fecha : diaAnterior(inicioPeriodo(periodoDe(corte)));
-  const flujo = flujoCajaEntre(nombre,desde,corte, base? base.ts : 0);
-  return {base: base? base.saldos[nombre] : null, desde, flujo,
-          teorico:(base? base.saldos[nombre] : 0) + flujo, hayPrevio: !!base};
+  const mes = periodoDe(corte);
+  const arrastre = remanenteInfo(mes).porPersona?.[nombre] || 0;
+  const flujo = S.movimientos
+    .filter(m=>m.miembro===nombre && afectaCaja(m) && enPeriodo(m.fecha,mes) && m.fecha<=corte)
+    .reduce((a,m)=> a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
+  /* Si el ingreso estimado de la persona supera lo que ha entrado de verdad,
+     el panel muestra dinero que aún no ha llegado: conviene avisarlo. */
+  const estimado = (S.config.ingresosPersona||{})[nombre] || 0;
+  const registrado = S.movimientos
+    .filter(m=>m.miembro===nombre && m.tipo==="ingreso" && enPeriodo(m.fecha,mes) && m.fecha<=corte)
+    .reduce((a,b)=>a+b.monto,0);
+  return {base:arrastre, desde:inicioPeriodo(mes), flujo, teorico:arrastre+flujo,
+          hayPrevio:true, porLlegar:Math.max(0, estimado-registrado)};
 }
 
 function flujoPersona(nombre,mes){
@@ -2296,13 +2301,11 @@ function modalConciliar(fechaInicial){
           <span class="punto-p" style="background:${col(colorPersona(d.nombre))}"></span>
           <span class="cierre-nom">${esc(d.nombre)}</span>
         </div>
-        ${d.hayPrevio
-          ? `<div class="cierre-linea"><span>Saldo declarado el ${esc(d.desde)}</span><b>${fmt(d.base)}</b></div>`
-          : `<label class="cierre-linea"><span>Saldo al empezar el periodo</span>
-               <input class="importe mini" type="text" inputmode="numeric" data-inicio="${i}" placeholder="0"></label>`}
-        <div class="cierre-linea"><span>Movimientos desde entonces</span>
+        <div class="cierre-linea"><span>Viene del periodo anterior</span><b>${fmt(d.base)}</b></div>
+        <div class="cierre-linea"><span>Movimientos del periodo hasta la fecha</span>
           <b class="${d.flujo<0?"rojo":"verde"}">${d.flujo>=0?"+":""}${fmt(d.flujo)}</b></div>
         <div class="cierre-linea total"><span>Debería tener</span><b data-teo="${i}">${fmt(d.teorico)}</b></div>
+        ${d.porLlegar>0?`<p class="nota ayuda" style="margin:2px 0 0">El panel le suma ${fmt(d.porLlegar)} de ingreso estimado que todavía no ha entrado; aquí se cuenta solo lo recibido.</p>`:""}
         <label class="campo" style="margin:10px 0 6px"><span>Saldo real de ${esc(d.nombre)}</span>
           <input class="importe" type="text" inputmode="numeric" data-real="${i}" placeholder="0"></label>
         <p class="cierre-dif" data-dif="${i}">Escribe el saldo real para ver la diferencia.</p>
@@ -2310,24 +2313,21 @@ function modalConciliar(fechaInicial){
   };
 
   modal("Conciliar caja",`
-    <p class="nota">Anota lo que hay <b>de verdad</b> en las cuentas de uso diario a una fecha. La diferencia con lo que la app calcula se registra como <b>gasto no registrado</b>. No cierra el periodo: puedes hacerlo cuando quieras.</p>
+    <p class="nota">Anota lo que hay <b>de verdad</b> en las cuentas de uso diario. Se compara con el <b>disponible por persona</b> que muestra el panel, y la diferencia se registra como <b>gasto no registrado</b>. No cierra el periodo: puedes hacerlo cuando quieras.</p>
     <label class="campo"><span>Fecha del corte</span>
       <input id="co-fecha" type="date" value="${corte}" max="${hoyISO()}"></label>
     <ul class="cierre" id="co-lista">${pintar(corte)}</ul>
   `, async()=>{
     const fecha = $("#co-fecha").value || hoyISO();
     const datos = personas.map(n=>({nombre:n, ...saldoAFecha(n,fecha)}));
-    const saldos={}, teoricos={}, diferencias={}, iniciales={};
+    const saldos={}, teoricos={}, diferencias={};
     const declarados = datos.filter((d,i)=>document.querySelector(`[data-real="${i}"]`)?.value.trim()!=="");
     if(!declarados.length) return "Escribe al menos un saldo real.";
 
     datos.forEach((d,i)=>{
       const campo = document.querySelector(`[data-real="${i}"]`);
       if(!campo || campo.value.trim()==="") return;
-      const ini = document.querySelector(`[data-inicio="${i}"]`);
-      const arranque = d.hayPrevio? d.base : num(ini?.value||0);
-      if(!d.hayPrevio && ini && ini.value.trim()!=="") iniciales[d.nombre]=num(ini.value);
-      const teo = arranque + d.flujo;
+      const teo = d.teorico;
       const real = num(campo.value);
       saldos[d.nombre]=real; teoricos[d.nombre]=teo; diferencias[d.nombre]=real-teo;
     });
@@ -2345,7 +2345,7 @@ function modalConciliar(fechaInicial){
             nota:`Ingreso no registrado · ${fechaCorta(fecha)}`, esencial:true,
             ajusteCierre:true, uid:S.uid||"", autor:miNombre(), creado:Date.now() });
     }
-    await DB.agregar("conciliaciones",{fecha, saldos, teoricos, diferencias, iniciales,
+    await DB.agregar("conciliaciones",{fecha, saldos, teoricos, diferencias,
       creado:Date.now(), uid:S.uid||"", autor:miNombre()});
     render();
     avisar("Caja conciliada");
@@ -2356,9 +2356,7 @@ function modalConciliar(fechaInicial){
     const fecha = $("#co-fecha").value || hoyISO();
     personas.forEach((n,i)=>{
       const d = saldoAFecha(n,fecha);
-      const ini = document.querySelector(`[data-inicio="${i}"]`);
-      const arranque = d.hayPrevio? d.base : num(ini?.value||0);
-      const teo = arranque + d.flujo;
+      const teo = d.teorico;
       const celda = document.querySelector(`[data-teo="${i}"]`);
       if(celda) celda.textContent = fmt(teo);
       const campo = document.querySelector(`[data-real="${i}"]`);

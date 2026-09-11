@@ -237,7 +237,11 @@ Solo después vienen las **oportunidades detectadas**, que son otra cosa y así 
 
 En el panel hay un botón **Conciliar ahora**: eliges una fecha —hoy o cualquier día pasado—, anotas el saldo real de cada persona y la diferencia contra lo que la app calcula se registra como gasto hormiga en esa misma fecha. No cierra el periodo ni ancla el arrastre: es un punto de control.
 
-Cierres y conciliaciones son lo mismo a efectos de cuadratura —una declaración de saldo real en una fecha— y se encadenan: cada una arranca del último saldo declarado y suma solo lo ocurrido desde entonces. Dentro de un mismo día se desempata por la hora del registro, de modo que un gasto anotado después de conciliar sí cuenta, y uno anterior no vuelve a contarse: ese día ya se comprobó lo que había de verdad.
+**El *debería tener* es exactamente el disponible por persona que muestra el panel**: su parte del arrastre más sus movimientos de caja del periodo hasta esa fecha. No es un cálculo paralelo, es el mismo número — si fueran dos caminos distintos no tendrían por qué coincidir, y esa era justo la causa de que no cuadrara.
+
+Después de conciliar, el disponible del panel pasa a ser el saldo que declaraste: el ajuste explica la diferencia y las dos cifras vuelven a ser la misma.
+
+Si el ingreso estimado de una persona supera lo que ha entrado de verdad, la ventana lo avisa: el panel suma dinero que aún no ha llegado, y en la conciliación solo se cuenta lo recibido.
 
 El cierre de un periodo pasado se fecha en su último día, no en el de hoy, para que los movimientos posteriores caigan en el periodo siguiente.
 
