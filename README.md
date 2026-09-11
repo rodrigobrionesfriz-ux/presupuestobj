@@ -233,6 +233,14 @@ Solo después vienen las **oportunidades detectadas**, que son otra cosa y así 
 
 **Reporte en Excel** — Un `.xlsx` con ocho hojas: *Resumen* del mes con la proyección y el presupuesto, *Movimientos* completos, *Por categoría* con presupuesto contra gasto y variación, *Por persona*, *Evolución* de los últimos seis meses, *Deudas* con meses hasta liquidar e intereses, *Metas*, y *Recomendaciones* con su cifra y si suma o no al ahorro potencial. Los importes llevan formato de moneda y los porcentajes formato de porcentaje, con anchos de columna ajustados: se puede armar una tabla dinámica sin tocar nada. La librería se descarga solo al pedir el reporte; sin conexión, la app cae a un CSV y avisa.
 
+## Conciliar caja cuando quieras
+
+En el panel hay un botón **Conciliar ahora**: eliges una fecha —hoy o cualquier día pasado—, anotas el saldo real de cada persona y la diferencia contra lo que la app calcula se registra como gasto hormiga en esa misma fecha. No cierra el periodo ni ancla el arrastre: es un punto de control.
+
+Cierres y conciliaciones son lo mismo a efectos de cuadratura —una declaración de saldo real en una fecha— y se encadenan: cada una arranca del último saldo declarado y suma solo lo ocurrido desde entonces. Dentro de un mismo día se desempata por la hora del registro, de modo que un gasto anotado después de conciliar sí cuenta, y uno anterior no vuelve a contarse: ese día ya se comprobó lo que había de verdad.
+
+El cierre de un periodo pasado se fecha en su último día, no en el de hoy, para que los movimientos posteriores caigan en el periodo siguiente.
+
 ## Cerrar el periodo y cuadrar la caja
 
 Al terminar un periodo —o en sus últimos dos días— el panel ofrece **cerrarlo**. Se anota el saldo **real** que tiene cada persona en sus cuentas de uso diario y la app lo compara con el **saldo teórico**:

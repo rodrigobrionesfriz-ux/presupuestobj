@@ -1158,7 +1158,7 @@ let S = {
   modo: HAY_FIREBASE ? "nube" : "local",
   uid:null, hogarId:null, nombreUsuario:"", perfiles:{},
   config: configInicial(), presupuestos: presInicial(),
-  movimientos:[], deudas:[], metas:[], cuentas:[], cierres:[],
+  movimientos:[], deudas:[], metas:[], cuentas:[], cierres:[], conciliaciones:[],
   mes: mesDe(hoyISO()), mesFijado:false, abiertos:new Set(), verTodosSobres:false, vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
 const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
@@ -1293,7 +1293,7 @@ async function iniciarFirebase(){
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
       }, err=>marcarError(err)));
-      ["movimientos","deudas","metas","cuentas","cierres"].forEach(col=>{
+      ["movimientos","deudas","metas","cuentas","cierres","conciliaciones"].forEach(col=>{
         desuscribir.push(onSnapshot(collection(db,"hogares",hogarId,col), snap=>{
           S[col] = snap.docs.map(d=>({...d.data(), id:d.id}));
           render();
@@ -1527,6 +1527,46 @@ const remanenteAntesDe = mes => remanenteInfo(mes).monto;
    que nunca se anotó. Al arrancar cada cierre desde el saldo declarado,
    los errores de un mes no se arrastran a los siguientes. */
 const cierreDe = mes => S.cierres.find(c=>c.mes===mes);
+const ultimaConciliacion = ()=>[...(S.conciliaciones||[])].sort((a,b)=>a.fecha<b.fecha?1:-1)[0];
+
+const diaAnterior = iso=>{ const d=aDate(iso); d.setDate(d.getDate()-1);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+
+/* Cierres y conciliaciones son lo mismo a efectos de cuadratura: una
+   declaración de saldo real en una fecha. Ordenadas, encadenan el cálculo. */
+function declaraciones(){
+  return [...(S.cierres||[]).map(c=>({fecha:c.fecha, ts:c.creado||0, saldos:c.saldos||{}, origen:"cierre"})),
+          ...(S.conciliaciones||[]).map(c=>({fecha:c.fecha, ts:c.creado||0, saldos:c.saldos||{}, origen:"conciliacion"}))]
+    .filter(d=>d.fecha)
+    .sort((a,b)=> a.fecha===b.fecha? (a.ts-b.ts) : (a.fecha<b.fecha? -1 : 1));
+}
+function flujoCajaEntre(nombre,desde,hasta,desdeTs=0){
+  /* Dentro del mismo día la fecha no basta: un gasto anotado después de
+     conciliar sí cuenta, y uno anterior ya estaba en el saldo declarado.
+     La marca de tiempo del registro deshace el empate. */
+  const posterior = m => !desde ? true
+    : m.fecha>desde ? true
+    : (m.fecha===desde && desdeTs && (m.creado||0)>desdeTs);
+  return S.movimientos
+    .filter(m=>m.miembro===nombre && afectaCaja(m) && !m.ajusteCierre
+            && posterior(m) && m.fecha<=hasta)
+    .reduce((a,m)=> a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
+}
+/* Lo que esta persona debería tener el día `corte`: su último saldo declarado
+   más lo que ha entrado y salido desde entonces. Sin declaración previa se
+   arranca al principio del periodo, y el saldo de partida lo pone el usuario. */
+function saldoAFecha(nombre,corte){
+  /* Se incluye una declaración del mismo día: encadenar dos cortes en la
+     misma fecha es habitual. El flujo cuenta solo lo posterior, así que un
+     movimiento anterior a la última declaración no altera el saldo: ese día
+     ya se comprobó lo que había de verdad. */
+  const previas = declaraciones().filter(d=>d.fecha<=corte && d.saldos[nombre]!==undefined);
+  const base = previas.length? previas[previas.length-1] : null;
+  const desde = base? base.fecha : diaAnterior(inicioPeriodo(periodoDe(corte)));
+  const flujo = flujoCajaEntre(nombre,desde,corte, base? base.ts : 0);
+  return {base: base? base.saldos[nombre] : null, desde, flujo,
+          teorico:(base? base.saldos[nombre] : 0) + flujo, hayPrevio: !!base};
+}
 
 function flujoPersona(nombre,mes){
   /* Los ajustes generados por un cierre anterior se excluyen: son una
@@ -1539,12 +1579,7 @@ function flujoPersona(nombre,mes){
   return suma("ingreso") + suma("retiro")
        - suma("gasto") - suma("ahorro") - suma("pago");
 }
-function saldoTeorico(nombre,mes){
-  const previo = cierreDe(sumaMes(mes,-1));
-  const arranque = previo ? (previo.saldos?.[nombre] ?? 0) : null;
-  const flujo = flujoPersona(nombre,mes);
-  return { base:arranque, flujo, teorico:(arranque??0)+flujo, hayPrevio:arranque!==null };
-}
+const saldoTeorico = (nombre,mes)=>saldoAFecha(nombre, mes===periodoDe(hoyISO())? hoyISO() : finPeriodo(mes));
 /* Historial de lo que se detecta al cuadrar, periodo a periodo */
 function historialNoRegistrado(mes,n=6){
   const salida=[];
@@ -2244,16 +2279,123 @@ const opcionesDeuda = (actual="")=>
   `<option value="">Sin asignar</option>` +
   S.deudas.map(d=>`<option value="${d.id}" ${actual===d.id?"selected":""}>${esc(d.nombre)} · saldo ${fmt(d.saldo)}</option>`).join("");
 
+/* ============ conciliar caja en cualquier momento =================
+   El cierre cuadra un periodo entero; esto cuadra un día suelto. Misma
+   mecánica: se declara el saldo real y la diferencia se anota como gasto
+   hormiga. No cierra nada ni ancla el arrastre, es solo un punto de control. */
+function modalConciliar(fechaInicial){
+  const personas = personasHogar();
+  if(!personas.length){ avisar("Añade primero a los integrantes del hogar"); return; }
+  const corte = fechaInicial || hoyISO();
+
+  const pintar = (fecha)=>{
+    const datos = personas.map(n=>({nombre:n, ...saldoAFecha(n,fecha)}));
+    return datos.map((d,i)=>`
+      <li>
+        <div class="cierre-cab">
+          <span class="punto-p" style="background:${col(colorPersona(d.nombre))}"></span>
+          <span class="cierre-nom">${esc(d.nombre)}</span>
+        </div>
+        ${d.hayPrevio
+          ? `<div class="cierre-linea"><span>Saldo declarado el ${esc(d.desde)}</span><b>${fmt(d.base)}</b></div>`
+          : `<label class="cierre-linea"><span>Saldo al empezar el periodo</span>
+               <input class="importe mini" type="text" inputmode="numeric" data-inicio="${i}" placeholder="0"></label>`}
+        <div class="cierre-linea"><span>Movimientos desde entonces</span>
+          <b class="${d.flujo<0?"rojo":"verde"}">${d.flujo>=0?"+":""}${fmt(d.flujo)}</b></div>
+        <div class="cierre-linea total"><span>Debería tener</span><b data-teo="${i}">${fmt(d.teorico)}</b></div>
+        <label class="campo" style="margin:10px 0 6px"><span>Saldo real de ${esc(d.nombre)}</span>
+          <input class="importe" type="text" inputmode="numeric" data-real="${i}" placeholder="0"></label>
+        <p class="cierre-dif" data-dif="${i}">Escribe el saldo real para ver la diferencia.</p>
+      </li>`).join("");
+  };
+
+  modal("Conciliar caja",`
+    <p class="nota">Anota lo que hay <b>de verdad</b> en las cuentas de uso diario a una fecha. La diferencia con lo que la app calcula se registra como <b>gasto no registrado</b>. No cierra el periodo: puedes hacerlo cuando quieras.</p>
+    <label class="campo"><span>Fecha del corte</span>
+      <input id="co-fecha" type="date" value="${corte}" max="${hoyISO()}"></label>
+    <ul class="cierre" id="co-lista">${pintar(corte)}</ul>
+  `, async()=>{
+    const fecha = $("#co-fecha").value || hoyISO();
+    const datos = personas.map(n=>({nombre:n, ...saldoAFecha(n,fecha)}));
+    const saldos={}, teoricos={}, diferencias={}, iniciales={};
+    const declarados = datos.filter((d,i)=>document.querySelector(`[data-real="${i}"]`)?.value.trim()!=="");
+    if(!declarados.length) return "Escribe al menos un saldo real.";
+
+    datos.forEach((d,i)=>{
+      const campo = document.querySelector(`[data-real="${i}"]`);
+      if(!campo || campo.value.trim()==="") return;
+      const ini = document.querySelector(`[data-inicio="${i}"]`);
+      const arranque = d.hayPrevio? d.base : num(ini?.value||0);
+      if(!d.hayPrevio && ini && ini.value.trim()!=="") iniciales[d.nombre]=num(ini.value);
+      const teo = arranque + d.flujo;
+      const real = num(campo.value);
+      saldos[d.nombre]=real; teoricos[d.nombre]=teo; diferencias[d.nombre]=real-teo;
+    });
+
+    for(const d of declarados){
+      const dif = diferencias[d.nombre];
+      if(Math.abs(dif)<1) continue;
+      await DB.agregar("movimientos", dif<0
+        ? { tipo:"gasto", monto:-dif, categoria:"NRG", sub:"", fecha, metodo:"Efectivo",
+            tarjetaId:"", cuentaId:"", deudaId:"", soloCuenta:false, miembro:d.nombre,
+            nota:`Gastos no registrados · ${fechaCorta(fecha)}`, esencial:false,
+            ajusteCierre:true, uid:S.uid||"", autor:miNombre(), creado:Date.now() }
+        : { tipo:"ingreso", monto:dif, categoria:"OTR", sub:"", fecha, metodo:"Efectivo",
+            tarjetaId:"", cuentaId:"", deudaId:"", soloCuenta:false, miembro:d.nombre,
+            nota:`Ingreso no registrado · ${fechaCorta(fecha)}`, esencial:true,
+            ajusteCierre:true, uid:S.uid||"", autor:miNombre(), creado:Date.now() });
+    }
+    await DB.agregar("conciliaciones",{fecha, saldos, teoricos, diferencias, iniciales,
+      creado:Date.now(), uid:S.uid||"", autor:miNombre()});
+    render();
+    avisar("Caja conciliada");
+  }, "Registrar la conciliación");
+
+  /* Al cambiar la fecha se recalcula todo, y la diferencia se ve en vivo */
+  const refrescar = ()=>{
+    const fecha = $("#co-fecha").value || hoyISO();
+    personas.forEach((n,i)=>{
+      const d = saldoAFecha(n,fecha);
+      const ini = document.querySelector(`[data-inicio="${i}"]`);
+      const arranque = d.hayPrevio? d.base : num(ini?.value||0);
+      const teo = arranque + d.flujo;
+      const celda = document.querySelector(`[data-teo="${i}"]`);
+      if(celda) celda.textContent = fmt(teo);
+      const campo = document.querySelector(`[data-real="${i}"]`);
+      const nota = document.querySelector(`[data-dif="${i}"]`);
+      if(!campo || !nota) return;
+      if(!campo.value.trim()){ nota.className="cierre-dif"; nota.textContent="Escribe el saldo real para ver la diferencia."; return; }
+      const dif = num(campo.value) - teo;
+      if(Math.abs(dif)<1){ nota.className="cierre-dif ok"; nota.textContent="Cuadra exactamente."; }
+      else if(dif<0){ nota.className="cierre-dif menos";
+        nota.textContent=`Faltan ${fmt(-dif)}: irán a gasto hormiga.`; }
+      else { nota.className="cierre-dif mas";
+        nota.textContent=`Sobran ${fmt(dif)}: se registrarán como ingreso no registrado.`; }
+    });
+  };
+  const relistar = ()=>{
+    $("#co-lista").innerHTML = pintar($("#co-fecha").value || hoyISO());
+    $("#modal-host").querySelectorAll("[data-real],[data-inicio]").forEach(c=>c.addEventListener("input",refrescar));
+    refrescar();
+  };
+  $("#co-fecha").onchange = relistar;
+  relistar();
+}
+
 function modalCierre(mes){
   const personas = personasHogar();
   if(!personas.length){ avisar("Añade primero a los integrantes del hogar"); return; }
+  /* La declaración se fecha en el día que cierra el periodo, no en el de hoy:
+     si se cierra agosto en septiembre, el saldo declarado es el de agosto y
+     los movimientos posteriores deben contarse en el periodo siguiente. */
+  const corte = mes===periodoDe(hoyISO())? hoyISO() : finPeriodo(mes);
   const previo = cierreDe(mes);
   const datos = personas.map(n=>({nombre:n, ...saldoTeorico(n,mes)}));
   const primero = !datos.some(d=>d.hayPrevio);
 
   modal(`Cerrar ${etiquetaPeriodo(mes)}`,`
     ${previo?`<p class="aviso-credito">Este periodo ya se cerró el ${esc(previo.fecha)}. Si vuelves a cerrarlo se reemplazarán los ajustes anteriores.</p>`:""}
-    <p class="nota">Anota el saldo <b>real</b> que tiene hoy cada persona en sus cuentas de uso diario. La diferencia con lo que la app calcula se registra como <b>gasto no registrado</b>, que es donde acaban las compras hormiga que nunca se anotan.</p>
+    <p class="nota">Anota el saldo <b>real</b> que tenía cada persona al ${corte===hoyISO()? "día de hoy" : "cierre del "+corte} en sus cuentas de uso diario. La diferencia con lo que la app calcula se registra como <b>gasto no registrado</b>, que es donde acaban las compras hormiga que nunca se anotan.</p>
 
     <ul class="cierre">${datos.map((d,i)=>`
       <li>
@@ -2303,7 +2445,7 @@ function modalCierre(mes){
       await DB.borrar("movimientos", m.id);
 
     if(!soloRegistrar){
-      const fecha = finPeriodo(mes);
+      const fecha = corte;
       for(const d of declarados){
         const dif = diferencias[d.nombre];
         if(Math.abs(dif) < 1) continue;
@@ -2319,8 +2461,8 @@ function modalCierre(mes){
       }
     }
 
-    const registro = {mes, fecha:hoyISO(), saldos, teoricos, diferencias, iniciales,
-                      soloRegistro:soloRegistrar, uid:S.uid||"", autor:miNombre()};
+    const registro = {mes, fecha:corte, saldos, teoricos, diferencias, iniciales,
+                      creado:Date.now(), soloRegistro:soloRegistrar, uid:S.uid||"", autor:miNombre()};
     if(previo) await DB.actualizar("cierres", previo.id, registro);
     else await DB.agregar("cierres", registro);
     render();
@@ -2608,6 +2750,12 @@ function vPanel(R){
     </div>`:""}
   </section>
 
+  ${R.esMesActual?`<section class="tarjeta" data-acento="azul">
+    <div class="cab"><h2>Conciliar caja</h2>
+      <span class="cod">${ultimaConciliacion()? "última: "+esc(ultimaConciliacion().fecha) : "sin conciliar"}</span></div>
+    <p class="nota">Anota el saldo real de cada uno a una fecha y la app registra como gasto hormiga lo que no cuadre. No hace falta esperar al cierre del periodo.</p>
+    <div class="fila-btns"><button class="btn" data-accion="conciliar">Conciliar ahora</button></div>
+  </section>`:""}
   ${avisoCierre(R)}
   ${avisoRemanente(R)}
 
@@ -3253,6 +3401,7 @@ function acciones(a,R){
     "mas-sobres":()=>{ S.verTodosSobres=!S.verTodosSobres; render(); },
     "guardar-remanente":()=>modalGuardarRemanente(),
     "ver-fijos":()=>modalFijosPendientes(),
+    conciliar:()=>modalConciliar(),
     "ocultar-remanente":()=>{ guardarLocal(`pf-remanente:${S.mes}`,"visto"); render(); },
     fondo:()=>elegirFondo(),
     "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
@@ -4589,6 +4738,19 @@ async function exportarExcel(){
     });
     X.utils.book_append_sheet(lib, hojaDesde(X,ci,[10,12,16,15,15,15,22],
       {3:MONEDA,4:MONEDA,5:MONEDA}), "Cierres");
+  }
+
+  /* --- Conciliaciones de caja --- */
+  if((S.conciliaciones||[]).length){
+    const cc = [["Fecha","Persona","Saldo teórico","Saldo real","Diferencia","Resultado"]];
+    [...S.conciliaciones].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(c=>{
+      Object.keys(c.saldos||{}).forEach(n=>{
+        const d = c.diferencias?.[n] ?? 0;
+        cc.push([c.fecha, n, c.teoricos?.[n] ?? "", c.saldos[n], d,
+          Math.abs(d)<1? "Cuadra" : d<0? "Gasto no registrado" : "Ingreso no registrado"]);
+      });
+    });
+    X.utils.book_append_sheet(lib, hojaDesde(X,cc,[12,16,15,15,15,22],{2:MONEDA,3:MONEDA,4:MONEDA}), "Conciliaciones");
   }
 
   /* --- Recomendaciones --- */
