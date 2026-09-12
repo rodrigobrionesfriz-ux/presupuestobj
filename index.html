@@ -933,7 +933,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.7.1";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -3103,6 +3103,9 @@ function vMovimientos(R){
   const suma = lista.filter(m=>m.tipo==="gasto").reduce((a,b)=>a+b.monto,0);
   return `<section class="tarjeta" data-acento="azul">
     <div class="cab"><h2>Movimientos</h2><span class="cod">${cuenta(lista.length,"registro","registros")} · ${fmt(suma)}</span></div>
+    <div class="fila-btns" style="margin-bottom:12px">
+      <button class="btn primario" data-accion="importar-cartola">Importar cartola</button>
+    </div>
     <div class="filtros">
       <input id="f-texto" placeholder="Buscar concepto" value="${esc(S.filtroTexto)}">
       <select id="f-cat"><option value="TODAS">Todas</option>
