@@ -933,7 +933,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.8.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -2021,18 +2021,47 @@ function calcular(){
   }).sort((a,b)=>b.saldo-a.saldo);
   const saldoAhorros = cuentasCalc.reduce((a,c)=>a+c.saldo,0);
 
-  /* Proyección de cierre de mes.
-     Los cargos fijos (renta, servicios, colegiatura, suscripciones, cuotas de deuda)
-     ocurren una vez al mes: promediarlos por día y multiplicarlos por 31 los
-     multiplicaría varias veces. Se separan del gasto variable, se proyecta solo
-     este último, y se suman aparte los fijos que aún no se han pagado este mes. */
+  /* Proyección de cierre por etapa del ciclo. Los cargos fijos se cuentan una
+     sola vez. Para el gasto variable restante se observa cuánto se gastó desde
+     este mismo día hasta el cierre en los tres periodos anteriores. Así el fuerte
+     desembolso de los días 1–8 no se extrapola durante todo el mes. Sin historial
+     se usa una curva prudente: el ritmo esperado después del día 8 baja al 45 %. */
   const gastoFijo = gastos.filter(g=>esFijaCat(g.categoria)).reduce((a,b)=>a+b.monto,0);
   const gastoVariable = totalGasto-gastoFijo;
   const ritmoVariable = gastoVariable/Math.max(1,diaHoy);
   const detalleFijos = fijosPendientesDetalle(mes, gastos);
   const fijosPendientes = detalleFijos.reduce((a,x)=>a+x.monto,0);
+  const diaEnCiclo=(fecha,mm)=>Math.round((aDate(fecha)-aDate(inicioPeriodo(mm)))/86400000)+1;
+  const colasHistoricas=[];
+  for(let k=1;k<=3;k++){
+    const mm=sumaMes(mes,-k), n=diasPeriodo(mm);
+    const cola=S.movimientos.filter(m=>m.tipo==="gasto" && !esFijaCat(m.categoria)
+      && !m.ajusteCierre && enPeriodo(m.fecha,mm) && diaEnCiclo(m.fecha,mm)>Math.min(diaHoy,n))
+      .reduce((a,b)=>a+b.monto,0);
+    const tieneDatos=S.movimientos.some(m=>enPeriodo(m.fecha,mm));
+    if(tieneDatos) colasHistoricas.push({monto:cola,peso:4-k});
+  }
+  const restanteHistorico=colasHistoricas.length
+    ? colasHistoricas.reduce((a,x)=>a+x.monto*x.peso,0)/colasHistoricas.reduce((a,x)=>a+x.peso,0)
+    : null;
+  const diasIniciales=Math.min(diaHoy,8), variableInicial=gastos
+    .filter(g=>!esFijaCat(g.categoria) && diaEnCiclo(g.fecha,mes)<=8).reduce((a,b)=>a+b.monto,0);
+  const ritmoInicial=variableInicial/Math.max(1,diasIniciales);
+  const diasPost=Math.max(0,diaHoy-8), variablePost=gastos
+    .filter(g=>!esFijaCat(g.categoria) && diaEnCiclo(g.fecha,mes)>8).reduce((a,b)=>a+b.monto,0);
+  const ritmoPost=diasPost?variablePost/diasPost:ritmoInicial*.45;
+  const restanteCurva=diaHoy<8
+    ? ritmoInicial*.75*(8-diaHoy) + ritmoInicial*.45*Math.max(0,dias-8)
+    : ritmoPost*restantes;
+  const pesoActual=diaHoy<=8?0:Math.min(.7,diasPost/14);
+  const variableRestante=restanteHistorico===null?restanteCurva
+    : restanteHistorico*(1-pesoActual)+restanteCurva*pesoActual;
+  const metodoProyeccion=restanteHistorico===null
+    ? (diaHoy<=8?"curva 1–8 / 9–cierre":"ritmo desde el día 9")
+    : (diaHoy<=8?`historial de ${colasHistoricas.length} ciclo${colasHistoricas.length===1?"":"s"}`
+      : "historial + ritmo desde el día 9");
   const proyectado = esMesActual
-    ? totalGasto + ritmoVariable*restantes + fijosPendientes
+    ? totalGasto + variableRestante + fijosPendientes
     : totalGasto;
   /* Margen = presupuesto del periodo menos lo gastado a la fecha. Los cargos
      fijos que aún no llegan no se descuentan aquí: se informan aparte, para
@@ -2172,7 +2201,7 @@ function calcular(){
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
-    gastoFijo,gastoVariable,ritmoVariable,fijosPendientes,detalleFijos,margenRestante,margenTrasFijos,disponibleDiario,
+    gastoFijo,gastoVariable,ritmoVariable,variableRestante,metodoProyeccion,fijosPendientes,detalleFijos,margenRestante,margenTrasFijos,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
     comprasCredito,gastosCaja,pagosTarjeta,
@@ -2934,6 +2963,9 @@ function vResumen(R){
       ${kpi("Gastado", fmt(R.totalGasto),
             R.presupuestoTotal>0? `${Math.round(usoPres)}% del presupuesto` : "sin presupuesto asignado",
             {tono: usoPres>100?"malo": usoPres>85?"medio":"", pct:usoPres})}
+      ${kpi("Cierre estimado", fmt(R.proyectado),
+            R.esMesActual? `${R.metodoProyeccion} · incluye fijos pendientes` : "periodo terminado",
+            {tono:R.presupuestoTotal>0&&R.proyectado>R.presupuestoTotal?"malo":"bueno"})}
       ${kpi("Ritmo diario actual", `${fmt(R.ritmoDiario)}`,
             permitidoDia>0
               ? `el presupuesto da para ${fmt(permitidoDia)}/día`
@@ -3024,7 +3056,7 @@ function vPanel(R){
     </div>`:""}
     ${R.esMesActual?`<div class="cinta-pie">
       <div><em>Ritmo variable</em><b>${fmt(R.ritmoVariable)}/día</b></div>
-      <div><em>Proyección fin de mes</em><b class="${alta?"rojo":"verde"}">${fmt(R.proyectado)}</b></div>
+      <div><em>Cierre estimado</em><b class="${alta?"rojo":"verde"}">${fmt(R.proyectado)}</b></div>
       <div><em>Puedes gastar</em><b class="${R.margenRestante<=0?"rojo":""}">${
         R.presupuestoTotal<=0? "—"
         : R.margenRestante<=0? "sin margen"
@@ -3034,11 +3066,11 @@ function vPanel(R){
     </div>
     <div class="desglose">
       <span>Ya gastado <b>${fmt(R.totalGasto)}</b></span>
-      <span>+ variable ${R.restantes} días <b>${fmt(R.ritmoVariable*R.restantes)}</b></span>
+      <span>+ variable restante <b>${fmt(R.variableRestante)}</b></span>
       <span class="clicable ${R.fijosPendientes>0?"":"tenue"}" data-accion="ver-fijos" role="button" tabindex="0"
         title="Ver qué cargos se dan por pendientes">+ fijos por pagar <b>${fmt(R.fijosPendientes)}</b> ›</span>
       <span class="total">= ${fmt(R.proyectado)}</span>
-    </div>`:""}
+    </div><p class="nota nota-cuadrado">Estimación basada en ${R.metodoProyeccion}; el gasto alto de los días 1–8 no se repite sobre todo el ciclo.</p>`:""}
   </section>
 
   ${R.esMesActual?`<section class="tarjeta" data-acento="azul">
