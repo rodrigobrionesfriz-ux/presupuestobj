@@ -1,5 +1,19 @@
 # Presupuesto familiar
 
+> Seguridad actualizada: la administración de cada hogar depende exclusivamente del UID de la cuenta que lo creó. Después de actualizar la app, vuelve a publicar `firestore.rules` en Firebase para activar esta protección en el servidor.
+
+Las reglas también validan la estructura de movimientos, deudas, metas, cuentas, cierres y conciliaciones. Se rechazan tipos inesperados, montos negativos o excesivos, fechas con formato inválido, textos desmesurados y campos no reconocidos. Las colecciones futuras quedan bloqueadas hasta recibir reglas explícitas.
+
+Las compras a crédito, pagos, intereses y correcciones se guardan mediante transacciones: el movimiento y el saldo de la deuda se confirman juntos. Si cambia la conexión o dos teléfonos operan simultáneamente, Firestore reintenta con el saldo más reciente y evita actualizaciones perdidas.
+
+En **Ajustes → Datos** se puede descargar un respaldo JSON completo y restaurarlo conservando identificadores y relaciones. La restauración valida el archivo, muestra una vista previa y permite combinar o reemplazar; restaurar queda reservado al administrador del hogar.
+
+En **Ajustes → Cuenta y acceso** se muestra si la cuenta es anónima o está verificada. Una cuenta invitada puede vincularse con Google o correo sin perder su UID ni sus datos. También se puede reenviar la verificación, recuperar la contraseña desde el acceso, abandonar un hogar como miembro y transferir previamente la administración cuando corresponde.
+
+Las eliminaciones normales pasan a una **papelera por 30 días** en vez de desaparecer inmediatamente. El administrador puede recuperar movimientos, deudas, metas, cuentas, cierres y conciliaciones. La vista **Actividad reciente** registra quién creó, editó, eliminó, recuperó o restauró información; los eventos de auditoría no se pueden editar ni borrar desde la app.
+
+En **Ajustes → Movimientos recurrentes** se crean plantillas mensuales para sueldos, arriendo, servicios, colegio, seguros y suscripciones. Cada una define tipo, monto, categoría, persona, medio de pago, periodo inicial y día del ciclo. Al llegar la fecha se genera una sola vez; un identificador determinista evita duplicados aunque dos dispositivos procesen la plantilla simultáneamente.
+
 App web de una sola página para llevar el presupuesto del hogar en tiempo real, con estadísticas de comportamiento de compra, control de deudas y tarjetas, metas de ahorro y recomendaciones automáticas.
 
 Sin build ni dependencias que compilar: se sube tal cual a GitHub Pages. La base de datos es Firebase (Authentication + Cloud Firestore), así que varios teléfonos ven el mismo libro al instante. Se instala como app en el teléfono, funciona sin conexión y avisa cuando un sobre se está agotando.
@@ -8,9 +22,16 @@ Sin build ni dependencias que compilar: se sube tal cual a GitHub Pages. La base
 index.html          la app completa (HTML + CSS + JS)
 manifest.json       datos de instalación como app
 sw.js               service worker: offline y notificaciones
+version.json        versión publicada y actualización mínima obligatoria
 firestore.rules     reglas de seguridad de la base de datos
 iconos/             iconos de la app
 ```
+
+## Actualizaciones obligatorias
+
+La app consulta `version.json` al abrirse, al recuperar conexión, al volver desde segundo plano y cada 15 minutos. Si la versión publicada es distinta y está marcada como obligatoria, bloquea el uso hasta que el service worker instale los archivos nuevos.
+
+En cada publicación cambia coordinadamente `APP_VERSION` en `index.html`, `VERSION` en `sw.js` y `version`/`minVersion` en `version.json`. Usa `force: true` cuando todos los dispositivos deban actualizar inmediatamente.
 
 ---
 
@@ -46,7 +67,7 @@ Copia el contenido de `firestore.rules` en **Firestore Database → Reglas** y p
 
 Con estas reglas: solo los miembros de un hogar leen y escriben en él, y unirse exige conocer el código exacto de 8 caracteres.
 
-**Borrado restringido.** Cualquier miembro puede registrar, corregir y borrar movimientos uno a uno —la operación del día a día—, pero eliminar deudas, metas o el hogar entero queda reservado al administrador: el correo definido en `ADMIN_CORREO` dentro de `index.html`, o quien creó el hogar. Si cambias ese correo, cámbialo también en `firestore.rules`: las dos definiciones deben coincidir.
+**Borrado restringido.** Cualquier miembro puede registrar, corregir y borrar movimientos uno a uno —la operación del día a día—, pero eliminar deudas, metas o el hogar entero queda reservado exclusivamente a quien creó el hogar. La autorización utiliza el UID de Firebase y no depende de un correo escrito en el código.
 
 La restricción vive en las reglas del servidor, no en la interfaz. Ocultar un botón no protege nada, porque cualquiera con la consola del navegador podría llamar a la API igualmente.
 

@@ -14,11 +14,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Correo del administrador. Debe coincidir con ADMIN_CORREO en index.html.
-    function correoAdmin() {
-      return 'rodrigo.briones.friz@gmail.com';
-    }
-
     // Perfil de cada usuario: su hogar y su fondo personal
     match /usuarios/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
@@ -35,12 +30,143 @@ service cloud.firestore {
       function esMiembroDe() {
         return request.auth != null && request.auth.uid in datos().miembrosUid;
       }
-      // Administrador: el correo indicado arriba, o quien creó el hogar
+      // Administrador: exclusivamente quien creó el hogar. La autorización
+      // se basa en el UID inmutable de Firebase, nunca en un correo escrito
+      // en el cliente o en estas reglas.
       function esAdmin() {
-        return request.auth != null && (
-          request.auth.token.email == correoAdmin() ||
-          request.auth.uid == datos().get('adminUid', '')
-        );
+        return request.auth != null
+          && request.auth.uid == datos().get('adminUid', '');
+      }
+      function texto(v, maximo) {
+        return v is string && v.size() <= maximo;
+      }
+      function monto(v) {
+        return v is int && v >= 0 && v <= 999999999999999;
+      }
+      function fecha(v) {
+        return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      }
+      function mes(v) {
+        return v is string && v.matches('^[0-9]{4}-[0-9]{2}$');
+      }
+      function movimientoValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly([
+            'tipo', 'monto', 'categoria', 'sub', 'deudaId', 'fecha',
+            'metodo', 'tarjetaId', 'cuentaId', 'soloCuenta', 'miembro',
+            'nota', 'esencial', 'uid', 'autor', 'creado',
+            'ajusteCierre', 'esInteres', 'recurrenteId', 'periodoRecurrente'
+          ])
+          && d.keys().hasAll([
+            'tipo', 'monto', 'categoria', 'fecha', 'metodo',
+            'miembro', 'nota', 'esencial'
+          ])
+          && d.tipo in ['gasto', 'ingreso', 'ahorro', 'retiro', 'pago']
+          && monto(d.monto) && d.monto > 0
+          && texto(d.categoria, 12)
+          && fecha(d.fecha)
+          && texto(d.metodo, 40)
+          && texto(d.miembro, 100)
+          && texto(d.nota, 500)
+          && d.esencial is bool
+          && texto(d.get('sub', ''), 100)
+          && texto(d.get('deudaId', ''), 150)
+          && texto(d.get('tarjetaId', ''), 150)
+          && texto(d.get('cuentaId', ''), 150)
+          && texto(d.get('autor', ''), 150)
+          && ((d.get('recurrenteId', '') == '' && d.get('periodoRecurrente', '') == '')
+            || (texto(d.get('recurrenteId', ''), 150) && d.get('recurrenteId', '').size() > 0
+              && mes(d.get('periodoRecurrente', ''))))
+          && d.get('soloCuenta', false) is bool
+          && d.get('ajusteCierre', false) is bool
+          && d.get('esInteres', false) is bool;
+      }
+      function deudaValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly([
+            'nombre', 'tipo', 'saldo', 'original', 'tasaAnual',
+            'pagoMensual', 'creado'
+          ])
+          && d.keys().hasAll(['nombre', 'tipo', 'saldo', 'original', 'tasaAnual', 'pagoMensual'])
+          && texto(d.nombre, 120) && d.nombre.size() > 0
+          && texto(d.tipo, 60)
+          && monto(d.saldo) && monto(d.original) && monto(d.pagoMensual)
+          && d.original >= d.saldo
+          && d.tasaAnual is number && d.tasaAnual >= 0 && d.tasaAnual <= 1000;
+      }
+      function metaValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['nombre', 'objetivo', 'ahorrado', 'fechaLimite', 'creado'])
+          && d.keys().hasAll(['nombre', 'objetivo', 'ahorrado', 'fechaLimite'])
+          && texto(d.nombre, 120) && d.nombre.size() > 0
+          && monto(d.objetivo) && d.objetivo > 0
+          && monto(d.ahorrado)
+          && mes(d.fechaLimite);
+      }
+      function cuentaValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['nombre', 'banco', 'tipo', 'titular', 'saldoInicial', 'color', 'creado'])
+          && d.keys().hasAll(['nombre', 'banco', 'tipo', 'titular', 'saldoInicial', 'color'])
+          && texto(d.nombre, 120) && d.nombre.size() > 0
+          && texto(d.banco, 120) && texto(d.tipo, 60) && texto(d.titular, 100)
+          && monto(d.saldoInicial)
+          && d.color is string && d.color.matches('^#[0-9A-Fa-f]{6}$');
+      }
+      function cierreValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly([
+            'mes', 'fecha', 'saldos', 'teoricos', 'diferencias',
+            'iniciales', 'creado', 'soloRegistro', 'uid', 'autor'
+          ])
+          && d.keys().hasAll(['mes', 'fecha', 'saldos', 'teoricos', 'diferencias', 'iniciales', 'soloRegistro'])
+          && mes(d.mes) && fecha(d.fecha)
+          && d.saldos is map && d.teoricos is map && d.diferencias is map && d.iniciales is map
+          && d.soloRegistro is bool
+          && texto(d.get('uid', ''), 150) && texto(d.get('autor', ''), 150);
+      }
+      function conciliacionValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['fecha', 'saldos', 'teoricos', 'diferencias', 'creado', 'uid', 'autor'])
+          && d.keys().hasAll(['fecha', 'saldos', 'teoricos', 'diferencias'])
+          && fecha(d.fecha)
+          && d.saldos is map && d.teoricos is map && d.diferencias is map
+          && texto(d.get('uid', ''), 150) && texto(d.get('autor', ''), 150);
+      }
+      function papeleraValida() {
+        let d=request.resource.data;
+        return d.keys().hasOnly(['coleccion','originalId','datos','eliminado','expira','uid','autor'])
+          && d.keys().hasAll(['coleccion','originalId','datos','eliminado','expira','uid','autor'])
+          && d.coleccion in ['movimientos','deudas','metas','cuentas','cierres','conciliaciones','recurrentes']
+          && texto(d.originalId,150) && d.originalId.size()>0
+          && d.datos is map && d.eliminado is int && d.expira is int
+          && d.uid == request.auth.uid && texto(d.autor,150);
+      }
+      function auditoriaValida() {
+        let d=request.resource.data;
+        return d.keys().hasOnly(['accion','coleccion','documentoId','fecha','uid','autor','campos'])
+          && d.keys().hasAll(['accion','coleccion','documentoId','fecha','uid','autor'])
+          && d.accion in ['crear','editar','eliminar','recuperar','restaurar']
+          && texto(d.coleccion,40) && texto(d.documentoId,150)
+          && d.fecha is int && d.uid == request.auth.uid && texto(d.autor,150)
+          && d.get('campos',[]) is list;
+      }
+      function recurrenteValido() {
+        let d=request.resource.data;
+        return d.keys().hasOnly([
+            'nombre','tipo','monto','categoria','metodo','miembro','dia',
+            'activo','desde','nota','esencial','creado'
+          ])
+          && d.keys().hasAll([
+            'nombre','tipo','monto','categoria','metodo','miembro','dia',
+            'activo','desde','nota','esencial'
+          ])
+          && texto(d.nombre,120) && d.nombre.size()>0
+          && d.tipo in ['gasto','ingreso']
+          && monto(d.monto) && d.monto>0
+          && texto(d.categoria,12) && texto(d.metodo,40) && texto(d.miembro,100)
+          && d.dia is int && d.dia>=1 && d.dia<=28
+          && d.activo is bool && mes(d.desde)
+          && texto(d.nota,500) && d.esencial is bool;
       }
 
       // Solo se puede leer el hogar del que ya eres miembro
@@ -48,18 +174,43 @@ service cloud.firestore {
 
       // Crear un hogar: te incluyes a ti mismo y a nadie más, y quedas como admin
       allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'config', 'presupuestos', 'nombre', 'miembrosUid',
+          'adminUid', 'adminCorreo', 'creado'
+        ])
         && request.resource.data.miembrosUid == [request.auth.uid]
         && request.resource.data.adminUid == request.auth.uid;
 
-      // Actualizar: los miembros pueden todo, salvo cambiarse el administrador.
+      // Los miembros pueden editar la información funcional del hogar, pero
+      // no la administración ni la lista de UIDs autorizados.
+      // El administrador puede gestionar miembros sin transferir por accidente
+      // la propiedad del hogar.
       // Un no miembro solo puede añadirse a sí mismo (unirse con el código),
       // sin quitar a nadie ni tocar otros campos en esa misma operación.
       allow update: if (esMiembro()
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['config', 'presupuestos', 'perfiles', 'nombre']))
+        || (esAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['config', 'presupuestos', 'perfiles', 'nombre', 'miembrosUid', 'adminCorreo'])
             && request.resource.data.get('adminUid','') == resource.data.get('adminUid',''))
+        || (esAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['adminUid', 'adminCorreo'])
+            && request.resource.data.adminUid != resource.data.adminUid
+            && request.resource.data.adminUid in resource.data.miembrosUid)
+        || (esMiembro()
+            && request.auth.uid != resource.data.get('adminUid','')
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['miembrosUid'])
+            && !(request.auth.uid in request.resource.data.miembrosUid)
+            && resource.data.miembrosUid.removeAll(request.resource.data.miembrosUid) == [request.auth.uid]
+            && request.resource.data.miembrosUid.size() == resource.data.miembrosUid.size() - 1)
         || (request.auth != null
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['miembrosUid'])
             && request.resource.data.miembrosUid.hasAll(resource.data.miembrosUid)
-            && request.resource.data.miembrosUid.removeAll(resource.data.miembrosUid) == [request.auth.uid]);
+            && request.resource.data.miembrosUid.removeAll(resource.data.miembrosUid) == [request.auth.uid]
+            && request.resource.data.miembrosUid.size() == resource.data.miembrosUid.size() + 1
+            && request.resource.data.miembrosUid.size() <= 20);
 
       // Eliminar el hogar entero: solo el administrador
       allow delete: if esAdmin();
@@ -67,24 +218,60 @@ service cloud.firestore {
       // Movimientos: cualquier miembro los registra, corrige y borra uno a uno.
       // Es la operación cotidiana y siempre puntual.
       match /movimientos/{docId} {
-        allow read, create, update, delete: if esMiembroDe();
+        allow read, delete: if esMiembroDe();
+        allow create: if esMiembroDe()
+          && movimientoValido()
+          && (request.resource.data.get('uid', '') == request.auth.uid || esAdmin());
+        allow update: if esMiembroDe()
+          && movimientoValido()
+          && request.resource.data.get('uid', '') == resource.data.get('uid', '');
       }
 
       // Deudas y metas: cualquiera las crea y actualiza, pero eliminarlas
       // borra un historial completo, así que queda para el administrador.
       match /deudas/{docId} {
-        allow read, create, update: if esMiembroDe();
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && deudaValida();
         allow delete: if esAdmin();
       }
       match /metas/{docId} {
-        allow read, create, update: if esMiembroDe();
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && metaValida();
+        allow delete: if esAdmin();
+      }
+      match /cuentas/{docId} {
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && cuentaValida();
+        allow delete: if esAdmin();
+      }
+      match /cierres/{docId} {
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && cierreValido();
+        allow delete: if esAdmin();
+      }
+      match /conciliaciones/{docId} {
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && conciliacionValida();
+        allow delete: if esAdmin();
+      }
+      match /papelera/{docId} {
+        allow read: if esMiembroDe();
+        allow create: if esMiembroDe() && papeleraValida();
+        allow delete: if esAdmin();
+      }
+      match /auditoria/{docId} {
+        allow read: if esMiembroDe();
+        allow create: if esMiembroDe() && auditoriaValida();
+        allow update, delete: if false;
+      }
+      match /recurrentes/{docId} {
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && recurrenteValido();
         allow delete: if esAdmin();
       }
 
-      // Cualquier otra subcolección futura: solo miembros
-      match /{coleccion}/{docId} {
-        allow read, write: if esMiembroDe();
-      }
+      // No hay comodín de escritura: una colección futura queda denegada
+      // hasta que tenga reglas y validaciones explícitas.
     }
   }
 }

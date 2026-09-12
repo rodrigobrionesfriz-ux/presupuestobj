@@ -6,7 +6,7 @@
    - Firebase y Google Fonts: nunca se interceptan; Firestore ya tiene su propia caché local.
 */
 
-const VERSION = "pf-v1";
+const VERSION = "pf-v1.5.0";
 const SHELL = [
   "./",
   "./index.html",
@@ -39,7 +39,9 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((claves) => Promise.all(claves.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then((claves) => Promise.all(claves
+        .filter((k) => k.startsWith("pf-") && k !== VERSION)
+        .map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -50,6 +52,13 @@ self.addEventListener("fetch", (e) => {
 
   const url = new URL(req.url);
   if (AJENOS.some((d) => url.hostname.endsWith(d))) return; // fuera del service worker
+
+  // La versión publicada nunca se sirve desde caché: una instalación antigua
+  // debe poder descubrir inmediatamente que existe una actualización.
+  if (url.origin === self.location.origin && url.pathname.endsWith("/version.json")) {
+    e.respondWith(fetch(req, { cache: "no-store" }));
+    return;
+  }
 
   // HTML: red primero
   if (req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html")) {
