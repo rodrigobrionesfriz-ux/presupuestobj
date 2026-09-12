@@ -14,6 +14,10 @@ Las eliminaciones normales pasan a una **papelera por 30 días** en vez de desap
 
 En **Ajustes → Movimientos recurrentes** se crean plantillas mensuales para sueldos, arriendo, servicios, colegio, seguros y suscripciones. Cada una define tipo, monto, categoría, persona, medio de pago, periodo inicial y día del ciclo. Al llegar la fecha se genera una sola vez; un identificador determinista evita duplicados aunque dos dispositivos procesen la plantilla simultáneamente.
 
+En **Ajustes → Datos → Importar cartola** se aceptan archivos CSV, XLS y XLSX. La app permite asignar las columnas de fecha, glosa, cargo, abono o monto con signo, muestra una vista previa, sugiere categorías por comercio, permite corregirlas y excluye duplicados antes de guardar. Cada importación admite hasta 2.000 filas leídas y muestra hasta 300 para revisión individual.
+
+Las correcciones realizadas en la vista previa pueden guardarse como **reglas de categorización aprendidas**. Se normaliza la glosa para ignorar números de operación y palabras bancarias comunes, se aplican las reglas compartidas antes que las sugerencias generales y se limita el hogar a 500 reglas. Todas pueden revisarse o eliminarse desde Ajustes.
+
 App web de una sola página para llevar el presupuesto del hogar en tiempo real, con estadísticas de comportamiento de compra, control de deudas y tarjetas, metas de ahorro y recomendaciones automáticas.
 
 Sin build ni dependencias que compilar: se sube tal cual a GitHub Pages. La base de datos es Firebase (Authentication + Cloud Firestore), así que varios teléfonos ven el mismo libro al instante. Se instala como app en el teléfono, funciona sin conexión y avisa cuando un sobre se está agotando.

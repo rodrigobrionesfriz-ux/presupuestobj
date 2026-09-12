@@ -933,7 +933,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.7.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -1302,6 +1302,12 @@ const DB = {
     const mov=movimientoDesdeRecurrente(rec,periodo);
     await this.mutarMovimiento(null,mov); return true;
   },
+  async importarMovimientos(lista){
+    if(S.modo==="nube"&&FB) return await FB.importarMovimientos(lista);
+    const nuevos=lista.map(x=>({...x,id:uid(),creado:Date.now()}));
+    S.movimientos=[...S.movimientos,...nuevos];
+    nuevos.forEach(x=>this.auditar("crear","movimientos",x.id,["importado"])); render();
+  },
 };
 
 /* ============================ Firebase ============================ */
@@ -1586,6 +1592,18 @@ async function iniciarFirebase(){
         creado=true;
       });
       return creado;
+    },
+    async importarMovimientos(lista){
+      for(let i=0;i<lista.length;i+=200){
+        const lote=writeBatch(db);
+        lista.slice(i,i+200).forEach(m=>{
+          const ref=doc(collection(db,"hogares",S.hogarId,"movimientos"));
+          lote.set(ref,m);
+          lote.set(doc(collection(db,"hogares",S.hogarId,"auditoria")),
+            datoAuditoria("crear","movimientos",ref.id,["importado"]));
+        });
+        await lote.commit();
+      }
     },
   };
 
@@ -3582,12 +3600,22 @@ function vAjustes(R){
   </section>
 
   <section class="tarjeta">
+    <div class="cab"><h2>Reglas de categorización</h2><span class="cod">${Object.keys(S.config.reglasCategoria||{}).length} aprendidas</span></div>
+    <p class="nota">Cuando corriges la categoría de un comercio al importar una cartola, la app recuerda esa elección para la próxima vez.</p>
+    ${Object.entries(S.config.reglasCategoria||{}).length?`<div class="detalle-lista">${Object.entries(S.config.reglasCategoria||{}).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,c])=>`
+      <div class="detalle-fila"><div><b>${esc(k)}</b><span>${esc(CAT[c]?.nombre||c)}</span></div>
+        <button class="btn mini" data-borrar-regla="${esc(k)}">Quitar</button></div>`).join("")}</div>`:
+      `<p class="nota">Todavía no hay reglas aprendidas.</p>`}
+  </section>
+
+  <section class="tarjeta">
     <div class="cab"><h2>Datos</h2><span class="cod">${S.movimientos.length} movimientos</span></div>
     <div class="fila-btns">
       <button class="btn primario" data-accion="excel">Descargar reporte Excel</button>
       <button class="btn" data-accion="csv">CSV simple</button>
       <button class="btn" data-accion="respaldo-json">Respaldo completo</button>
       ${esAdmin()?`<button class="btn" data-accion="restaurar-json">Restaurar respaldo</button>`:""}
+      <button class="btn" data-accion="importar-cartola">Importar cartola</button>
       <button class="btn" data-accion="actividad">Ver actividad</button>
       ${esAdmin()&&S.papelera.length?`<button class="btn" data-accion="papelera">Papelera (${S.papelera.length})</button>`:""}
       <button class="btn" data-accion="ejemplo">Cargar ejemplo</button>
@@ -3784,6 +3812,10 @@ function conectar(R){
   document.querySelectorAll("[data-editar-deuda]").forEach(b=>b.onclick=()=>modalDeuda(b.dataset.editarDeuda));
   document.querySelectorAll("[data-editar-meta]").forEach(b=>b.onclick=()=>modalMeta(b.dataset.editarMeta));
   document.querySelectorAll("[data-editar-recurrente]").forEach(b=>b.onclick=()=>modalRecurrente(b.dataset.editarRecurrente));
+  document.querySelectorAll("[data-borrar-regla]").forEach(b=>b.onclick=async()=>{
+    const reglas={...(S.config.reglasCategoria||{})}; delete reglas[b.dataset.borrarRegla];
+    await DB.guardarHogar({config:{...S.config,reglasCategoria:reglas}}); avisar("Regla eliminada");
+  });
   const opf=$("#op-fondo");
   if(opf){
     opf.oninput=e=>{ S.fondoOpacidad=Number(e.target.value)/100; pintarFondo();
@@ -3862,6 +3894,7 @@ function acciones(a,R){
     "generar-recurrentes":async()=>{
       const n=await procesarRecurrentes(); avisar(n?`${n} movimiento${n===1?"":"s"} generado${n===1?"":"s"}`:"No hay movimientos pendientes");
     },
+    "importar-cartola":()=>elegirCartola(),
     "permiso-alertas":()=>pedirPermisoAlertas(),
     "probar-alerta":async()=>{
       const ok = await notificar("Aviso de prueba","Así se verá cuando un sobre llegue al 90% de su presupuesto.");
@@ -4380,6 +4413,7 @@ function iniciarHistorial(){
   }catch{}
 }
 
+const MODAL_REEMPLAZADO=Symbol("modal-reemplazado");
 function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
   const h=$("#modal-host");
   h.innerHTML=`<div class="modal"><div class="hoja" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
@@ -4414,6 +4448,7 @@ function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
     const boton=$("#m-ok"); boton.disabled=true;
     try{
       const err = await onGuardar();
+      if(err===MODAL_REEMPLAZADO) return;
       if(err){const e=$("#m-error");e.textContent=err;e.classList.remove("oculto")}
       else cerrarModal();
     }catch(err){
@@ -5265,6 +5300,148 @@ function solicitarBorrado(){
 
 /* ================= respaldo y restauración completos ============= */
 const COLECCIONES_RESPALDO = ["movimientos","deudas","metas","cuentas","cierres","conciliaciones","recurrentes"];
+
+/* ================= importación de cartolas ======================== */
+const limpiarTexto=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+function claveComercio(glosa){
+  const omitir=new Set(["compra","debito","credito","pago","transferencia","transfer","transaccion","cargo","abono","pos","web","cl","chile","spa","ltda","sa"]);
+  const palabras=limpiarTexto(glosa).replace(/[^a-z0-9 ]/g," ").split(/\s+/)
+    .filter(x=>x&&!/^\d+$/.test(x)&&!omitir.has(x));
+  const clave=palabras.slice(0,5).join(" ").slice(0,80);
+  return ["__proto__","prototype","constructor"].includes(clave)?`comercio ${clave}`:clave;
+}
+function parsearCSV(texto){
+  texto=texto.replace(/^\uFEFF/,"");
+  const primera=(texto.split(/\r?\n/,1)[0]||""), sep=(primera.match(/;/g)||[]).length>(primera.match(/,/g)||[]).length?";":",";
+  const filas=[]; let fila=[],campo="",comillas=false;
+  for(let i=0;i<texto.length;i++){
+    const c=texto[i];
+    if(c==='"'&&comillas&&texto[i+1]==='"'){campo+='"';i++;}
+    else if(c==='"')comillas=!comillas;
+    else if(c===sep&&!comillas){fila.push(campo);campo="";}
+    else if((c==='\n'||c==='\r')&&!comillas){
+      if(c==='\r'&&texto[i+1]==='\n')i++; fila.push(campo); if(fila.some(x=>x.trim()))filas.push(fila); fila=[];campo="";
+    }else campo+=c;
+  }
+  fila.push(campo); if(fila.some(x=>x.trim()))filas.push(fila); return filas;
+}
+function fechaCartola(v){
+  if(v instanceof Date&&!isNaN(v))return `${v.getFullYear()}-${pad(v.getMonth()+1)}-${pad(v.getDate())}`;
+  const s=String(v??"").trim(); let m;
+  if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/)))return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))){const y=m[3].length===2?`20${m[3]}`:m[3];return `${y}-${pad(m[2])}-${pad(m[1])}`;}
+  return "";
+}
+function montoCartola(v){
+  if(typeof v==="number")return v;
+  let s=String(v??"").trim().replace(/[^\d,.-]/g,""); if(!s)return 0;
+  const neg=s.includes("-"); s=s.replace(/-/g,"");
+  const coma=s.lastIndexOf(','),punto=s.lastIndexOf('.');
+  if(coma>punto)s=s.replace(/\./g,"").replace(',','.');
+  else if(punto>coma&&s.length-punto-1===3)s=s.replace(/\./g,"");
+  else s=s.replace(/,/g,"");
+  const n=parseFloat(s)||0; return neg?-n:n;
+}
+function categoriaSugerida(glosa){
+  const s=limpiarTexto(glosa), aprendida=S.config?.reglasCategoria?.[claveComercio(glosa)];
+  if(aprendida&&CAT[aprendida]) return aprendida;
+  const reglas=[
+    ["ALM",/supermerc|lider|jumbo|santa isabel|unimarc|tottus|acuenta|mercado|panader|carnicer|verduler/],
+    ["TRA",/copec|shell|enex|petrobras|bencina|combust|peaje|estacionamiento|uber|cabify|taxi|bus/],
+    ["HOG",/enel|frontel|cge|essbio|aguas|gasco|lipigas|metrogas|internet|movistar|entel|wom|claro|arriendo|dividendo/],
+    ["SAL",/farmac|cruz verde|salcobrand|ahumada|clinica|hospital|medic|isapre|fonasa/],
+    ["EDU",/coleg|jardin|univers|instituto|matricula|mensualidad|libreria/],
+    ["RES",/restaurant|cafeter|delivery|pedidos ya|rappi|burger|pizza|sushi|mcdonald/],
+    ["SUS",/netflix|spotify|youtube|google|icloud|amazon prime|disney|hbo|microsoft/],
+    ["ROP",/falabella|ripley|paris|zara|h&m|calzado|vestuario/]
+  ];
+  return reglas.find(([,r])=>r.test(s))?.[0]||"OTR";
+}
+const huellaMovimiento=m=>[m.fecha,m.tipo,Math.round(m.monto),limpiarTexto(m.nota)].join("|");
+
+async function elegirCartola(){
+  const input=document.createElement("input");input.type="file";input.accept=".csv,.txt,.xlsx,.xls";
+  input.onchange=async()=>{
+    const f=input.files?.[0];if(!f)return;if(f.size>20*1024*1024){avisar("La cartola supera los 20 MB");return;}
+    try{
+      let filas;
+      if(/\.csv$|\.txt$/i.test(f.name))filas=parsearCSV(await f.text());
+      else{
+        const X=await cargarXLSX(),libro=X.read(await f.arrayBuffer(),{type:"array",cellDates:true});
+        const hoja=libro.Sheets[libro.SheetNames[0]];filas=X.utils.sheet_to_json(hoja,{header:1,defval:"",raw:true});
+      }
+      filas=filas.filter(r=>Array.isArray(r)&&r.some(x=>String(x).trim()));
+      if(filas.length<2)throw new Error("No se encontraron filas para importar.");
+      modalMapeoCartola(f.name,filas.slice(0,2001));
+    }catch(err){console.error(err);avisar(err.message||"No se pudo leer la cartola");}
+  };input.click();
+}
+
+function modalMapeoCartola(nombre,filas){
+  const cab=filas[0].map(String), normal=cab.map(limpiarTexto);
+  const buscar=(...pat)=>{const i=normal.findIndex(x=>pat.some(p=>x.includes(p)));return i>=0?String(i):""};
+  const opt=(valor,permitirVacio=true)=>`${permitirVacio?'<option value="">No usar</option>':""}${cab.map((x,i)=>`<option value="${i}" ${String(i)===valor?"selected":""}>${esc(x||`Columna ${i+1}`)}</option>`).join("")}`;
+  modal("Asignar columnas",`
+    <p class="nota migaja">${esc(nombre)} · ${filas.length-1} filas detectadas</p>
+    <p class="nota">Indica qué representa cada columna. Puedes usar Cargo y Abono separados, o una sola columna Monto con signo.</p>
+    <div class="campos-2"><label class="campo"><span>Fecha</span><select id="ic-fecha">${opt(buscar("fecha"),false)}</select></label>
+      <label class="campo"><span>Descripción o glosa</span><select id="ic-glosa">${opt(buscar("descripcion","descripci","glosa","detalle","concepto"),false)}</select></label></div>
+    <div class="campos-2"><label class="campo"><span>Cargo o egreso</span><select id="ic-cargo">${opt(buscar("cargo","debe","egreso","retiro"))}</select></label>
+      <label class="campo"><span>Abono o ingreso</span><select id="ic-abono">${opt(buscar("abono","haber","ingreso","deposito"))}</select></label></div>
+    <label class="campo"><span>Monto único con signo</span><select id="ic-monto">${opt(buscar("monto","importe","valor"))}</select></label>
+    <p class="nota ayuda">En monto único, los valores negativos se interpretan como gastos y los positivos como ingresos.</p>
+  `,async()=>{
+    const map={fecha:$("#ic-fecha").value,glosa:$("#ic-glosa").value,cargo:$("#ic-cargo").value,abono:$("#ic-abono").value,monto:$("#ic-monto").value};
+    if(map.fecha===""||map.glosa==="")return "Selecciona fecha y descripción.";
+    if(map.cargo===""&&map.abono===""&&map.monto==="")return "Selecciona Cargo/Abono o Monto.";
+    const datos=[],invalidas=[];
+    filas.slice(1).forEach((r,i)=>{
+      const fecha=fechaCartola(r[Number(map.fecha)]),nota=String(r[Number(map.glosa)]??"").trim();let tipo,monto;
+      const cargo=map.cargo===""?0:Math.abs(montoCartola(r[Number(map.cargo)]));
+      const abono=map.abono===""?0:Math.abs(montoCartola(r[Number(map.abono)]));
+      if(cargo){tipo="gasto";monto=cargo;}else if(abono){tipo="ingreso";monto=abono;}else{
+        const n=montoCartola(r[Number(map.monto)]);tipo=n<0?"gasto":"ingreso";monto=Math.abs(n);
+      }
+      if(!fecha||!nota||!monto){invalidas.push(i+2);return;}
+      const sugerida=tipo==="gasto"?categoriaSugerida(nota):"OTR";
+      datos.push({tipo,monto:Math.round(monto),categoria:sugerida,sub:"",deudaId:"",fecha,
+        metodo:"Transferencia",tarjetaId:"",cuentaId:"",soloCuenta:false,miembro:miNombre(),nota,
+        esencial:tipo==="gasto"?(CAT[sugerida]?.esencial??false):true,uid:S.uid||"",autor:miNombre(),creado:Date.now(),
+        _clave:claveComercio(nota),_sugeridaInicial:sugerida});
+    });
+    if(!datos.length)return "No hubo filas válidas. Revisa las columnas y el formato de fecha.";
+    modalPreviaCartola(datos,invalidas);
+    return MODAL_REEMPLAZADO;
+  },"Revisar movimientos");
+}
+
+function modalPreviaCartola(datos,invalidas){
+  const existentes=new Set(S.movimientos.map(huellaMovimiento)),vistas=new Set();
+  datos.forEach((m,i)=>{const h=huellaMovimiento(m);m._duplicado=existentes.has(h)||vistas.has(h);vistas.add(h);m._importar=!m._duplicado;m._i=i;});
+  const duplicados=datos.filter(x=>x._duplicado).length,mostrar=datos.slice(0,300);
+  modal("Revisar importación",`
+    <p class="nota">${datos.length} movimientos válidos · ${duplicados} duplicados excluidos${invalidas.length?` · ${invalidas.length} filas omitidas`:""}.</p>
+    <label class="check"><input type="checkbox" id="ic-recordar" checked><span>Recordar mis correcciones de categoría para futuras cartolas</span></label>
+    ${datos.length>300?'<p class="aviso-credito">Se muestran los primeros 300 registros. Los restantes conservarán la categoría sugerida.</p>':""}
+    <div class="detalle-lista">${mostrar.map(m=>`<div class="detalle-fila"><label class="check"><input type="checkbox" data-ic-check="${m._i}" ${m._importar?"checked":""} ${m._duplicado?"disabled":""}><span><b>${esc(m.nota)}</b><small>${esc(m.fecha)} · ${m.tipo==="gasto"?"−":"+"}${fmt(m.monto)}${m._duplicado?" · duplicado":""}</small></span></label>${m.tipo==="gasto"?`<select class="mini-select" data-ic-cat="${m._i}">${CATEGORIAS.map(c=>`<option value="${c.cod}" ${c.cod===m.categoria?"selected":""}>${esc(c.nombre)}</option>`).join("")}</select>`:""}</div>`).join("")}</div>
+  `,async()=>{
+    document.querySelectorAll("[data-ic-check]").forEach(x=>datos[Number(x.dataset.icCheck)]._importar=x.checked);
+    document.querySelectorAll("[data-ic-cat]").forEach(x=>{const m=datos[Number(x.dataset.icCat)];m.categoria=x.value;m.esencial=CAT[x.value]?.esencial??false;});
+    const elegidos=datos.filter(x=>x._importar&&!x._duplicado);
+    if($("#ic-recordar").checked){
+      const reglas={...(S.config.reglasCategoria||{})}; let cambios=0;
+      elegidos.filter(x=>x.tipo==="gasto"&&x._clave&&x.categoria!==x._sugeridaInicial).forEach(x=>{
+        if(reglas[x._clave]!==x.categoria&&(Object.prototype.hasOwnProperty.call(reglas,x._clave)||Object.keys(reglas).length<500)){
+          reglas[x._clave]=x.categoria;cambios++;
+        }
+      });
+      if(cambios) await DB.guardarHogar({config:{...S.config,reglasCategoria:reglas}});
+    }
+    const lista=elegidos.map(({_duplicado,_importar,_i,_clave,_sugeridaInicial,...m})=>m);
+    if(!lista.length)return "No hay movimientos seleccionados.";
+    await DB.importarMovimientos(lista);avisar(`${lista.length} movimientos importados`);
+  },"Importar seleccionados");
+}
 
 function crearRespaldo(){
   return {
