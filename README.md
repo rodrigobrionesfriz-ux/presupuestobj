@@ -22,6 +22,14 @@ La estimación de cierre separa los gastos fijos de los variables y reconoce las
 
 En el Panel, la tarjeta **En qué se va el dinero** permite tocar la barra o las filas Esencial y Prescindible. Cada opción abre su total, cantidad de movimientos, ticket promedio, desglose por categoría y lista editable de operaciones.
 
+Al cerrar un periodo, sus movimientos quedan bloqueados contra nuevas altas, ediciones, eliminaciones, recuperaciones desde la papelera e importaciones. Solo el administrador puede usar **Reabrir periodo**; al hacerlo se retiran el cierre y sus ajustes automáticos, se conservan en la papelera y la actividad deja trazabilidad de las eliminaciones.
+
+Al crear o editar un movimiento, la app compara fecha, tipo, monto, concepto normalizado, persona y medio de pago con el historial. Si encuentra una coincidencia exacta advierte sobre el posible duplicado; un segundo toque en Guardar permite confirmar los casos legítimamente repetidos.
+
+El Resumen incluye un comparativo del gasto actual contra el mismo día del ciclo anterior y contra el promedio, al mismo punto, de hasta seis ciclos anteriores con datos. Así no se compara un mes parcial con uno completo. También incorpora una tabla de variaciones comparables por categoría que permite abrir cada detalle.
+
+El botón **Generar PDF**, disponible en Resumen y en Ajustes → Datos, crea un informe A4 con indicadores, cierre estimado, comparativo histórico, presupuesto por categoría, distribución por integrante, deudas y recomendaciones. En el diálogo de impresión del teléfono o computador se selecciona **Guardar como PDF**.
+
 App web de una sola página para llevar el presupuesto del hogar en tiempo real, con estadísticas de comportamiento de compra, control de deudas y tarjetas, metas de ahorro y recomendaciones automáticas.
 
 Sin build ni dependencias que compilar: se sube tal cual a GitHub Pages. La base de datos es Firebase (Authentication + Cloud Firestore), así que varios teléfonos ven el mismo libro al instante. Se instala como app en el teléfono, funciona sin conexión y avisa cuando un sobre se está agotando.

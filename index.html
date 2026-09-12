@@ -291,6 +291,7 @@ td.num{font-family:var(--tipo-num);font-variant-numeric:tabular-nums}
   border-top:1px dotted var(--rayado)}
 .metricas em{display:block;font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--suave)}
 .metricas b{font-family:var(--tipo-num);font-size:16px;font-weight:500}
+.metricas small{display:block;margin-top:2px;color:var(--suave);font-size:10px}
 .lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
 .lista-cab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
 .lista-cab b{font-family:var(--tipo-num);font-weight:500}
@@ -937,7 +938,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "1.8.1";
+const APP_VERSION = "2.0.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -1223,6 +1224,7 @@ const DB = {
     else render();
   },
   async agregar(col,obj){
+    if(col==="movimientos") asegurarPeriodoAbierto(null,obj);
     const doc = {...obj, id:obj.id||uid(), creado:Date.now()};
     if(S.modo==="nube" && FB) return await FB.agregar(col,doc);
     S[col] = [...S[col],doc]; this.auditar("crear",col,doc.id,Object.keys(obj)); render();
@@ -1232,8 +1234,9 @@ const DB = {
     if(S.modo==="nube" && FB) await FB.actualizar(col,id,patch);
     else { S[col]=S[col].map(x=>x.id===id?{...x,...patch}:x); this.auditar("editar",col,id,Object.keys(patch)); render(); }
   },
-  async borrar(col,id){
+  async borrar(col,id,permitirCerrado=false){
     const actual=S[col]?.find(x=>x.id===id); if(!actual) return;
+    if(col==="movimientos"&&!permitirCerrado) asegurarPeriodoAbierto(actual,null);
     if(S.modo==="nube" && FB) await FB.borrar(col,id,actual);
     else {
       S.papelera=[...S.papelera,{id:uid(),coleccion:col,originalId:id,datos:actual,
@@ -1242,6 +1245,7 @@ const DB = {
     }
   },
   async mutarMovimiento(antes,despues){
+    asegurarPeriodoAbierto(antes,despues);
     if(S.modo==="nube" && FB) return await FB.mutarMovimiento(antes,despues);
     const cambios=deltasDeudaMovimiento(antes,despues);
     for(const [id,delta] of Object.entries(cambios)){
@@ -1283,6 +1287,7 @@ const DB = {
     render();
   },
   async recuperarPapelera(item){
+    if(item.coleccion==="movimientos") asegurarPeriodoAbierto(null,item.datos);
     if(S.modo==="nube" && FB) return await FB.recuperarPapelera(item);
     const dato={...item.datos,id:item.originalId};
     const mapa=new Map((S[item.coleccion]||[]).map(x=>[x.id,x])); mapa.set(dato.id,dato);
@@ -1307,6 +1312,7 @@ const DB = {
     await this.mutarMovimiento(null,mov); return true;
   },
   async importarMovimientos(lista){
+    lista.forEach(m=>asegurarPeriodoAbierto(null,m));
     if(S.modo==="nube"&&FB) return await FB.importarMovimientos(lista);
     const nuevos=lista.map(x=>({...x,id:uid(),creado:Date.now()}));
     S.movimientos=[...S.movimientos,...nuevos];
@@ -1839,6 +1845,12 @@ const remanenteAntesDe = mes => remanenteInfo(mes).monto;
    que nunca se anotó. Al arrancar cada cierre desde el saldo declarado,
    los errores de un mes no se arrastran a los siguientes. */
 const cierreDe = mes => S.cierres.find(c=>c.mes===mes);
+const periodoCerrado = fecha=>cierreDe(periodoDe(fecha));
+function asegurarPeriodoAbierto(antes,despues){
+  const bloqueados=[antes,despues].filter(Boolean).map(m=>periodoDe(m.fecha))
+    .filter((m,i,a)=>a.indexOf(m)===i && cierreDe(m));
+  if(bloqueados.length) throw new Error(`El periodo ${etiquetaPeriodo(bloqueados[0])} está cerrado. El administrador debe reabrirlo antes de modificar sus movimientos.`);
+}
 const ultimaConciliacion = ()=>[...(S.conciliaciones||[])].sort((a,b)=>a.fecha<b.fecha?1:-1)[0];
 
 const diaAnterior = iso=>{ const d=aDate(iso); d.setDate(d.getDate()-1);
@@ -2083,8 +2095,10 @@ function calcular(){
 
   const porCat = CATEGORIAS.map(c=>{
     const l = gastos.filter(g=>g.categoria===c.cod);
+    const lAnt = gastosAnt.filter(g=>g.categoria===c.cod);
     const total = l.reduce((a,b)=>a+b.monto,0);
-    const totalAnt = gastosAnt.filter(g=>g.categoria===c.cod).reduce((a,b)=>a+b.monto,0);
+    const totalAnt = lAnt.reduce((a,b)=>a+b.monto,0);
+    const totalAntCorte = lAnt.filter(g=>diaEnCiclo(g.fecha,mesAnt)<=diaHoy).reduce((a,b)=>a+b.monto,0);
     const pres = S.presupuestos[c.cod]||0;
     /* Reparto interno: primero los sub-sobres declarados, después lo que
        quedó sin clasificar, para que la suma cuadre siempre con el total. */
@@ -2097,9 +2111,10 @@ function calcular(){
     l.forEach(g=>{ const k=g.miembro||"—"; porQuien[k]=(porQuien[k]||0)+g.monto; });
     const personas = Object.entries(porQuien).map(([nombre,monto])=>({nombre,monto}))
       .sort((a,b)=>b.monto-a.monto);
-    return {...c,total,totalAnt,pres,n:l.length,subs,personas,
+    return {...c,total,totalAnt,totalAntCorte,pres,n:l.length,subs,personas,
       ticket:l.length?total/l.length:0,
-      uso:pres>0?total/pres:null, variacion: totalAnt>0? (total-totalAnt)/totalAnt : null, delta: total-totalAnt};
+      uso:pres>0?total/pres:null, variacion: totalAnt>0? (total-totalAnt)/totalAnt : null,
+      variacionCorte:totalAntCorte>0?(total-totalAntCorte)/totalAntCorte:null, delta: total-totalAnt};
   }).sort((a,b)=>b.total-a.total);
 
   const esenciales = gastos.filter(g=>g.esencial).reduce((a,b)=>a+b.monto,0);
@@ -2120,6 +2135,18 @@ function calcular(){
     const i=S.movimientos.filter(m=>enPeriodo(m.fecha,mm)&&m.tipo==="ingreso").reduce((a,b)=>a+b.monto,0);
     historico.push({mes:mesCorto(mm),gasto:g,ingreso:i});
   }
+  const gastoAnterior=gastosAnt.reduce((a,b)=>a+b.monto,0);
+  const gastoAnteriorCorte=gastosAnt.filter(g=>diaEnCiclo(g.fecha,mesAnt)<=diaHoy).reduce((a,b)=>a+b.monto,0);
+  const basesPromedio=[];
+  for(let k=1;k<=6;k++){
+    const mm=sumaMes(mes,-k);
+    const movs=S.movimientos.filter(m=>enPeriodo(m.fecha,mm));
+    if(movs.length) basesPromedio.push(movs.filter(m=>m.tipo==="gasto"&&diaEnCiclo(m.fecha,mm)<=diaHoy).reduce((a,b)=>a+b.monto,0));
+  }
+  const promedioHistorico=basesPromedio.length
+    ? basesPromedio.reduce((a,b)=>a+b,0)/basesPromedio.length : 0;
+  const variacionAnterior=gastoAnteriorCorte>0?(totalGasto-gastoAnteriorCorte)/gastoAnteriorCorte:null;
+  const variacionPromedio=promedioHistorico>0?(totalGasto-promedioHistorico)/promedioHistorico:null;
   const porDia = DIAS.map((d,i)=>{
     const l=gastos.filter(g=>aDate(g.fecha).getDay()===i);
     return {dia:d,total:l.reduce((a,b)=>a+b.monto,0),n:l.length};
@@ -2205,6 +2232,7 @@ function calcular(){
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
+    gastoAnterior,gastoAnteriorCorte,promedioHistorico,periodosPromedio:basesPromedio.length,variacionAnterior,variacionPromedio,
     gastoFijo,gastoVariable,ritmoVariable,variableRestante,metodoProyeccion,fijosPendientes,detalleFijos,margenRestante,margenTrasFijos,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
@@ -2573,7 +2601,8 @@ function avisoCierre(R){
           <em class="${(c.diferencias?.[n]||0)<0?"rojo":"verde"}">${
             Math.abs(c.diferencias?.[n]||0)<1? "cuadra"
             : `${c.diferencias[n]<0?"−":"+"}${fmt(Math.abs(c.diferencias[n]))}`}</em></li>`).join("")}</ul>
-      <div class="fila-btns"><button class="btn mini" data-cerrar-mes="${R.mes}">Revisar el cierre</button></div>
+      <p class="nota">Los movimientos de este periodo están bloqueados para conservar la cuadratura.</p>
+      ${esAdmin()?`<div class="fila-btns"><button class="btn mini peligro" data-reabrir-mes="${R.mes}">Reabrir periodo</button></div>`:""}
     </section>`;
   }
   return `<section class="tarjeta" data-acento="ambar">
@@ -2714,11 +2743,11 @@ function modalCierre(mes){
      los movimientos posteriores deben contarse en el periodo siguiente. */
   const corte = mes===periodoDe(hoyISO())? hoyISO() : finPeriodo(mes);
   const previo = cierreDe(mes);
+  if(previo){ avisar(esAdmin()?"Reabre primero el periodo para modificar su cierre":"Este periodo está cerrado"); return; }
   const datos = personas.map(n=>({nombre:n, ...saldoTeorico(n,mes)}));
   const primero = !datos.some(d=>d.hayPrevio);
 
   modal(`Cerrar ${etiquetaPeriodo(mes)}`,`
-    ${previo?`<p class="aviso-credito">Este periodo ya se cerró el ${esc(previo.fecha)}. Si vuelves a cerrarlo se reemplazarán los ajustes anteriores.</p>`:""}
     <p class="nota">Anota el saldo <b>real</b> que tenía cada persona al ${corte===hoyISO()? "día de hoy" : "cierre del "+corte} en sus cuentas de uso diario. La diferencia con lo que la app calcula se registra como <b>gasto no registrado</b>, que es donde acaban las compras hormiga que nunca se anotan.</p>
 
     <ul class="cierre">${datos.map((d,i)=>`
@@ -2791,7 +2820,7 @@ function modalCierre(mes){
     else await DB.agregar("cierres", registro);
     render();
     avisar(soloRegistrar? "Saldos registrados" : "Periodo cerrado y cuadrado");
-  }, previo? "Volver a cerrar" : "Cerrar el periodo");
+  }, "Cerrar el periodo");
 
   /* El saldo teórico depende del punto de partida: el declarado en el cierre
      anterior o, si es el primero, el que la persona indique aquí. */
@@ -2818,6 +2847,21 @@ function modalCierre(mes){
   });
   document.querySelectorAll("[data-real],[data-inicio]").forEach(c=>c.addEventListener("input",refrescar));
   refrescar();
+}
+
+function modalReabrirPeriodo(mes){
+  const cierre=cierreDe(mes);
+  if(!cierre) return;
+  if(!esAdmin()){avisar("Solo el administrador puede reabrir periodos");return;}
+  const ajustes=S.movimientos.filter(m=>m.ajusteCierre&&enPeriodo(m.fecha,mes));
+  modal(`Reabrir ${etiquetaPeriodo(mes)}`,`
+    <p class="aviso-credito">El periodo volverá a aceptar movimientos y dejará de considerarse cuadrado.</p>
+    <p class="nota">Se retirará el cierre del ${esc(cierre.fecha)}${ajustes.length?` y ${cuenta(ajustes.length,"ajuste automático","ajustes automáticos")}`:""}. Los registros quedarán en la papelera y la actividad conservará la trazabilidad.</p>
+  `,async()=>{
+    for(const m of ajustes) await DB.borrar("movimientos",m.id,true);
+    await DB.borrar("cierres",cierre.id);
+    avisar("Periodo reabierto");
+  },"Reabrir periodo");
 }
 
 /* Qué cargos se están dando por pendientes, para poder comprobarlo */
@@ -2942,6 +2986,8 @@ function kpi(etiqueta,valor,pie,{tono="",pct=null}={}){
     <span>${pie}</span>
   </div>`;
 }
+const variacionTexto=v=>v===null?"—":`${v>0?"+":""}${Math.round(v*100)}%`;
+const tonoVariacion=v=>v===null?"":v>0.05?"rojo":v<-.05?"verde":"";
 
 function vResumen(R){
   const ing = R.ingresoBase||0;
@@ -2959,7 +3005,8 @@ function vResumen(R){
 
   return `
   <section class="tarjeta" data-acento="azul">
-    <div class="cab"><h2>Resumen</h2><span class="cod">${etiquetaPeriodo(R.mes)}</span></div>
+    <div class="cab"><h2>Resumen</h2><button class="enlace" data-accion="reporte-pdf">Generar PDF</button></div>
+    <p class="nota">${etiquetaPeriodo(R.mes)}</p>
     <div class="kpis">
       ${kpi("Disponible", fmt(R.disponible),
             ing>0? `${Math.round(R.disponible/ing*100)}% de los ingresos` : "sin ingresos registrados",
@@ -3002,6 +3049,22 @@ function vResumen(R){
             ing>0? `pagos: ${Math.round(cargaDeuda)}% del ingreso` : "—",
             {tono:R.deudaTotal>0?"medio":""})}
     </div>
+  </section>
+
+  <section class="tarjeta" data-acento="ambar">
+    <div class="cab"><h2>Comparativo</h2><span class="cod">actual vs historial</span></div>
+    <div class="metricas" style="margin-top:0;border-top:none;padding-top:0">
+      <div><em>Gasto actual</em><b>${fmt(R.totalGasto)}</b></div>
+      <div><em>Anterior al día ${R.diaHoy}</em><b>${fmt(R.gastoAnteriorCorte)}</b><small class="${tonoVariacion(R.variacionAnterior)}">${variacionTexto(R.variacionAnterior)}</small></div>
+      <div><em>Promedio al día ${R.diaHoy}</em><b>${R.periodosPromedio?fmt(R.promedioHistorico):"—"}</b><small class="${tonoVariacion(R.variacionPromedio)}">${R.periodosPromedio?variacionTexto(R.variacionPromedio):"sin historial"}</small></div>
+      <div><em>Cierre estimado</em><b>${fmt(R.proyectado)}</b><small>${R.metodoProyeccion}</small></div>
+    </div>
+    <p class="nota">Promedio calculado con ${cuenta(R.periodosPromedio,"ciclo anterior con datos","ciclos anteriores con datos")}.</p>
+    <table class="resp"><thead><tr><th>Categoría</th><th class="num">Actual</th><th class="num">Anterior</th><th class="num">Variación</th></tr></thead>
+      <tbody>${R.porCat.filter(c=>c.total>0||c.totalAnt>0).slice(0,10).map(c=>`<tr class="clicable" data-detalle-cat="${c.cod}" role="button" tabindex="0">
+        <td class="principal"><span class="cod" style="color:${col(c.color)}">${c.cod}</span> ${esc(c.nombre)}</td>
+        <td class="num" data-etq="Actual">${fmt(c.total)}</td><td class="num" data-etq="Anterior al mismo día">${fmt(c.totalAntCorte)}</td>
+        <td class="num ${tonoVariacion(c.variacionCorte)}" data-etq="Variación">${variacionTexto(c.variacionCorte)}</td></tr>`).join("")}</tbody></table>
   </section>
 
   <section class="tarjeta" data-acento="lila">
@@ -3650,6 +3713,7 @@ function vAjustes(R){
   <section class="tarjeta">
     <div class="cab"><h2>Datos</h2><span class="cod">${S.movimientos.length} movimientos</span></div>
     <div class="fila-btns">
+      <button class="btn primario" data-accion="reporte-pdf">Generar reporte PDF</button>
       <button class="btn primario" data-accion="excel">Descargar reporte Excel</button>
       <button class="btn" data-accion="csv">CSV simple</button>
       <button class="btn" data-accion="respaldo-json">Respaldo completo</button>
@@ -3823,6 +3887,7 @@ function conectar(R){
     el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); alternar(); } };
   });
   document.querySelectorAll("[data-cerrar-mes]").forEach(b=>b.onclick=()=>modalCierre(b.dataset.cerrarMes));
+  document.querySelectorAll("[data-reabrir-mes]").forEach(b=>b.onclick=()=>modalReabrirPeriodo(b.dataset.reabrirMes));
   document.querySelectorAll("[data-subs]").forEach(b=>b.onclick=e=>{
     e.stopPropagation(); modalSubsobres(b.dataset.subs);
   });
@@ -3916,6 +3981,7 @@ function acciones(a,R){
     },
     excel:()=>exportarExcel(),
     csv:()=>exportarCSV(),
+    "reporte-pdf":()=>generarReportePDF(),
     "respaldo-json":()=>exportarRespaldoJSON(),
     "restaurar-json":()=>elegirRespaldoJSON(),
     "vincular-correo":()=>modalVincularCorreo(),
@@ -4522,6 +4588,11 @@ function modal(titulo,cuerpo,onGuardar,textoBoton="Guardar",extra=null){
 
 function modalMovimiento(id=null){
   const m = id? S.movimientos.find(x=>x.id===id) : null;
+  const bloqueado=m?periodoCerrado(m.fecha):cierreDe(S.mes);
+  if(bloqueado){
+    avisar(esAdmin()?"El periodo está cerrado; reábrelo desde el Panel para modificar movimientos":"Este periodo está cerrado");
+    return;
+  }
   const fecha = m? m.fecha : (periodoDe(hoyISO())===S.mes? hoyISO() : inicioPeriodo(S.mes));
   const tipoIni = m?.tipo || "gasto";
   const esAhorro = tipoIni==="ahorro" || tipoIni==="retiro";
@@ -4531,6 +4602,7 @@ function modalMovimiento(id=null){
   const personas = personasHogar();
   const miembros = miembroIni && !personas.includes(miembroIni) ? [miembroIni,...personas] : personas;
   const registrador = m? (nombreDe(m.uid) || m.autor || "") : yo;
+  let duplicadoAdvertido="";
 
   modal(m? "Editar movimiento":"Registrar movimiento",`
     ${m?`<p class="nota migaja">Registrado el ${esc(m.fecha)} · corrige lo que esté mal asignado y guarda.</p>`:""}
@@ -4628,6 +4700,13 @@ function modalMovimiento(id=null){
     const datos = { tipo, monto, categoria: tipo==="gasto"?cat:"OTR", sub, deudaId, fecha:$("#m-fecha").value,
       metodo, tarjetaId, cuentaId, soloCuenta, miembro:$("#m-miembro").value,
       nota:$("#m-nota").value.trim(), esencial: tipo==="gasto"? $("#m-esencial").checked : true };
+    const claveDuplicado=huellaMovimiento(datos)+"|"+datos.miembro+"|"+datos.metodo;
+    const duplicado=S.movimientos.find(x=>x.id!==m?.id
+      && huellaMovimiento(x)+"|"+(x.miembro||"")+"|"+(x.metodo||"")===claveDuplicado);
+    if(duplicado&&duplicadoAdvertido!==claveDuplicado){
+      duplicadoAdvertido=claveDuplicado;
+      return `Posible duplicado: ya existe ${datos.nota||"un movimiento"} por ${fmt(datos.monto)} el ${datos.fecha}. Si realmente corresponde registrarlo otra vez, pulsa Guardar nuevamente.`;
+    }
     if(m){
       await DB.mutarMovimiento(m,{...m,...datos});
       avisar("Movimiento actualizado");
@@ -5102,6 +5181,33 @@ function hojaDesde(X,filas,anchos,formatos){
   return ws;
 }
 
+function generarReportePDF(){
+  const R=calcular(), rec=recomendar(R).slice(0,3);
+  const w=window.open("","_blank");
+  if(!w){avisar("Permite las ventanas emergentes para generar el PDF");return;}
+  const categorias=R.porCat.filter(c=>c.total>0||c.pres>0).slice(0,12);
+  const fecha=new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"});
+  const filasCat=categorias.map(c=>`<tr><td><b>${esc(c.cod)}</b> ${esc(c.nombre)}</td><td>${fmt(c.pres)}</td><td>${fmt(c.total)}</td><td>${fmt(c.totalAntCorte)}</td><td>${variacionTexto(c.variacionCorte)}</td></tr>`).join("");
+  const filasPersona=R.porPersona.map(p=>`<tr><td>${esc(p.nombre)}</td><td>${fmt(p.ingreso)}</td><td>${fmt(p.gasto)}</td><td>${fmt(p.prescindible)}</td><td>${fmt(p.disponible)}</td></tr>`).join("");
+  const filasDeuda=R.deudasCalc.map(d=>`<tr><td>${esc(d.nombre)}</td><td>${fmt(d.saldo)}</td><td>${fmt(d.pagoMensual||0)}</td><td>${d.tasaAnual?d.tasaAnual+"%":"—"}</td></tr>`).join("");
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte ${esc(R.mes)}</title><style>
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#17231b;font-size:10.5pt;margin:0}h1{font-size:22pt;margin:0 0 3px}h2{font-size:13pt;border-bottom:2px solid #2e6e8e;padding-bottom:4px;margin:20px 0 8px}p{line-height:1.45}.sub{color:#657067;margin:0 0 18px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.kpi{border:1px solid #ccd2cc;padding:8px}.kpi span{display:block;text-transform:uppercase;font-size:7.5pt;color:#657067}.kpi b{display:block;font-size:13pt;margin-top:3px}table{width:100%;border-collapse:collapse;margin-top:6px}th,td{border-bottom:1px solid #d9ddd9;padding:6px 5px;text-align:right}th{background:#eef2ef;font-size:8pt;text-transform:uppercase}th:first-child,td:first-child{text-align:left}.alerta{border-left:4px solid #d9a21b;padding:6px 10px;margin:7px 0;break-inside:avoid}.pie{margin-top:22px;padding-top:8px;border-top:1px solid #ccd2cc;color:#657067;font-size:8pt}@media print{button{display:none}}
+  </style></head><body>
+    <h1>Presupuesto familiar</h1><p class="sub">${esc(S.nombreHogar||"Mi hogar")} · ${esc(etiquetaPeriodo(R.mes))} · emitido el ${esc(fecha)}</p>
+    <div class="kpis"><div class="kpi"><span>Ingresos base</span><b>${fmt(R.ingresoBase)}</b></div><div class="kpi"><span>Gastado</span><b>${fmt(R.totalGasto)}</b></div><div class="kpi"><span>Disponible</span><b>${fmt(R.disponible)}</b></div><div class="kpi"><span>Cierre estimado</span><b>${fmt(R.proyectado)}</b></div></div>
+    <h2>Comparativo</h2><div class="kpis"><div class="kpi"><span>Anterior al día ${R.diaHoy}</span><b>${fmt(R.gastoAnteriorCorte)}</b></div><div class="kpi"><span>Variación comparable</span><b>${variacionTexto(R.variacionAnterior)}</b></div><div class="kpi"><span>Promedio al día ${R.diaHoy}</span><b>${R.periodosPromedio?fmt(R.promedioHistorico):"—"}</b></div><div class="kpi"><span>Vs. promedio</span><b>${variacionTexto(R.variacionPromedio)}</b></div></div>
+    <p>Proyección basada en ${esc(R.metodoProyeccion)}. Variable restante: <b>${fmt(R.variableRestante)}</b>; fijos pendientes: <b>${fmt(R.fijosPendientes)}</b>.</p>
+    <h2>Presupuesto por categoría</h2><table><thead><tr><th>Categoría</th><th>Presupuesto</th><th>Actual</th><th>Anterior al mismo día</th><th>Variación</th></tr></thead><tbody>${filasCat||'<tr><td colspan="5">Sin movimientos</td></tr>'}</tbody></table>
+    <h2>Personas</h2><table><thead><tr><th>Integrante</th><th>Ingresos</th><th>Gastos</th><th>Prescindible</th><th>Disponible</th></tr></thead><tbody>${filasPersona||'<tr><td colspan="5">Sin datos asignados</td></tr>'}</tbody></table>
+    ${filasDeuda?`<h2>Deudas y tarjetas</h2><table><thead><tr><th>Deuda</th><th>Saldo</th><th>Pago mensual</th><th>Tasa anual</th></tr></thead><tbody>${filasDeuda}</tbody></table>`:""}
+    ${rec.length?`<h2>Recomendaciones</h2>${rec.map(x=>`<div class="alerta"><b>${esc(x.titulo)}</b><p>${esc(x.detalle)} ${esc(x.accion||"")}</p></div>`).join("")}`:""}
+    <p class="pie">Reporte generado por Presupuesto familiar ${APP_VERSION}. Las cifras dependen de los movimientos registrados y conciliados.</p>
+    <script>setTimeout(()=>{window.focus();window.print()},350)<\/script></body></html>`);
+  w.document.close();
+  avisar("En el diálogo selecciona Guardar como PDF");
+}
+
 async function exportarExcel(){
   const R = calcular();
   avisar("Generando el reporte…");
@@ -5151,7 +5257,9 @@ async function exportarExcel(){
     ["PROYECCIÓN A FIN DE MES"],
     ["Días transcurridos", R.diaHoy],
     ["Días del mes", R.dias],
-    ["Ritmo variable diario", R.ritmoVariable],
+    ["Ritmo variable observado", R.ritmoVariable],
+    ["Variable restante estimada", R.variableRestante],
+    ["Método de proyección", R.metodoProyeccion],
     ["Fijos aún por pagar", R.fijosPendientes],
     ["Gasto proyectado", R.proyectado],
     ["Ahorro proyectado", R.ahorroProyectado],
@@ -5301,6 +5409,10 @@ async function exportarExcel(){
 
 /* ============ borrado de datos: solo administrador ================ */
 function modalBorrado(){
+  if(S.cierres.length){
+    avisar("Hay periodos cerrados. Reábrelo antes de borrar sus movimientos");
+    return;
+  }
   const n = S.movimientos.length;
   if(n===0){ avisar("No hay movimientos que borrar"); return; }
 
@@ -5420,6 +5532,7 @@ function categoriaSugerida(glosa){
 const huellaMovimiento=m=>[m.fecha,m.tipo,Math.round(m.monto),limpiarTexto(m.nota)].join("|");
 
 async function elegirCartola(){
+  if(cierreDe(S.mes)){avisar("Este periodo está cerrado; reábrelo antes de importar una cartola");return;}
   const input=document.createElement("input");input.type="file";input.accept=".csv,.txt,.xlsx,.xls";
   input.onchange=async()=>{
     const f=input.files?.[0];if(!f)return;if(f.size>20*1024*1024){avisar("La cartola supera los 20 MB");return;}
