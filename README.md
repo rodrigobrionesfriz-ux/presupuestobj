@@ -30,6 +30,8 @@ El Resumen incluye un comparativo del gasto actual contra el mismo día del cicl
 
 El botón **Generar PDF**, disponible en Resumen y en Ajustes → Datos, crea un informe A4 con indicadores, cierre estimado, comparativo histórico, presupuesto por categoría, distribución por integrante, deudas y recomendaciones. En el diálogo de impresión del teléfono o computador se selecciona **Guardar como PDF**.
 
+Los sub-sobres se administran desde el desglose de cada sobre o desde Ajustes. Cada uno puede crearse, renombrarse, eliminarse y marcarse como **Fijo** o **Variable**. Al renombrar se conserva un alias para mantener agrupado el historial anterior. La clasificación del sub-sobre prevalece sobre la categoría general en el cálculo de gastos fijos, variables y la proyección de cierre; los sub-sobres antiguos heredan inicialmente el tipo de su categoría para no alterar cálculos existentes.
+
 App web de una sola página para llevar el presupuesto del hogar en tiempo real, con estadísticas de comportamiento de compra, control de deudas y tarjetas, metas de ahorro y recomendaciones automáticas.
 
 Sin build ni dependencias que compilar: se sube tal cual a GitHub Pages. La base de datos es Firebase (Authentication + Cloud Firestore), así que varios teléfonos ven el mismo libro al instante. Se instala como app en el teléfono, funciona sin conexión y avisa cuando un sobre se está agotando.

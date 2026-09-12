@@ -938,7 +938,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.1.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -971,13 +971,25 @@ const esPropia = cod=>!!CAT[cod]?.propia;
    separarse en supermercado, feria y carnicería sin multiplicar los sobres
    del panel. Se guardan por código de categoría en la configuración del
    hogar, así que los ve toda la familia. */
-const subsDe = cod => (S.config?.subsobres||{})[cod] || [];
+const subsConfigDe = cod => ((S.config?.subsobres||{})[cod] || []).map(s=>
+  typeof s==="string" ? {nombre:s,tipo:esFijaCat(cod)?"fijo":"variable",aliases:[]} :
+  ({nombre:String(s?.nombre||""),tipo:s?.tipo==="fijo"?"fijo":"variable",aliases:Array.isArray(s?.aliases)?s.aliases.map(String):[]}))
+  .filter(s=>s.nombre);
+const subsDe = cod => subsConfigDe(cod).map(s=>s.nombre);
+const metaSub = (cod,nombre)=>subsConfigDe(cod).find(s=>
+  s.nombre.toLowerCase()===String(nombre||"").toLowerCase() || s.aliases.some(a=>a.toLowerCase()===String(nombre||"").toLowerCase()));
+const nombreSub = (cod,nombre)=>metaSub(cod,nombre)?.nombre || nombre || "";
+const esFijoMovimiento = m=>{
+  const sub=(m?.sub||"").trim(), cfg=sub&&metaSub(m.categoria,sub);
+  return cfg ? cfg.tipo==="fijo" : esFijaCat(m?.categoria);
+};
 const SIN_SUB = "Sin clasificar";
 const opcionesSub = (cod,actual="")=>{
-  const lista = subsDe(cod);
-  const extra = actual && !lista.includes(actual) ? [actual] : [];
+  const cfg=subsConfigDe(cod), actualCanon=nombreSub(cod,actual);
+  const lista = cfg.map(s=>s.nombre);
+  const extra = actual && !lista.includes(actualCanon) ? [actual] : [];
   return `<option value="">Sin especificar</option>` +
-    [...lista,...extra].map(s=>`<option ${actual===s?"selected":""}>${esc(s)}</option>`).join("");
+    [...lista,...extra].map(s=>`<option ${actualCanon===s?"selected":""}>${esc(s)}${metaSub(cod,s)?.tipo==="fijo"?" · fijo":" · variable"}</option>`).join("");
 };
 /* Los colores de categoría están pensados sobre papel claro; sobre un fondo
    oscuro pierden contraste, así que se aclaran y saturan al vuelo. */
@@ -1938,7 +1950,8 @@ function fijosPendientesDetalle(mes, gastosDelMes){
      —"Arriendo" y "Arriendo casa" son lo mismo—, o bien con un importe casi
      idéntico, que es la señal más fiable cuando el texto cambió del todo. */
   const yaPagado = x=>gastosDelMes.some(g=>{
-    if(g.categoria!==x.categoria) return false;
+    if(g.categoria!==x.categoria || !esFijoMovimiento(g)) return false;
+    if(x.sub && nombreSub(g.categoria,g.sub)!==x.sub) return false;
     const a = claveConcepto(g.nota), b = claveConcepto(x.nota);
     if(a && b && (a===b || a.includes(b) || b.includes(a))) return true;
     return x.monto>0 && Math.abs(g.monto - x.monto) <= x.monto*0.1;
@@ -1949,13 +1962,14 @@ function fijosPendientesDetalle(mes, gastosDelMes){
   for(let k=3;k>=1;k--){
     const mm = sumaMes(mes,-k);
     S.movimientos
-      .filter(m=>m.tipo==="gasto" && esFijaCat(m.categoria) && !m.esInteres && !m.ajusteCierre
+      .filter(m=>m.tipo==="gasto" && esFijoMovimiento(m) && !m.esInteres && !m.ajusteCierre
                  && enPeriodo(m.fecha,mm))
       .forEach(m=>{
         const c = claveConcepto(m.nota); if(!c) return;
-        if(!historial[c]) historial[c] = {periodos:new Set(), nota:m.nota, categoria:m.categoria, monto:0};
-        historial[c].periodos.add(mm);
-        historial[c].monto = m.monto;
+        const sub=nombreSub(m.categoria,m.sub), clave=`${m.categoria}|${sub}|${c}`;
+        if(!historial[clave]) historial[clave] = {periodos:new Set(), nota:m.nota, categoria:m.categoria, sub, monto:0};
+        historial[clave].periodos.add(mm);
+        historial[clave].monto = m.monto;
       });
   }
   /* Recurrente = aparece en al menos dos de los tres periodos anteriores.
@@ -2042,7 +2056,7 @@ function calcular(){
      este mismo día hasta el cierre en los tres periodos anteriores. Así el fuerte
      desembolso de los días 1–8 no se extrapola durante todo el mes. Sin historial
      se usa una curva prudente: el ritmo esperado después del día 8 baja al 45 %. */
-  const gastoFijo = gastos.filter(g=>esFijaCat(g.categoria)).reduce((a,b)=>a+b.monto,0);
+  const gastoFijo = gastos.filter(esFijoMovimiento).reduce((a,b)=>a+b.monto,0);
   const gastoVariable = totalGasto-gastoFijo;
   const ritmoVariable = gastoVariable/Math.max(1,diaHoy);
   const detalleFijos = fijosPendientesDetalle(mes, gastos);
@@ -2051,7 +2065,7 @@ function calcular(){
   const colasHistoricas=[];
   for(let k=1;k<=3;k++){
     const mm=sumaMes(mes,-k), n=diasPeriodo(mm);
-    const cola=S.movimientos.filter(m=>m.tipo==="gasto" && !esFijaCat(m.categoria)
+    const cola=S.movimientos.filter(m=>m.tipo==="gasto" && !esFijoMovimiento(m)
       && !m.ajusteCierre && enPeriodo(m.fecha,mm) && diaEnCiclo(m.fecha,mm)>Math.min(diaHoy,n))
       .reduce((a,b)=>a+b.monto,0);
     const tieneDatos=S.movimientos.some(m=>enPeriodo(m.fecha,mm));
@@ -2061,10 +2075,10 @@ function calcular(){
     ? colasHistoricas.reduce((a,x)=>a+x.monto*x.peso,0)/colasHistoricas.reduce((a,x)=>a+x.peso,0)
     : null;
   const diasIniciales=Math.min(diaHoy,8), variableInicial=gastos
-    .filter(g=>!esFijaCat(g.categoria) && diaEnCiclo(g.fecha,mes)<=8).reduce((a,b)=>a+b.monto,0);
+    .filter(g=>!esFijoMovimiento(g) && diaEnCiclo(g.fecha,mes)<=8).reduce((a,b)=>a+b.monto,0);
   const ritmoInicial=variableInicial/Math.max(1,diasIniciales);
   const diasPost=Math.max(0,diaHoy-8), variablePost=gastos
-    .filter(g=>!esFijaCat(g.categoria) && diaEnCiclo(g.fecha,mes)>8).reduce((a,b)=>a+b.monto,0);
+    .filter(g=>!esFijoMovimiento(g) && diaEnCiclo(g.fecha,mes)>8).reduce((a,b)=>a+b.monto,0);
   const ritmoPost=diasPost?variablePost/diasPost:ritmoInicial*.45;
   const restanteCurva=diaHoy<8
     ? ritmoInicial*.75*(8-diaHoy) + ritmoInicial*.45*Math.max(0,dias-8)
@@ -2103,9 +2117,10 @@ function calcular(){
     /* Reparto interno: primero los sub-sobres declarados, después lo que
        quedó sin clasificar, para que la suma cuadre siempre con el total. */
     const mapa = {};
-    l.forEach(g=>{ const k=(g.sub||"").trim()||SIN_SUB; mapa[k]=(mapa[k]||0)+g.monto; });
+    l.forEach(g=>{ const k=nombreSub(c.cod,(g.sub||"").trim())||SIN_SUB; mapa[k]=(mapa[k]||0)+g.monto; });
     const subs = Object.entries(mapa)
-      .map(([nombre,monto])=>({nombre, monto, n:l.filter(g=>((g.sub||"").trim()||SIN_SUB)===nombre).length}))
+      .map(([nombre,monto])=>({nombre, monto, n:l.filter(g=>(nombreSub(c.cod,(g.sub||"").trim())||SIN_SUB)===nombre).length,
+        tipo:nombre===SIN_SUB?(esFijaCat(c.cod)?"fijo":"variable"):(metaSub(c.cod,nombre)?.tipo||"variable")}))
       .sort((a,b)=> a.nombre===SIN_SUB? 1 : b.nombre===SIN_SUB? -1 : b.monto-a.monto);
     const porQuien = {};
     l.forEach(g=>{ const k=g.miembro||"—"; porQuien[k]=(porQuien[k]||0)+g.monto; });
@@ -2562,7 +2577,7 @@ function desgloseSobre(c){
       <button class="enlace" data-subs="${c.cod}">${declarados.length? "Gestionar" : "+ Añadir sub-sobre"}</button></div>
     ${c.subs.length? `<ul class="subs">${c.subs.map(s=>`
       <li>
-        <div class="sub-fila"><span class="sub-nom ${s.nombre===SIN_SUB?"tenue":""}">${esc(s.nombre)}</span>
+        <div class="sub-fila"><span class="sub-nom ${s.nombre===SIN_SUB?"tenue":""}">${esc(s.nombre)} <em class="marca-fija">${s.tipo}</em></span>
           <span class="sub-monto">${fmt(s.monto)}<em>${c.total>0?Math.round(s.monto/c.total*100):0}%</em></span></div>
         <div class="barra fina"><div class="fill" style="width:${s.monto/max*100}%;background:${col(c.color)};opacity:${s.nombre===SIN_SUB?.35:.85}"></div></div>
       </li>`).join("")}</ul>`
@@ -2893,7 +2908,7 @@ function modalFijosPendientes(){
        <div class="detalle-fila" style="cursor:default">
          <span class="cod" style="color:${col(CAT[x.categoria]?.color||"#8A9099")}">${esc(x.categoria)}</span>
          <div class="detalle-txt"><b>${esc(x.nota)}</b>
-           <small>visto en ${cuenta(x.periodos.size,"periodo","periodos")} de los 3 anteriores</small></div>
+           <small>${x.sub?esc(x.sub)+" · ":""}visto en ${cuenta(x.periodos.size,"periodo","periodos")} de los 3 anteriores</small></div>
          <span class="detalle-monto">${fmt(x.monto)}</span>
        </div>`).join("")}</div>
        <div class="cierre-linea total"><span>Total pendiente</span><b>${fmt(R.fijosPendientes)}</b></div>`
@@ -3224,7 +3239,7 @@ function vMovimientos(R){
           const autor = nombreDe(m.uid)||m.autor||"";
           return `<div class="mov" data-editar-mov="${m.id}" role="button" tabindex="0" title="Editar movimiento">
           <span class="cod" style="color:${col(colorDe(m))}">${esc(codDe(m))}</span>
-          <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}${m.sub?`<em class="etq-sub">${esc(m.sub)}</em>`:""}</b>
+          <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}${m.sub?`<em class="etq-sub">${esc(nombreSub(m.categoria,m.sub))}</em>`:""}</b>
             <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:m.cuentaId?` · ${esc(nombreCuenta(m.cuentaId))}`:m.deudaId?` · ${esc(S.deudas.find(d=>d.id===m.deudaId)?.nombre||"deuda")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
           <span class="mov-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
@@ -4090,7 +4105,7 @@ function listaDetalle(movs){
         <b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}</b>
         <small>
           <span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span>
-          · ${esc(m.metodo||"—")}${tarjeta?` · ${esc(tarjeta)}`:""}
+          · ${esc(m.metodo||"—")}${m.sub?` · ${esc(nombreSub(m.categoria,m.sub))}`:""}${tarjeta?` · ${esc(tarjeta)}`:""}
           ${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}
         </small>
       </div>
@@ -4689,10 +4704,10 @@ function modalMovimiento(id=null){
       const nuevo = inputSub.value.trim();
       if(nuevo){
         sub = nuevo;
-        const actuales = subsDe(cat);
-        if(!actuales.some(x=>x.toLowerCase()===nuevo.toLowerCase())){
+        const actuales = subsConfigDe(cat);
+        if(!actuales.some(x=>x.nombre.toLowerCase()===nuevo.toLowerCase())){
           await DB.guardarHogar({config:{...S.config,
-            subsobres:{...(S.config.subsobres||{}), [cat]:[...actuales, nuevo]}}});
+            subsobres:{...(S.config.subsobres||{}), [cat]:[...actuales,{nombre:nuevo,tipo:"variable",aliases:[]}]}}});
         }
       }
     }
@@ -4930,20 +4945,25 @@ function codigoLibre(nombre){
 /* ================= sub-sobres ===================================== */
 function modalSubsobres(cod){
   const c = CAT[cod]; if(!c) return;
-  const lista = subsDe(cod);
+  const lista = subsConfigDe(cod);
   const usados = {};
   S.movimientos.filter(m=>m.categoria===cod && (m.sub||"").trim())
-    .forEach(m=>{ const k=m.sub.trim(); usados[k]=(usados[k]||0)+1; });
+    .forEach(m=>{ const k=nombreSub(cod,m.sub.trim()); usados[k]=(usados[k]||0)+1; });
 
   modal(`Sub-sobres de ${c.nombre}`,`
-    <p class="nota">Divide el sobre en partes para saber en qué se va por dentro. Al registrar un gasto de <b>${esc(c.nombre)}</b> podrás elegir una.</p>
-    ${lista.length? `<ul class="pres">${lista.map(s=>`<li>
-      <span class="pres-nom">${esc(s)}</span>
-      <span class="cod">${usados[s]? cuenta(usados[s],"gasto","gastos") : "sin uso"}</span>
-      <button class="borrar" data-quitar-sub="${esc(s)}" aria-label="Quitar ${esc(s)}">×</button></li>`).join("")}</ul>`
+    <p class="nota">Edita el nombre y define si cada división corresponde a un gasto <b>fijo</b> o <b>variable</b>. Esta clasificación mejora la proyección de cierre.</p>
+    ${lista.length? `<ul class="pres">${lista.map((s,i)=>`<li style="flex-wrap:wrap">
+      <input data-sub-nombre="${i}" value="${esc(s.nombre)}" maxlength="60" aria-label="Nombre del sub-sobre">
+      <select class="mini-select" data-sub-tipo="${i}" aria-label="Tipo de ${esc(s.nombre)}">
+        <option value="variable" ${s.tipo==="variable"?"selected":""}>Variable</option>
+        <option value="fijo" ${s.tipo==="fijo"?"selected":""}>Fijo</option></select>
+      <span class="cod">${usados[s.nombre]? cuenta(usados[s.nombre],"gasto","gastos") : "sin uso"}</span>
+      <button class="btn mini" data-guardar-sub="${i}">Guardar</button>
+      <button class="borrar" data-quitar-sub="${i}" aria-label="Quitar ${esc(s.nombre)}">×</button></li>`).join("")}</ul>`
     : `<p class="nota ayuda">Todavía no hay ninguno.</p>`}
     <div class="fila-btns">
       <input id="sub-nuevo" placeholder="Supermercado, feria, farmacia…">
+      <select id="sub-nuevo-tipo" class="mini-select"><option value="variable">Variable</option><option value="fijo">Fijo</option></select>
       <button class="btn" id="sub-add">Añadir</button>
     </div>
     <p class="error oculto" id="sub-error"></p>
@@ -4957,14 +4977,26 @@ function modalSubsobres(cod){
     const v = $("#sub-nuevo").value.trim();
     const e = $("#sub-error");
     if(!v){ e.textContent="Escribe un nombre."; e.classList.remove("oculto"); return; }
-    if(lista.some(x=>x.toLowerCase()===v.toLowerCase())){
+    if(lista.some(x=>[x.nombre,...(x.aliases||[])].some(n=>n.toLowerCase()===v.toLowerCase()))){
       e.textContent="Ya existe un sub-sobre con ese nombre."; e.classList.remove("oculto"); return; }
-    await guardar([...lista, v]);
+    await guardar([...lista,{nombre:v,tipo:$("#sub-nuevo-tipo").value,aliases:[]}]);
   };
+  document.querySelectorAll("[data-guardar-sub]").forEach(b=>b.onclick=async()=>{
+    const i=Number(b.dataset.guardarSub), anterior=lista[i];
+    const nombre=document.querySelector(`[data-sub-nombre="${i}"]`).value.trim();
+    const tipo=document.querySelector(`[data-sub-tipo="${i}"]`).value;
+    const e=$("#sub-error");
+    if(!nombre){e.textContent="El nombre no puede quedar vacío.";e.classList.remove("oculto");return;}
+    if(lista.some((x,j)=>j!==i&&[x.nombre,...(x.aliases||[])].some(n=>n.toLowerCase()===nombre.toLowerCase()))){
+      e.textContent="Ya existe otro sub-sobre con ese nombre.";e.classList.remove("oculto");return;}
+    const aliases=nombre!==anterior.nombre
+      ? [...new Set([...(anterior.aliases||[]),anterior.nombre])].slice(-10) : (anterior.aliases||[]);
+    await guardar(lista.map((x,j)=>j===i?{nombre,tipo,aliases}:x));
+  });
   document.querySelectorAll("[data-quitar-sub]").forEach(b=>b.onclick=async()=>{
-    const s = b.dataset.quitarSub;
+    const i = Number(b.dataset.quitarSub);
     // Los gastos que lo usaban conservan la etiqueta; solo deja de ofrecerse
-    await guardar(lista.filter(x=>x!==s));
+    await guardar(lista.filter((_,j)=>j!==i));
   });
 }
 
@@ -5277,7 +5309,7 @@ async function exportarExcel(){
                  "Tarjeta","Cuenta de ahorro","¿Sale de la cuenta?","Persona","Registrado por","Esencial"]];
   [...S.movimientos].sort((a,b)=>a.fecha<b.fecha?-1:1).forEach(m=>movs.push([
     m.fecha, ETIQ_TIPO[m.tipo]||m.tipo, codDe(m),
-    PSEUDO[m.tipo]?.nombre || CAT[m.categoria]?.nombre || m.categoria, m.sub||"", m.nota||"",
+    PSEUDO[m.tipo]?.nombre || CAT[m.categoria]?.nombre || m.categoria, nombreSub(m.categoria,m.sub)||"", m.nota||"",
     m.monto, m.metodo, S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"",
     nombreCuenta(m.cuentaId), afectaCaja(m)? "Sí" : "No",
     m.miembro||"", nombreDe(m.uid)||m.autor||"", m.esencial?"Sí":"No"
@@ -5299,11 +5331,11 @@ async function exportarExcel(){
   /* --- Por sub-sobre --- */
   const conSubs = R.porCat.filter(c=>c.total>0 && c.subs.length);
   if(conSubs.length){
-    const ss = [["Cuenta","Categoría","Sub-sobre","Total","% del sobre","Movimientos"]];
+    const ss = [["Cuenta","Categoría","Sub-sobre","Tipo","Total","% del sobre","Movimientos"]];
     conSubs.forEach(c=>c.subs.forEach(s=>ss.push([
-      c.cod, c.nombre, s.nombre, s.monto, c.total>0? s.monto/c.total : "", s.n
+      c.cod, c.nombre, s.nombre, s.tipo, s.monto, c.total>0? s.monto/c.total : "", s.n
     ])));
-    X.utils.book_append_sheet(lib, hojaDesde(X,ss,[8,22,24,14,13,13],{3:MONEDA,4:PCT}), "Por sub-sobre");
+    X.utils.book_append_sheet(lib, hojaDesde(X,ss,[8,22,24,12,14,13,13],{4:MONEDA,5:PCT}), "Por sub-sobre");
   }
 
   /* --- Por persona --- */
