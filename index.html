@@ -232,6 +232,10 @@ main{max-width:840px;margin:0 auto;padding:16px 14px 8px;display:flex;flex-direc
 .leyenda{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12.5px;color:var(--suave)}
 .leyenda i{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:6px}
 .leyenda b{font-family:var(--tipo-num);color:var(--tinta);margin-left:5px}
+.split [data-detalle-naturaleza],.leyenda [data-detalle-naturaleza]{cursor:pointer}
+.leyenda [data-detalle-naturaleza]{padding:5px 7px;margin:-5px -7px;border-radius:4px}
+.leyenda [data-detalle-naturaleza]:hover,.leyenda [data-detalle-naturaleza]:focus-visible{background:var(--papel);color:var(--tinta);outline:none}
+.split [data-detalle-naturaleza]:focus-visible{outline:2px solid var(--tinta);outline-offset:-3px}
 
 /* ---------------- libro de movimientos ---------------- */
 .filtros{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:14px}
@@ -933,7 +937,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.8.1";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -2269,9 +2273,9 @@ function recomendar(R){
     const ex=R.proyectado-R.presupuestoTotal;
     push({nivel:"alto",grupo:"exceso",etiqueta:"Ritmo de gasto",ahorro:ex,cifra:"exceso proyectado",
       titulo:`Vas camino a cerrar el mes en ${fmt(R.proyectado)}`,
-      detalle:`El hogar lleva ${fmt(R.totalGasto)} en ${R.diaHoy} días. Al ritmo variable de ${fmt(R.ritmoVariable)} al día`+
+      detalle:`El hogar lleva ${fmt(R.totalGasto)} en ${R.diaHoy} días. Considerando ${fmt(R.variableRestante)} de gasto variable restante`+
         (R.fijosPendientes>0?`, más ${fmt(R.fijosPendientes)} de cargos fijos que aún faltan por pagar,`:"")+
-        ` cerrarías ${fmt(ex)} por encima del presupuesto de ${fmt(R.presupuestoTotal)}.`,
+        ` la estimación por ${R.metodoProyeccion} queda ${fmt(ex)} por encima del presupuesto de ${fmt(R.presupuestoTotal)}.`,
       accion: R.margenRestante>0
         ? `Te quedan ${fmt(R.margenRestante)} de margen: son ${fmt(R.disponibleDiario)} por día durante los ${R.restantes} días que faltan.`
         : `Ya no queda margen: el presupuesto está superado en ${fmt(-R.margenRestante)}. A partir de aquí lo realista es contener el exceso, no cumplir el mes; revisa si los sobres están bien dimensionados en Ajustes.`});
@@ -3108,10 +3112,10 @@ function vPanel(R){
 
   ${R.totalGasto>0?`<section class="tarjeta" data-acento="ambar">
     <div class="cab"><h2>En qué se va el dinero</h2></div>
-    <div class="split"><span class="e" style="width:${R.esenciales/R.totalGasto*100}%"></span><span class="p" style="width:${R.prescindibles/R.totalGasto*100}%"></span></div>
+    <div class="split" aria-label="Distribución del gasto"><span class="e" style="width:${R.esenciales/R.totalGasto*100}%" data-detalle-naturaleza="esencial" role="button" tabindex="0" title="Ver gastos esenciales"></span><span class="p" style="width:${R.prescindibles/R.totalGasto*100}%" data-detalle-naturaleza="prescindible" role="button" tabindex="0" title="Ver gastos prescindibles"></span></div>
     <div class="leyenda">
-      <div><i style="background:var(--verde)"></i>Esencial · ${fmt(R.esenciales)} <b>${Math.round(R.esenciales/R.totalGasto*100)}%</b></div>
-      <div><i style="background:var(--ambar)"></i>Prescindible · ${fmt(R.prescindibles)} <b>${Math.round(R.prescindibles/R.totalGasto*100)}%</b></div>
+      <div data-detalle-naturaleza="esencial" role="button" tabindex="0" title="Ver gastos esenciales"><i style="background:var(--verde)"></i>Esencial · ${fmt(R.esenciales)} <b>${Math.round(R.esenciales/R.totalGasto*100)}% ›</b></div>
+      <div data-detalle-naturaleza="prescindible" role="button" tabindex="0" title="Ver gastos prescindibles"><i style="background:var(--ambar)"></i>Prescindible · ${fmt(R.prescindibles)} <b>${Math.round(R.prescindibles/R.totalGasto*100)}% ›</b></div>
     </div></section>`:""}
 
   ${rec.length?`<section class="tarjeta">
@@ -3823,6 +3827,11 @@ function conectar(R){
     e.stopPropagation(); modalSubsobres(b.dataset.subs);
   });
   abrir("[data-detalle-cat]", detalleCategoria);
+  document.querySelectorAll("[data-detalle-naturaleza]").forEach(el=>{
+    const ver=()=>detalleNaturaleza(el.dataset.detalleNaturaleza);
+    el.onclick=ver;
+    el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();ver();}};
+  });
   document.querySelectorAll("[data-detalle-cuenta]").forEach(el=>{
     el.onclick=e=>{ if(e.target.closest("button")) return; detalleCuenta(el.dataset.detalleCuenta); };
     el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();detalleCuenta(el.dataset.detalleCuenta)} };
@@ -4064,6 +4073,22 @@ function detallePersona(nombre){
   const gastos = movs.filter(m=>m.tipo==="gasto");
   modalInfo(nombre, `Movimientos de ${etiquetaPeriodo(S.mes)}`,
     resumenDetalle(gastos,R.totalGasto) + listaDetalle(movs));
+}
+
+function detalleNaturaleza(tipo){
+  const esencial=tipo==="esencial";
+  const movs=S.movimientos
+    .filter(m=>enPeriodo(m.fecha,S.mes) && m.tipo==="gasto" && !!m.esencial===esencial)
+    .sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const R=calcular(), porCat={};
+  movs.forEach(m=>{porCat[m.categoria]=(porCat[m.categoria]||0)+m.monto;});
+  const categorias=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  const color=esencial?"var(--verde)":"var(--ambar)";
+  const desglose=categorias.length?`<div class="reparto-personas">${categorias.map(([cod,monto])=>
+    `<span><i style="background:${color}"></i>${esc(CAT[cod]?.nombre||cod)}<b>${fmt(monto)}</b></span>`).join("")}</div>`:"";
+  modalInfo(esencial?"Gastos esenciales":"Gastos prescindibles",
+    `${etiquetaPeriodo(S.mes)} · toca un movimiento para editarlo`,
+    resumenDetalle(movs,R.totalGasto)+desglose+listaDetalle(movs));
 }
 
 /* ============ botón atrás del móvil ===============================

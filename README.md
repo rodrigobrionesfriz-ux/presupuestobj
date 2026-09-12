@@ -20,6 +20,8 @@ Las correcciones realizadas en la vista previa pueden guardarse como **reglas de
 
 La estimación de cierre separa los gastos fijos de los variables y reconoce las dos etapas del ciclo: concentración de pagos entre los días 1 y 8 y menor frecuencia desde el día 9. Para calcular el gasto variable restante usa el comportamiento de hasta tres ciclos anteriores en el mismo tramo; mientras avanza el ciclo lo combina con el ritmo real observado desde el día 9. Sin historial aplica una curva prudente y evita extrapolar el gasto alto inicial a todo el periodo. El resultado se muestra en Panel y Resumen.
 
+En el Panel, la tarjeta **En qué se va el dinero** permite tocar la barra o las filas Esencial y Prescindible. Cada opción abre su total, cantidad de movimientos, ticket promedio, desglose por categoría y lista editable de operaciones.
+
 App web de una sola página para llevar el presupuesto del hogar en tiempo real, con estadísticas de comportamiento de compra, control de deudas y tarjetas, metas de ahorro y recomendaciones automáticas.
 
 Sin build ni dependencias que compilar: se sube tal cual a GitHub Pages. La base de datos es Firebase (Authentication + Cloud Firestore), así que varios teléfonos ven el mismo libro al instante. Se instala como app en el teléfono, funciona sin conexión y avisa cuando un sobre se está agotando.
