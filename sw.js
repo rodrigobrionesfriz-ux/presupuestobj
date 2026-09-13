@@ -6,7 +6,7 @@
    - Firebase y Google Fonts: nunca se interceptan; Firestore ya tiene su propia caché local.
 */
 
-const VERSION = "pf-v2.1.0";
+const VERSION = "pf-v2.2.0";
 const SHELL = [
   "./",
   "./index.html",

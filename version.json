@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "minVersion": "2.1.0",
-  "force": true
+  "force": false
 }

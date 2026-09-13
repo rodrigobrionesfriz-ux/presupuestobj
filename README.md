@@ -197,7 +197,9 @@ Las ventanas de registro y edición **no se cierran al hacer clic fuera**, para 
 
 ## Qué incluye
 
-**Resumen** — Un mini panel de una sola pantalla, primero en la barra lateral y accesible también con el botón **▦** de la cabecera. Sin detalle: seis tarjetas de KPI con su porcentaje y barra de avance —disponible sobre ingresos, gastado sobre presupuesto, ahorro y su tasa, avance del periodo, gasto prescindible y deuda con su carga sobre el ingreso—, un gráfico de líneas con el **acumulado día a día** de las seis categorías con más peso dentro del periodo en curso —así se ve cuál se dispara y en qué momento—, y el gasto por persona del periodo con el color de cada una.
+**Resumen** — Un mini panel de una sola pantalla, primero en la barra lateral y accesible también con el botón **▦** de la cabecera. Sin detalle: seis tarjetas de KPI con su porcentaje y barra de avance —disponible sobre ingresos, gastado sobre presupuesto, ahorro y su tasa, avance del periodo, gasto prescindible y deuda con su carga sobre el ingreso—, un gráfico de líneas con el **acumulado día a día** de las seis categorías con más peso dentro del periodo en curso —así se ve cuál se dispara y en qué momento—, el gasto por persona del periodo con el color de cada una, y un gráfico de **compras por día e integrante**.
+
+Este último no acumula: muestra el monto comprado cada día por cada persona, así que se ven los picos —el día del supermercado grande, la semana tranquila— en lugar de una curva que solo puede subir. Debajo, por integrante, su día de mayor gasto y en cuántos días del periodo compró.
 
 Las tarjetas van siempre en dos columnas, tres filas, también en pantallas de 360px: con seis KPI, romper a una sola columna obligaría a desplazarse para leer el conjunto, que es justo lo que un resumen debe evitar. En el gráfico solo se rotulan seis días del eje y se marca el último punto de cada curva; con treinta puntos, las etiquetas y los círculos se pisarían.
 

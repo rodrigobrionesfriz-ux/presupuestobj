@@ -938,7 +938,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -2993,6 +2993,26 @@ function seriesTopCategorias(R,cuantas=6){
   };
 }
 
+/* Compras día a día de cada integrante dentro del periodo. A diferencia del
+   gráfico de categorías, aquí no se acumula: interesa ver el pico del día,
+   no la suma que crece siempre. */
+function seriesComprasPorPersona(R){
+  const todas = fechasPeriodo(R.mes);
+  const dias = R.esMesActual? todas.slice(0,R.diaHoy) : todas;
+  const paso = Math.max(1, Math.ceil(dias.length/6));
+  const quienes = R.porPersona.filter(p=>p.gasto>0).map(p=>p.nombre);
+  return {
+    etiquetas: dias.map((f,i)=> (i%paso===0 || i===dias.length-1) ? f.slice(8).replace(/^0/,"") : ""),
+    dias,
+    series: quienes.map(n=>({
+      nombre:n, color:colorPersona(n),
+      valores: dias.map(f=>R.gastos
+        .filter(g=>g.miembro===n && g.fecha===f)
+        .reduce((a,b)=>a+b.monto,0)),
+    })),
+  };
+}
+
 function kpi(etiqueta,valor,pie,{tono="",pct=null}={}){
   return `<div class="kpi ${tono}">
     <em>${etiqueta}</em>
@@ -3097,7 +3117,27 @@ function vResumen(R){
               fmt(p.gasto), `${Math.round(p.pct*100)}% del gasto · ${cuenta(p.n,"compra","compras")}`,
               {pct:p.pct*100})).join("")}</div>`
       : `<p class="nota">Sin gastos atribuidos a ninguna persona en este periodo.</p>`}
-  </section>`;
+  </section>
+
+  ${(()=>{
+    const {series,etiquetas,dias} = seriesComprasPorPersona(R);
+    if(!series.length) return "";
+    const picos = series.map(s=>{
+      const max = Math.max(...s.valores);
+      const i = s.valores.indexOf(max);
+      return {nombre:s.nombre, color:s.color, max, dia:dias[i],
+              activos:s.valores.filter(v=>v>0).length};
+    });
+    return `<section class="tarjeta" data-acento="ambar">
+      <div class="cab"><h2>Compras por día</h2><span class="cod">cada integrante</span></div>
+      ${grLineas(series,etiquetas)}
+      <div class="kpis dos-col">
+        ${picos.map(p=>kpi(p.nombre, fmt(p.max),
+            p.max>0? `día de más gasto: ${fechaCorta(p.dia)} · compró ${cuenta(p.activos,"día","días")}`
+                   : "sin compras en el periodo")).join("")}
+      </div>
+    </section>`;
+  })()}`;
 }
 
 function vPanel(R){
