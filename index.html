@@ -428,6 +428,18 @@ input.grande.importe{text-align:left}
   .kpi em{font-size:9px;letter-spacing:.06em}
   .kpi span{font-size:10.5px}
 }
+.compra-lista{list-style:none;margin:0 0 14px;padding:0}
+.compra-lista li{display:flex;align-items:center;gap:10px;padding:10px 2px;
+  border-bottom:1px dotted var(--rayado)}
+.compra-lista li:last-child{border-bottom:none}
+.compra-item{display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;margin:0}
+.compra-item input{width:20px;height:20px;flex:none;accent-color:var(--verde)}
+.compra-nom{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compra-lista li.hecho .compra-nom{text-decoration:line-through;color:var(--suave)}
+.compra-quien{font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--suave);flex:none}
+.sugeridos{margin-top:12px}
+.sugeridos .chip{font-size:11.5px}
 .clicable{cursor:pointer;transition:background .15s}
 .clicable:hover,.clicable:focus-visible{background:var(--papel)}
 tr.clicable td{transition:background .15s}
@@ -938,7 +950,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.3.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -1176,6 +1188,7 @@ let S = {
   anonimo:false, correoVerificado:false, proveedores:[],
   config: configInicial(), presupuestos: presInicial(),
   movimientos:[], deudas:[], metas:[], cuentas:[], cierres:[], conciliaciones:[], recurrentes:[], papelera:[], auditoria:[],
+  lista:[], compras:[],
   mes: mesDe(hoyISO()), mesFijado:false, abiertos:new Set(), verTodosSobres:false, vista:"panel", filtroCat:"TODAS", filtroTexto:"", filtroPersona:"TODAS", csv:"",
 };
 const COLORES_PERSONA = ["#2E6E8E","#A34E6B","#3F7D58","#8A6A3B","#6B6BA8","#B5651D"];
@@ -1433,7 +1446,7 @@ async function iniciarFirebase(){
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
       }, err=>marcarError(err)));
-      ["movimientos","deudas","metas","cuentas","cierres","conciliaciones","recurrentes","papelera"].forEach(col=>{
+      ["movimientos","deudas","metas","cuentas","cierres","conciliaciones","recurrentes","papelera","lista","compras"].forEach(col=>{
         desuscribir.push(onSnapshot(collection(db,"hogares",hogarId,col), snap=>{
           S[col] = snap.docs.map(d=>({...d.data(), id:d.id}));
           render();
@@ -2526,8 +2539,8 @@ const corto = v=>{ const a=Math.abs(v);
 /* ============================== vistas ============================ */
 /* En la barra lateral cabe el nombre completo: las abreviaturas venían de
    la antigua barra inferior, donde el espacio se repartía entre siete. */
-const NAV = [["resumen","Resumen"],["panel","Panel"],["movimientos","Movimientos"],["estadisticas","Estadísticas"],
-             ["deudas","Deudas"],["metas","Metas"],["ahorro","Ahorro"],["ajustes","Ajustes"]];
+const NAV = [["resumen","Resumen"],["panel","Panel"],["movimientos","Movimientos"],["lista","Lista de compras"],
+             ["estadisticas","Estadísticas"],["deudas","Deudas"],["metas","Metas"],["ahorro","Ahorro"],["ajustes","Ajustes"]];
 
 /* La cabecera tiene una o dos filas según el ancho: se mide su alto real
    para reservar justo ese hueco bajo ella. */
@@ -2551,7 +2564,7 @@ function render(){
   const v = $("#vista");
   const vacio = S.movimientos.length===0 && S.deudas.length===0 && S.metas.length===0;
   v.innerHTML = (vacio? bloqueVacio():"") + ({
-    resumen:vResumen, panel:vPanel, movimientos:vMovimientos, estadisticas:vEstadisticas,
+    resumen:vResumen, panel:vPanel, movimientos:vMovimientos, lista:vLista, estadisticas:vEstadisticas,
     deudas:vDeudas, metas:vMetas, ahorro:vAhorro, ajustes:vAjustes
   }[S.vista]||vPanel)(R);
   conectar(R);
@@ -3023,6 +3036,161 @@ function kpi(etiqueta,valor,pie,{tono="",pct=null}={}){
 }
 const variacionTexto=v=>v===null?"—":`${v>0?"+":""}${Math.round(v*100)}%`;
 const tonoVariacion=v=>v===null?"":v>0.05?"rojo":v<-.05?"verde":"";
+
+
+/* ============ lista de compras =====================================
+   Cada integrante va anotando lo que hace falta; al ir al supermercado la
+   lista se recorre marcando, y al pasar por caja se convierte en un gasto
+   con los mismos datos que pide el botón +. Lo comprado queda archivado
+   para saber qué se repite más. */
+const claveProducto = s => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+
+const listaPendiente = ()=>[...(S.lista||[])]
+  .sort((a,b)=>(a.creado||0)-(b.creado||0));
+
+/* Cuántas veces se ha comprado cada producto, para sugerir lo habitual */
+function frecuenciaProductos(){
+  const cuenta = {};
+  (S.compras||[]).forEach(c=>(c.items||[]).forEach(n=>{
+    const k = claveProducto(n); if(!k) return;
+    if(!cuenta[k]) cuenta[k] = {nombre:n, veces:0, ultima:""};
+    cuenta[k].veces++;
+    if((c.fecha||"") > cuenta[k].ultima) cuenta[k].ultima = c.fecha||"";
+  }));
+  return Object.values(cuenta).sort((a,b)=>b.veces-a.veces);
+}
+
+function vLista(R){
+  const items = listaPendiente();
+  const marcados = items.filter(i=>i.marcado);
+  const enLista = new Set(items.map(i=>claveProducto(i.nombre)));
+  const habituales = frecuenciaProductos().filter(f=>!enLista.has(claveProducto(f.nombre))).slice(0,8);
+  const compras = [...(S.compras||[])].sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const top = frecuenciaProductos().slice(0,10);
+
+  return `
+  <section class="tarjeta" data-acento="verde">
+    <div class="cab"><h2>Lista de compras</h2>
+      <span class="cod">${items.length? cuenta(items.length,"producto","productos") : "vacía"}</span></div>
+    <p class="nota">Cualquiera del hogar puede añadir lo que falte. En el supermercado se marca lo que se va echando al carro.</p>
+    <div class="fila-btns">
+      <input id="lc-nuevo" placeholder="Leche, pan, detergente…" maxlength="60">
+      <button class="btn primario" data-accion="add-producto">Añadir</button>
+    </div>
+    ${habituales.length? `<div class="chips sugeridos">
+      ${habituales.map(f=>`<button class="chip" data-sugerido="${esc(f.nombre)}"
+        title="Comprado ${cuenta(f.veces,"vez","veces")}">+ ${esc(f.nombre)}</button>`).join("")}
+    </div>` : ""}
+  </section>
+
+  <section class="tarjeta" data-acento="azul">
+    <div class="cab"><h2>${marcados.length? `${marcados.length} en el carro` : "Por comprar"}</h2>
+      ${items.length? `<button class="enlace" data-accion="limpiar-marcas">${
+        marcados.length? "Desmarcar todo" : "Marcar todo"}</button>`:""}</div>
+    ${items.length? `<ul class="compra-lista">${items.map(i=>`
+      <li class="${i.marcado?"hecho":""}">
+        <label class="compra-item">
+          <input type="checkbox" data-marcar="${i.id}" ${i.marcado?"checked":""}>
+          <span class="compra-nom">${esc(i.nombre)}</span>
+        </label>
+        <span class="compra-quien">${esc(i.quien||"")}</span>
+        <button class="borrar" data-quitar-producto="${i.id}" aria-label="Quitar ${esc(i.nombre)}">×</button>
+      </li>`).join("")}</ul>
+      <div class="fila-btns">
+        <button class="btn primario" data-accion="pasar-por-caja" ${marcados.length?"":"disabled"}>
+          Pasar por caja${marcados.length? ` · ${marcados.length}`:""}</button>
+      </div>`
+    : `<p class="nota">La lista está vacía. Añade arriba lo que haga falta y aparecerá aquí para toda la familia.</p>`}
+  </section>
+
+  ${top.length? `<section class="tarjeta" data-acento="lila">
+    <div class="cab"><h2>Lo que más compramos</h2><span class="cod">${cuenta(compras.length,"compra","compras")}</span></div>
+    <ul class="lista">${top.map(f=>`<li>
+      <div class="lista-cab"><span>${esc(f.nombre)}</span><b>${cuenta(f.veces,"vez","veces")}</b></div>
+      <div class="barra fina"><div class="fill" style="width:${f.veces/top[0].veces*100}%;background:var(--azul)"></div></div>
+    </li>`).join("")}</ul>
+  </section>`:""}
+
+  ${compras.length? `<section class="tarjeta" data-acento="ambar">
+    <div class="cab"><h2>Compras anteriores</h2></div>
+    <div class="detalle-lista">${compras.slice(0,12).map(c=>`
+      <div class="detalle-fila" style="cursor:default">
+        <div class="detalle-fecha"><b>${fechaCorta(c.fecha).split(" ")[0]}</b><em>${fechaCorta(c.fecha).split(" ")[1]||""}</em></div>
+        <div class="detalle-txt"><b>${esc((c.items||[]).slice(0,4).join(", "))}${(c.items||[]).length>4? ` y ${(c.items||[]).length-4} más`:""}</b>
+          <small>${cuenta((c.items||[]).length,"producto","productos")} · ${esc(c.quien||"")}</small></div>
+        <span class="detalle-monto">${fmt(c.total)}</span>
+      </div>`).join("")}</div>
+  </section>`:""}`;
+}
+
+/* Al pasar por caja: el total real y los mismos datos que pide el botón + */
+function modalPasarPorCaja(){
+  const marcados = listaPendiente().filter(i=>i.marcado);
+  if(!marcados.length){ avisar("Marca primero lo que compraste"); return; }
+  const yo = miNombre();
+  const personas = personasHogar();
+
+  modal("Pasar por caja",`
+    <p class="nota migaja">${cuenta(marcados.length,"producto","productos")}: ${esc(marcados.map(i=>i.nombre).join(", "))}</p>
+    <label class="campo"><span>Total pagado en caja</span>
+      <input class="grande importe" id="pc-monto" type="text" inputmode="numeric" placeholder="0"></label>
+    <div class="campo"><span class="campo-tit">Categoría</span><div class="chips" id="pc-cats">
+      ${CATEGORIAS.filter(c=>c.cod!=="NRG").map(c=>`<button class="chip ${c.cod==="ALM"?"activo":""}" data-cat="${c.cod}"
+        style="${c.cod==="ALM"?`border-color:${col(c.color)};color:${col(c.color)}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
+    </div></div>
+    <label class="campo"><span>Sub-sobre <em class="opcional">opcional</em></span>
+      <select id="pc-sub">${opcionesSub("ALM","")}</select></label>
+    <label class="campo"><span>Concepto</span>
+      <input id="pc-nota" value="Supermercado" maxlength="80"></label>
+    <div class="campos-2">
+      <label class="campo"><span>Fecha</span><input id="pc-fecha" type="date" value="${hoyISO()}"></label>
+      <label class="campo"><span>Medio de pago</span>
+        <select id="pc-metodo">${METODOS.map(x=>`<option>${x}</option>`).join("")}</select></label>
+    </div>
+    <div id="pc-bloque-tarjeta" class="oculto">
+      ${tarjetas().length? `<label class="campo"><span>¿A qué tarjeta o deuda se carga?</span>
+        <select id="pc-tarjeta">${tarjetas().map((t,i)=>`<option value="${t.id}" ${i===0?"selected":""}>${esc(t.nombre)} · saldo ${fmt(t.saldo)}</option>`).join("")}
+          <option value="">Sin asignar a ninguna deuda</option></select></label>`
+      : `<p class="nota aviso-credito">No tienes deudas registradas para cargar la compra.</p>`}
+    </div>
+    <label class="campo"><span>¿De quién es el gasto?</span>
+      <select id="pc-miembro">${personas.map(x=>`<option ${yo===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+    <label class="check"><input type="checkbox" id="pc-esencial" checked><span>Gasto esencial</span></label>
+    <p class="nota ayuda">Los productos marcados se archivan con esta compra y salen de la lista. Los no marcados se quedan para la próxima.</p>
+  `, async()=>{
+    const monto = num($("#pc-monto").value);
+    if(monto<=0) return "Escribe el total que pagaste.";
+    const cat = document.querySelector("#pc-cats .activo")?.dataset.cat || "ALM";
+    const metodo = $("#pc-metodo").value;
+    const tarjetaId = metodo==="Crédito" ? ($("#pc-tarjeta")?.value||"") : "";
+    const fecha = $("#pc-fecha").value || hoyISO();
+    const quien = $("#pc-miembro").value;
+    const datos = { tipo:"gasto", monto, categoria:cat, sub:$("#pc-sub").value||"", deudaId:"",
+      fecha, metodo, tarjetaId, cuentaId:"", soloCuenta:false, miembro:quien,
+      nota:$("#pc-nota").value.trim() || "Supermercado", esencial:$("#pc-esencial").checked };
+    /* mutarMovimiento crea el gasto y ajusta la deuda en una sola operación,
+       igual que el botón +: así una compra a crédito suma a su tarjeta. */
+    const mov = await DB.mutarMovimiento(null, {...datos, uid:S.uid||"", autor:miNombre(), creado:Date.now()});
+    await DB.agregar("compras",{fecha, total:monto, quien,
+      items:marcados.map(i=>i.nombre), movimientoId:mov?.id||"",
+      uid:S.uid||"", autor:miNombre(), creado:Date.now()});
+    for(const i of marcados) await DB.borrar("lista", i.id);
+    render();
+    avisar(`Compra de ${fmt(monto)} registrada`);
+  }, "Registrar la compra");
+
+  document.querySelectorAll("#pc-cats [data-cat]").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#pc-cats [data-cat]").forEach(x=>{x.classList.remove("activo");x.style.borderColor="";x.style.color=""});
+    b.classList.add("activo");
+    const c = CAT[b.dataset.cat];
+    b.style.borderColor=col(c.color); b.style.color=col(c.color);
+    $("#pc-esencial").checked = c.esencial;
+    const sel=$("#pc-sub"); if(sel) sel.innerHTML = opcionesSub(b.dataset.cat,"");
+  });
+  const verTarjeta = ()=>$("#pc-bloque-tarjeta").classList.toggle("oculto", $("#pc-metodo").value!=="Crédito");
+  $("#pc-metodo").onchange = verTarjeta; verTarjeta();
+}
 
 function vResumen(R){
   const ing = R.ingresoBase||0;
@@ -3941,6 +4109,21 @@ function conectar(R){
     el.onclick = e=>{ if(e.target.closest("[data-editar-cat]")) return; alternar(); };
     el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); alternar(); } };
   });
+  document.querySelectorAll("[data-marcar]").forEach(c=>c.onchange=async()=>{
+    await DB.actualizar("lista", c.dataset.marcar, {marcado:c.checked}); render();
+  });
+  document.querySelectorAll("[data-quitar-producto]").forEach(b=>b.onclick=async()=>{
+    await DB.borrar("lista", b.dataset.quitarProducto); render();
+  });
+  document.querySelectorAll("[data-sugerido]").forEach(b=>b.onclick=async()=>{
+    await DB.agregar("lista",{nombre:b.dataset.sugerido, quien:miNombre(), marcado:false,
+      uid:S.uid||"", autor:miNombre(), creado:Date.now()});
+    render();
+  });
+  const nuevoProd = $("#lc-nuevo");
+  if(nuevoProd) nuevoProd.onkeydown = e=>{
+    if(e.key==="Enter"){ e.preventDefault(); acciones("add-producto"); }
+  };
   document.querySelectorAll("[data-cerrar-mes]").forEach(b=>b.onclick=()=>modalCierre(b.dataset.cerrarMes));
   document.querySelectorAll("[data-reabrir-mes]").forEach(b=>b.onclick=()=>modalReabrirPeriodo(b.dataset.reabrirMes));
   document.querySelectorAll("[data-subs]").forEach(b=>b.onclick=e=>{
@@ -4023,6 +4206,22 @@ function acciones(a,R){
     "mas-sobres":()=>{ S.verTodosSobres=!S.verTodosSobres; render(); },
     "guardar-remanente":()=>modalGuardarRemanente(),
     "ver-fijos":()=>modalFijosPendientes(),
+    "add-producto":async()=>{
+      const campo = $("#lc-nuevo"); const v = (campo?.value||"").trim();
+      if(!v){ avisar("Escribe qué falta"); return; }
+      if(listaPendiente().some(i=>claveProducto(i.nombre)===claveProducto(v))){
+        avisar("Ya está en la lista"); campo.value=""; return; }
+      await DB.agregar("lista",{nombre:v, quien:miNombre(), marcado:false,
+        uid:S.uid||"", autor:miNombre(), creado:Date.now()});
+      campo.value=""; render();
+    },
+    "limpiar-marcas":async()=>{
+      const items = listaPendiente();
+      const marcar = !items.some(i=>i.marcado);   // si no hay ninguno, marca todos
+      for(const i of items) if(!!i.marcado!==marcar) await DB.actualizar("lista",i.id,{marcado:marcar});
+      render();
+    },
+    "pasar-por-caja":()=>modalPasarPorCaja(),
     conciliar:()=>modalConciliar(),
     "ocultar-remanente":()=>{ guardarLocal(`pf-remanente:${S.mes}`,"visto"); render(); },
     fondo:()=>elegirFondo(),
@@ -5543,7 +5742,7 @@ function solicitarBorrado(){
 }
 
 /* ================= respaldo y restauración completos ============= */
-const COLECCIONES_RESPALDO = ["movimientos","deudas","metas","cuentas","cierres","conciliaciones","recurrentes"];
+const COLECCIONES_RESPALDO = ["movimientos","deudas","metas","cuentas","cierres","conciliaciones","recurrentes","lista","compras"];
 
 /* ================= importación de cartolas ======================== */
 const limpiarTexto=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();

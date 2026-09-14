@@ -132,6 +132,24 @@ service cloud.firestore {
           && d.saldos is map && d.teoricos is map && d.diferencias is map
           && texto(d.get('uid', ''), 150) && texto(d.get('autor', ''), 150);
       }
+      function itemListaValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['nombre', 'quien', 'marcado', 'uid', 'autor', 'creado'])
+          && d.keys().hasAll(['nombre', 'marcado'])
+          && texto(d.nombre, 60) && d.nombre.size() > 0
+          && texto(d.get('quien', ''), 100)
+          && d.marcado is bool
+          && texto(d.get('uid', ''), 150) && texto(d.get('autor', ''), 150);
+      }
+      function compraValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['fecha', 'total', 'quien', 'items', 'movimientoId', 'uid', 'autor', 'creado'])
+          && d.keys().hasAll(['fecha', 'total', 'items'])
+          && fecha(d.fecha) && monto(d.total)
+          && d.items is list && d.items.size() <= 200
+          && texto(d.get('quien', ''), 100) && texto(d.get('movimientoId', ''), 150)
+          && texto(d.get('uid', ''), 150) && texto(d.get('autor', ''), 150);
+      }
       function papeleraValida() {
         let d=request.resource.data;
         return d.keys().hasOnly(['coleccion','originalId','datos','eliminado','expira','uid','autor'])
@@ -267,6 +285,20 @@ service cloud.firestore {
       match /recurrentes/{docId} {
         allow read: if esMiembroDe();
         allow create, update: if esMiembroDe() && recurrenteValido();
+        allow delete: if esAdmin();
+      }
+
+      // Lista de compras: cualquiera añade, marca y quita. Es efímera por
+      // naturaleza y no guarda importes, así que no necesita más candados.
+      match /lista/{docId} {
+        allow read, delete: if esMiembroDe();
+        allow create, update: if esMiembroDe() && itemListaValido();
+      }
+      // Compras cerradas: son el historial que alimenta las estadísticas,
+      // así que borrarlas queda para el administrador.
+      match /compras/{docId} {
+        allow read: if esMiembroDe();
+        allow create, update: if esMiembroDe() && compraValida();
         allow delete: if esAdmin();
       }
 

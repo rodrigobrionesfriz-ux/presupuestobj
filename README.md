@@ -395,3 +395,18 @@ Firestore guarda una copia local en el navegador, así que la app abre y registr
 ## Costo
 
 Con el plan gratuito de Firebase (Spark) una familia va sobrada: el límite es de 50.000 lecturas y 20.000 escrituras diarias, y un hogar típico registra unas decenas de operaciones al día.
+
+
+## Lista de compras
+
+Una sección propia en la barra lateral. Cualquiera del hogar añade lo que falta y la lista se comparte en tiempo real: sirve para que cada uno anote durante la semana lo que se va acabando.
+
+**En el supermercado** se marca lo que se echa al carro; lo marcado se tacha. Al terminar, **Pasar por caja** pide el total real y los mismos datos que el botón **+** —categoría, sub-sobre, concepto, fecha, medio de pago, tarjeta si es a crédito, persona y si es esencial—, y crea el gasto con la misma operación atómica, de modo que una compra a crédito suma a su tarjeta igual que cualquier otra.
+
+Lo marcado se archiva con esa compra y sale de la lista; **lo no marcado se queda para la próxima**, que es lo que pasa de verdad cuando algo no estaba en el super.
+
+**Para lo no previsto** basta escribirlo en el campo de arriba, dentro o fuera del supermercado. Los duplicados se detectan ignorando tildes y mayúsculas, así que *Café* y *cafe* no se repiten.
+
+**Estadísticas.** Cada compra guarda sus productos, así que la sección muestra *Lo que más compramos* con la frecuencia de cada uno, y ofrece los habituales como sugerencias de un toque para no teclearlos cada semana. Abajo, el historial de compras con su total y quién fue.
+
+Las dos colecciones nuevas (`lista` y `compras`) tienen reglas de Firestore propias con validación de esquema: la lista la maneja cualquier miembro, y el historial de compras solo lo borra el administrador, porque es lo que alimenta las estadísticas.
