@@ -438,6 +438,8 @@ input.grande.importe{text-align:left}
 .compra-lista li.hecho .compra-nom{text-decoration:line-through;color:var(--suave)}
 .compra-quien{font-family:var(--tipo-num);font-size:9.5px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--suave);flex:none}
+.leyenda-punteada i{background:none!important;border-top:2px dashed var(--suave);
+  height:0;border-radius:0;width:14px}
 .sugeridos{margin-top:12px}
 .sugeridos .chip{font-size:11.5px}
 .clicable{cursor:pointer;transition:background .15s}
@@ -950,7 +952,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.4.0";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -2972,8 +2974,12 @@ function grLineas(series,etiquetas,{alto=170,ancho=320}={}){
       stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
     <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
   const marcar = n<=12;      // con muchos días los puntos ensucian
+  /* Una serie `punteada` se dibuja fina y discontinua y sin marcas: es una
+     referencia de fondo (un promedio, un objetivo), no un dato del día. */
   const lineas = series.map(s=>{
     const pts = s.valores.map((v,i)=>`${px(i)},${py(v)}`);
+    if(s.punteada) return `<polyline fill="none" points="${pts.join(" ")}" stroke="${col(s.color)}"
+      stroke-width="1.4" stroke-dasharray="4 4" opacity=".75" stroke-linejoin="round"/>`;
     const puntos = marcar
       ? s.valores.map((v,i)=>`<circle cx="${px(i)}" cy="${py(v)}" r="2.1" fill="${col(s.color)}"/>`).join("")
       : `<circle cx="${px(n-1)}" cy="${py(s.valores[n-1])}" r="2.6" fill="${col(s.color)}"/>`;
@@ -2983,7 +2989,9 @@ function grLineas(series,etiquetas,{alto=170,ancho=320}={}){
   const et = etiquetas.map((e,i)=> e===""? ""
     : `<text x="${px(i)}" y="${alto-5}" font-size="8" text-anchor="middle">${esc(e)}</text>`).join("");
   return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}${lineas}${et}</svg>
-    <div class="gr-leyenda">${series.map(s=>`<span><i style="background:${col(s.color)}"></i>${esc(s.nombre)}</span>`).join("")}</div>`;
+    <div class="gr-leyenda">${series.filter(s=>!s.punteada)
+      .map(s=>`<span><i style="background:${col(s.color)}"></i>${esc(s.nombre)}</span>`).join("")}
+      ${series.some(s=>s.punteada)? `<span class="leyenda-punteada"><i></i>promedio acumulado</span>`:""}</div>`;
 }
 
 /* Acumulado día a día de las categorías con más peso, dentro del periodo
@@ -3017,12 +3025,18 @@ function seriesComprasPorPersona(R){
   return {
     etiquetas: dias.map((f,i)=> (i%paso===0 || i===dias.length-1) ? f.slice(8).replace(/^0/,"") : ""),
     dias,
-    series: quienes.map(n=>({
-      nombre:n, color:colorPersona(n),
-      valores: dias.map(f=>R.gastos
+    series: quienes.map(n=>{
+      const valores = dias.map(f=>R.gastos
         .filter(g=>g.miembro===n && g.fecha===f)
-        .reduce((a,b)=>a+b.monto,0)),
-    })),
+        .reduce((a,b)=>a+b.monto,0));
+      /* Promedio acumulado: al día k, lo gastado hasta ese día dividido por k.
+         Cuenta también los días sin compras, que es lo que hace de esta cifra
+         un ritmo y no una media de tickets. */
+      let acc = 0;
+      const promedio = valores.map((v,i)=>{ acc += v; return acc/(i+1); });
+      return {nombre:n, color:colorPersona(n), valores, promedio,
+              total:acc, media: dias.length? acc/dias.length : 0};
+    }),
   };
 }
 
@@ -3293,17 +3307,22 @@ function vResumen(R){
     const picos = series.map(s=>{
       const max = Math.max(...s.valores);
       const i = s.valores.indexOf(max);
-      return {nombre:s.nombre, color:s.color, max, dia:dias[i],
+      return {nombre:s.nombre, color:s.color, max, dia:dias[i], media:s.media, total:s.total,
               activos:s.valores.filter(v=>v>0).length};
     });
+    /* Cada persona aporta dos trazos: su gasto diario y, punteado, su
+       promedio acumulado hasta ese día. */
+    const conPromedio = series.flatMap(s=>[s,
+      {nombre:`${s.nombre} (promedio)`, color:s.color, valores:s.promedio, punteada:true}]);
     return `<section class="tarjeta" data-acento="ambar">
       <div class="cab"><h2>Compras por día</h2><span class="cod">cada integrante</span></div>
-      ${grLineas(series,etiquetas)}
+      ${grLineas(conPromedio,etiquetas)}
       <div class="kpis dos-col">
-        ${picos.map(p=>kpi(p.nombre, fmt(p.max),
-            p.max>0? `día de más gasto: ${fechaCorta(p.dia)} · compró ${cuenta(p.activos,"día","días")}`
+        ${picos.map(p=>kpi(p.nombre, `${fmt(p.media)}/día`,
+            p.max>0? `promedio de ${cuenta(dias.length,"día","días")} · pico ${fmt(p.max)} el ${fechaCorta(p.dia)}`
                    : "sin compras en el periodo")).join("")}
       </div>
+      <p class="nota ayuda">El promedio reparte el gasto entre todos los días transcurridos, también los que no se compró nada: así es un ritmo y no una media de tickets. La línea punteada lo muestra día a día.</p>
     </section>`;
   })()}`;
 }
