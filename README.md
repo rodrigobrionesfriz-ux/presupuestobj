@@ -405,10 +405,14 @@ Una sección propia en la barra lateral. Cualquiera del hogar añade lo que falt
 
 **En el supermercado** se marca lo que se echa al carro; lo marcado se tacha. Al terminar, **Pasar por caja** pide el total real y los mismos datos que el botón **+** —categoría, sub-sobre, concepto, fecha, medio de pago, tarjeta si es a crédito, persona y si es esencial—, y crea el gasto con la misma operación atómica, de modo que una compra a crédito suma a su tarjeta igual que cualquier otra.
 
-Lo marcado se archiva con esa compra y sale de la lista; **lo no marcado se queda para la próxima**, que es lo que pasa de verdad cuando algo no estaba en el super.
+Al guardar, **la lista queda vacía**: lo marcado se archiva con la compra y lo demás se descarta, salvo que marques *Dejar lo no marcado para la próxima*.
+
+Cada intento de grabado lleva un sello de lote. Si la escritura falla a medias y se reintenta, la compra no se registra dos veces.
 
 **Para lo no previsto** basta escribirlo en el campo de arriba, dentro o fuera del supermercado. Los duplicados se detectan ignorando tildes y mayúsculas, así que *Café* y *cafe* no se repiten.
 
 **Estadísticas.** Cada compra guarda sus productos, así que la sección muestra *Lo que más compramos* con la frecuencia de cada uno, y ofrece los habituales como sugerencias de un toque para no teclearlos cada semana. Abajo, el historial de compras con su total y quién fue.
 
-Las dos colecciones nuevas (`lista` y `compras`) tienen reglas de Firestore propias con validación de esquema: la lista la maneja cualquier miembro, y el historial de compras solo lo borra el administrador, porque es lo que alimenta las estadísticas.
+**El administrador puede eliminar una compra mal registrada** desde el historial, y se le pregunta si borra también el gasto asociado: son dos apuntes distintos y quitar uno sin el otro descuadra el periodo. Los demás miembros no ven ese botón.
+
+Las dos colecciones nuevas (`lista` y `compras`) tienen reglas de Firestore propias con validación de esquema: la lista la maneja cualquier miembro, y el historial de compras solo lo borra el administrador, porque es lo que alimenta las estadísticas. Los productos de la lista se borran sin pasar por la papelera, porque son efímeros y esa escritura extra solo añade formas de fallar.

@@ -148,13 +148,14 @@ service cloud.firestore {
           && fecha(d.fecha) && monto(d.total)
           && d.items is list && d.items.size() <= 200
           && texto(d.get('quien', ''), 100) && texto(d.get('movimientoId', ''), 150)
+          && texto(d.get('loteId', ''), 60)
           && texto(d.get('uid', ''), 150) && texto(d.get('autor', ''), 150);
       }
       function papeleraValida() {
         let d=request.resource.data;
         return d.keys().hasOnly(['coleccion','originalId','datos','eliminado','expira','uid','autor'])
           && d.keys().hasAll(['coleccion','originalId','datos','eliminado','expira','uid','autor'])
-          && d.coleccion in ['movimientos','deudas','metas','cuentas','cierres','conciliaciones','recurrentes']
+          && d.coleccion in ['movimientos','deudas','metas','cuentas','cierres','conciliaciones','recurrentes','lista','compras']
           && texto(d.originalId,150) && d.originalId.size()>0
           && d.datos is map && d.eliminado is int && d.expira is int
           && d.uid == request.auth.uid && texto(d.autor,150);

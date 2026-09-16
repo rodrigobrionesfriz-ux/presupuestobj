@@ -952,7 +952,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.4.0";
+const APP_VERSION = "2.4.1";
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -1240,6 +1240,11 @@ function deltasDeudaMovimiento(antes,despues){
 /* Misma interfaz para modo nube (Firestore, tiempo real) y modo local */
 let FB = null;
 const DB = {
+  /* Borrado directo, sin pasar por la papelera */
+  async borrarSimple(col,id){
+    if(S.modo==="nube" && FB) await FB.borrarSimple(col,id);
+    else { S[col]=S[col].filter(x=>x.id!==id); this.auditar("eliminar",col,id); render(); }
+  },
   auditar(accion,coleccion,documentoId,campos=[]){
     const a={id:uid(),accion,coleccion,documentoId,campos,fecha:Date.now(),uid:S.uid||"local",autor:miNombre()};
     S.auditoria=[a,...S.auditoria].slice(0,1000); return a;
@@ -1483,6 +1488,14 @@ async function iniciarFirebase(){
       lote.update(doc(db,"hogares",S.hogarId,col,id),patch);
       lote.set(doc(collection(db,"hogares",S.hogarId,"auditoria")),
         datoAuditoria("editar",col,id,Object.keys(patch)));
+      await lote.commit();
+    },
+    /* Un producto de la lista es efímero: no merece 30 días de papelera y
+       además obliga a una escritura extra que puede fallar por reglas. */
+    async borrarSimple(col,id){
+      const lote=writeBatch(db);
+      lote.delete(doc(db,"hogares",S.hogarId,col,id));
+      lote.set(doc(collection(db,"hogares",S.hogarId,"auditoria")),datoAuditoria("eliminar",col,id));
       await lote.commit();
     },
     async borrar(col,id,actual){
@@ -3134,8 +3147,32 @@ function vLista(R){
         <div class="detalle-txt"><b>${esc((c.items||[]).slice(0,4).join(", "))}${(c.items||[]).length>4? ` y ${(c.items||[]).length-4} más`:""}</b>
           <small>${cuenta((c.items||[]).length,"producto","productos")} · ${esc(c.quien||"")}</small></div>
         <span class="detalle-monto">${fmt(c.total)}</span>
+        ${esAdmin()? `<button class="borrar" data-borrar-compra="${c.id}" aria-label="Eliminar esta compra" title="Eliminar esta compra">×</button>`:""}
       </div>`).join("")}</div>
+    ${esAdmin()? `<p class="nota ayuda">Como administrador puedes eliminar una compra mal registrada. Se te preguntará si quieres borrar también el gasto asociado.</p>`:""}
   </section>`:""}`;
+}
+
+/* Borrar una compra mal registrada. Solo el administrador, y preguntando
+   siempre por el gasto asociado: son dos apuntes distintos y borrar uno sin
+   el otro descuadra el periodo. */
+function modalBorrarCompra(id){
+  const c = (S.compras||[]).find(x=>x.id===id); if(!c) return;
+  const mov = S.movimientos.find(m=>m.id===c.movimientoId);
+  modal("Eliminar compra",`
+    <p class="nota migaja">${fechaCorta(c.fecha)} · ${fmt(c.total)} · ${esc(c.quien||"")}</p>
+    <p class="nota">${esc((c.items||[]).join(", "))||"Sin productos"}</p>
+    ${mov
+      ? `<label class="check"><input type="checkbox" id="bc-mov" checked>
+           <span>Eliminar también el gasto de ${fmt(mov.monto)} en ${esc(CAT[mov.categoria]?.nombre||mov.categoria)}</span></label>
+         <p class="nota ayuda">Si lo dejas, el gasto sigue contando en el periodo y solo desaparece el registro de la compra.</p>`
+      : `<p class="nota aviso-credito">El gasto asociado ya no existe: solo se elimina el registro de la compra.</p>`}
+  `, async()=>{
+    if(mov && $("#bc-mov").checked) await DB.mutarMovimiento(mov, null);
+    await DB.borrar("compras", id);
+    render();
+    avisar("Compra eliminada");
+  }, "Eliminar", null);
 }
 
 /* Al pasar por caja: el total real y los mismos datos que pide el botón + */
@@ -3144,6 +3181,11 @@ function modalPasarPorCaja(){
   if(!marcados.length){ avisar("Marca primero lo que compraste"); return; }
   const yo = miNombre();
   const personas = personasHogar();
+
+  /* Identificador del intento: si un grabado falla a medias y se reintenta,
+     este sello impide que la compra quede registrada dos veces. */
+  const loteId = uid();
+  const sinMarcar = listaPendiente().filter(i=>!i.marcado);
 
   modal("Pasar por caja",`
     <p class="nota migaja">${cuenta(marcados.length,"producto","productos")}: ${esc(marcados.map(i=>i.nombre).join(", "))}</p>
@@ -3171,8 +3213,11 @@ function modalPasarPorCaja(){
     <label class="campo"><span>¿De quién es el gasto?</span>
       <select id="pc-miembro">${personas.map(x=>`<option ${yo===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
     <label class="check"><input type="checkbox" id="pc-esencial" checked><span>Gasto esencial</span></label>
-    <p class="nota ayuda">Los productos marcados se archivan con esta compra y salen de la lista. Los no marcados se quedan para la próxima.</p>
+    ${sinMarcar.length? `<label class="check"><input type="checkbox" id="pc-dejar"><span>Dejar lo no marcado para la próxima (${sinMarcar.length})</span></label>`:""}
+    <p class="nota ayuda">Los productos marcados se archivan con esta compra. La lista queda vacía salvo que pidas conservar lo no marcado.</p>
   `, async()=>{
+    // Si un reintento llega después de que la compra ya se grabó, no se repite
+    if((S.compras||[]).some(c=>c.loteId===loteId)) return "Esta compra ya quedó registrada.";
     const monto = num($("#pc-monto").value);
     if(monto<=0) return "Escribe el total que pagaste.";
     const cat = document.querySelector("#pc-cats .activo")?.dataset.cat || "ALM";
@@ -3186,10 +3231,14 @@ function modalPasarPorCaja(){
     /* mutarMovimiento crea el gasto y ajusta la deuda en una sola operación,
        igual que el botón +: así una compra a crédito suma a su tarjeta. */
     const mov = await DB.mutarMovimiento(null, {...datos, uid:S.uid||"", autor:miNombre(), creado:Date.now()});
-    await DB.agregar("compras",{fecha, total:monto, quien,
+    await DB.agregar("compras",{fecha, total:monto, quien, loteId,
       items:marcados.map(i=>i.nombre), movimientoId:mov?.id||"",
       uid:S.uid||"", autor:miNombre(), creado:Date.now()});
-    for(const i of marcados) await DB.borrar("lista", i.id);
+    /* La lista se vacía: lo comprado ya está archivado y lo demás solo se
+       conserva si se pidió expresamente. */
+    const conservar = $("#pc-dejar")?.checked;
+    const aBorrar = conservar? marcados : [...marcados, ...sinMarcar];
+    for(const i of aBorrar) await DB.borrarSimple("lista", i.id);
     render();
     avisar(`Compra de ${fmt(monto)} registrada`);
   }, "Registrar la compra");
@@ -4132,8 +4181,9 @@ function conectar(R){
     await DB.actualizar("lista", c.dataset.marcar, {marcado:c.checked}); render();
   });
   document.querySelectorAll("[data-quitar-producto]").forEach(b=>b.onclick=async()=>{
-    await DB.borrar("lista", b.dataset.quitarProducto); render();
+    await DB.borrarSimple("lista", b.dataset.quitarProducto); render();
   });
+  document.querySelectorAll("[data-borrar-compra]").forEach(b=>b.onclick=()=>modalBorrarCompra(b.dataset.borrarCompra));
   document.querySelectorAll("[data-sugerido]").forEach(b=>b.onclick=async()=>{
     await DB.agregar("lista",{nombre:b.dataset.sugerido, quien:miNombre(), marcado:false,
       uid:S.uid||"", autor:miNombre(), creado:Date.now()});
