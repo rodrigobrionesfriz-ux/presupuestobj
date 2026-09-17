@@ -416,3 +416,27 @@ Cada intento de grabado lleva un sello de lote. Si la escritura falla a medias y
 **El administrador puede eliminar una compra mal registrada** desde el historial, y se le pregunta si borra también el gasto asociado: son dos apuntes distintos y quitar uno sin el otro descuadra el periodo. Los demás miembros no ven ese botón.
 
 Las dos colecciones nuevas (`lista` y `compras`) tienen reglas de Firestore propias con validación de esquema: la lista la maneja cualquier miembro, y el historial de compras solo lo borra el administrador, porque es lo que alimenta las estadísticas. Los productos de la lista se borran sin pasar por la papelera, porque son efímeros y esa escritura extra solo añade formas de fallar.
+
+
+## Créditos y versión
+
+Al pie de la barra lateral aparecen la versión instalada y el autor. Al tocarlos se abre **Acerca de**, con el detalle: desarrollo, año, versión, si está sincronizado o en local, y el hogar con su número de integrantes.
+
+Los textos salen de la constante `CREDITOS` al principio de `index.html`, junto a `APP_VERSION`, así que cambiarlos es una línea. El pie hereda los colores de cada tema porque es un botón dentro de la barra, y queda anclado abajo con `margin-top:auto`.
+
+
+## Actualización obligatoria
+
+Cuando `version.json` publica una versión con `force: true`, o con un `minVersion` superior al instalado, la app **no se abre**: una pantalla completa pide actualizar y solo se sale de ahí instalando.
+
+El bloqueo vive fuera del sistema de ventanas y del historial, así que ni Escape, ni el botón atrás, ni un repintado posterior pueden quitarlo. `mostrarApp()` también lo respeta por si la comprobación llega tarde.
+
+La comprobación se adelanta al arranque con un tope de dos segundos: si hay una actualización obligatoria, la app no llega a mostrarse; si no hay red o la respuesta tarda, arranca igual y el aviso llegará después, en la siguiente comprobación periódica.
+
+El botón principal instala el service worker nuevo y recarga. Debajo hay una salida de emergencia, *No responde, recargar a mano*, que borra todas las cachés, da de baja el service worker y vuelve a pedir el documento con un parámetro nuevo, para los casos en que una copia vieja se resiste.
+
+Para publicar una actualización obligatoria basta con editar `version.json`:
+
+```json
+{ "version": "2.6.0", "minVersion": "2.6.0", "force": true }
+```

@@ -516,6 +516,29 @@ nav button{width:100%;text-align:left;background:none;border:none;color:#93A594;
   border-left:3px solid transparent;transition:background .15s,color .15s}
 nav button:hover{background:rgba(228,233,221,.07);color:var(--papel)}
 nav button.activo{color:var(--papel);border-left-color:var(--margen);background:rgba(228,233,221,.09)}
+.nav-pie{margin-top:auto;padding:16px 20px 4px;border-top:1px solid rgba(228,233,221,.14)}
+.nav-creditos{width:100%;text-align:left;background:none;border:none;padding:6px 0;cursor:pointer;
+  color:#93A594;font-family:var(--tipo-num);line-height:1.5;border-left:none}
+.nav-creditos b{display:block;font-size:11px;font-weight:500;letter-spacing:.08em}
+.nav-creditos b,.nav-creditos span{overflow:hidden;text-overflow:ellipsis}
+.nav-creditos span{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.75}
+.nav-creditos:hover{color:var(--papel);background:none}
+body.bloqueado{overflow:hidden}
+#bloqueo-actualizacion{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;
+  justify-content:center;padding:24px;background:var(--tinta);
+  padding-top:calc(24px + env(safe-area-inset-top));
+  padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.bloqueo-tarjeta{max-width:420px;width:100%;text-align:center;color:var(--papel)}
+.bloqueo-tarjeta .logo{display:inline-flex;margin-bottom:18px;border-color:#7A8A78;color:var(--papel)}
+.bloqueo-tarjeta .cod{display:block;color:#93A594;margin-bottom:6px}
+.bloqueo-tarjeta h2{font-size:24px;margin:0 0 12px;color:var(--papel)}
+.bloqueo-tarjeta p{font-size:14px;line-height:1.6;color:#C3CEC2;margin:0 0 20px}
+.bloqueo-tarjeta .btn{width:100%;padding:14px;font-size:15px}
+.bloqueo-tarjeta .btn.primario{background:var(--papel);color:var(--tinta);border-color:var(--papel)}
+.bloqueo-tarjeta .btn.primario:hover{background:#fff;border-color:#fff}
+.bloqueo-tarjeta .btn.primario:disabled{opacity:.6}
+.bloqueo-tarjeta .enlace{display:block;margin:16px auto 0;color:#93A594;font-size:12.5px}
+.bloqueo-tarjeta .error{color:#E8836B;margin-bottom:14px}
 .velo{position:fixed;inset:0;z-index:45;background:rgba(22,36,28,.55);
   opacity:0;transition:opacity .24s ease;pointer-events:none}
 body.menu-abierto .velo{opacity:1;pointer-events:auto}
@@ -952,7 +975,13 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.4.1";
+const APP_VERSION = "2.6.0";
+/* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
+const CREDITOS = {
+  autor: "Rodrigo Briones",
+  detalle: "Hecho en casa para llevar las cuentas de la familia.",
+  anio: "2026",
+};
 
 /* ============================ catálogo ============================ */
 const CATEGORIAS_BASE = [
@@ -1802,6 +1831,7 @@ async function registrarmeEnHogar(){
 }
 
 function mostrarApp(){
+  if(actualizacionPendiente) return;   // una actualización obligatoria manda
   if(!S.mesFijado){ S.mes = periodoDe(hoyISO()); S.mesFijado = true; }
   $("#acceso").classList.add("oculto");
   $("#app").classList.remove("oculto");
@@ -2575,7 +2605,13 @@ function render(){
     : "Modo local · sin sincronizar";
   $("#punto").className = "punto"+(S.modo==="local"?" local":"");
   $("#estado-txt").textContent = S.modo==="nube"? "en línea":"local";
-  $("#nav").innerHTML = NAV.map(([k,t])=>`<button data-vista="${k}" class="${S.vista===k?"activo":""}">${t}</button>`).join("");
+  $("#nav").innerHTML = NAV.map(([k,t])=>`<button data-vista="${k}" class="${S.vista===k?"activo":""}">${t}</button>`).join("")
+    + `<div class="nav-pie">
+         <button class="nav-creditos" data-accion="acerca-de" title="Acerca de la app">
+           <b>v${APP_VERSION}</b>
+           <span>${esc(CREDITOS.autor)}</span>
+         </button>
+       </div>`;
   const v = $("#vista");
   const vacio = S.movimientos.length===0 && S.deudas.length===0 && S.metas.length===0;
   v.innerHTML = (vacio? bloqueVacio():"") + ({
@@ -3156,6 +3192,19 @@ function vLista(R){
 /* Borrar una compra mal registrada. Solo el administrador, y preguntando
    siempre por el gasto asociado: son dos apuntes distintos y borrar uno sin
    el otro descuadra el periodo. */
+function modalAcercaDe(){
+  const miembros = personasHogar().length;
+  modalInfo("Presupuesto familiar", `versión ${APP_VERSION}`,
+    `<p class="nota">${esc(CREDITOS.detalle)}</p>
+     <div class="cierre-linea"><span>Desarrollo</span><b>${esc(CREDITOS.autor)}</b></div>
+     <div class="cierre-linea"><span>Año</span><b>${esc(CREDITOS.anio)}</b></div>
+     <div class="cierre-linea"><span>Versión instalada</span><b>${APP_VERSION}</b></div>
+     <div class="cierre-linea"><span>Modo</span><b>${S.modo==="nube"? "sincronizado" : "local"}</b></div>
+     ${S.modo==="nube"? `<div class="cierre-linea"><span>Hogar</span><b>${esc(S.nombreHogar||"")}</b></div>
+       <div class="cierre-linea"><span>Integrantes</span><b>${miembros}</b></div>`:""}
+     <p class="nota ayuda">Aplicación de una sola página, sin instalación ni servidor propio: HTML, CSS y JavaScript con Firebase para sincronizar entre teléfonos. Los datos son del hogar y viven en su propio proyecto.</p>`);
+}
+
 function modalBorrarCompra(id){
   const c = (S.compras||[]).find(x=>x.id===id); if(!c) return;
   const mov = S.movimientos.find(m=>m.id===c.movimientoId);
@@ -4292,6 +4341,7 @@ function acciones(a,R){
     },
     "pasar-por-caja":()=>modalPasarPorCaja(),
     conciliar:()=>modalConciliar(),
+    "acerca-de":()=>{ cerrarMenu(); setTimeout(modalAcercaDe,70); },
     "ocultar-remanente":()=>{ guardarLocal(`pf-remanente:${S.mes}`,"visto"); render(); },
     fondo:()=>elegirFondo(),
     "quitar-fondo":async()=>{ await guardarFondo("",S.fondoOpacidad); render(); avisar("Fondo quitado"); },
@@ -4526,6 +4576,8 @@ function irAVista(v){
 }
 
 addEventListener("popstate", ()=>{
+  // Con la actualización pendiente no se navega a ninguna parte
+  if(actualizacionPendiente){ history.pushState({pf:1},""); return; }
   const est = pilaApp.pop();
   if(est){
     salidaAvisada = false;
@@ -6333,20 +6385,45 @@ function compararVersion(a,b){
   return 0;
 }
 
+/* El bloqueo vive fuera de #modal-host y del historial: así ni Escape, ni el
+   botón atrás, ni un render posterior pueden quitarlo. La app queda tapada
+   por completo, que es justo lo que se pide de una actualización obligatoria. */
 function mostrarActualizacionObligatoria(version){
   if(actualizacionPendiente) return;
   actualizacionPendiente=true;
   cerrarMenu();
-  const h=$("#modal-host");
-  h.innerHTML=`<div class="modal"><div class="hoja" role="alertdialog" aria-modal="true" aria-labelledby="act-titulo">
-    <div class="hoja-cab"><div><span class="cod">Nueva versión ${esc(version)}</span>
-      <h2 id="act-titulo">Actualización necesaria</h2></div></div>
-    <p class="nota">Hay una versión nueva de Presupuesto familiar. Debes instalarla para continuar y mantener los datos compatibles y protegidos.</p>
+  cerrarModal();
+  document.body.classList.add("bloqueado");
+  const caja=document.createElement("div");
+  caja.id="bloqueo-actualizacion";
+  caja.setAttribute("role","alertdialog");
+  caja.setAttribute("aria-modal","true");
+  caja.innerHTML=`<div class="bloqueo-tarjeta">
+    <span class="logo">₱F</span>
+    <span class="cod">Versión ${esc(version)} disponible</span>
+    <h2>Hay que actualizar</h2>
+    <p>Tienes la versión ${APP_VERSION} y ya está publicada la ${esc(version)}. Instálala para seguir usando la app: así todos los teléfonos del hogar leen y escriben los datos de la misma forma.</p>
     <p class="error oculto" id="act-error"></p>
-    <div class="fila-btns pie-modal"><span class="empuje"></span>
-      <button class="btn primario" id="act-instalar">Actualizar ahora</button></div>
-  </div></div>`;
+    <button class="btn primario" id="act-instalar">Actualizar ahora</button>
+    <button class="enlace" id="act-recargar">No responde, recargar a mano</button>
+  </div>`;
+  document.body.appendChild(caja);
   $("#act-instalar").onclick=instalarActualizacion;
+  $("#act-recargar").onclick=recargarDuro;
+  $("#act-instalar").focus();
+}
+
+/* Último recurso: se tiran las cachés y el service worker, y se vuelve a
+   pedir el documento con un parámetro nuevo para saltarse cualquier copia. */
+async function recargarDuro(){
+  try{
+    if(window.caches) for(const k of await caches.keys()) await caches.delete(k);
+    if("serviceWorker" in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      for(const r of regs) await r.unregister();
+    }
+  }catch(err){ console.warn("Recarga:",err); }
+  location.replace(location.pathname + "?v=" + Date.now());
 }
 
 async function instalarActualizacion(){
@@ -6421,7 +6498,14 @@ aplicarTema(leerLocal("pf-tema")||"papel");
 aplicarTipo(leerLocal("pf-tipo")||"inter");
 cargarFondoLocal();
 registrarSW();
-verificarActualizacion();
+
+/* Se comprueba la versión antes de arrancar, con un tope de dos segundos:
+   si hay una obligatoria, la app no llega a mostrarse. Sin red o con la
+   comprobación lenta, se arranca igual y el aviso llegará después. */
+const versionComprobada = Promise.race([
+  verificarActualizacion(),
+  new Promise(r=>setTimeout(r,2000)),
+]);
 setInterval(verificarActualizacion,15*60*1000);
 addEventListener("online",verificarActualizacion);
 document.addEventListener("visibilitychange",()=>{
@@ -6458,14 +6542,17 @@ const params = new URLSearchParams(location.search);
 if(params.get("vista")) S.vista = params.get("vista");
 if(params.get("accion")==="nuevo") setTimeout(()=>{ if(!$("#app").classList.contains("oculto")) modalMovimiento(); },600);
 
-if(HAY_FIREBASE){
-  iniciarFirebase().catch(e=>{
-    console.error(e);
-    S.modo="local"; mostrarApp(); avisar("Firebase no disponible: modo local");
-  });
-}else{
-  mostrarApp();
-}
+versionComprobada.then(()=>{
+  if(actualizacionPendiente) return;          // bloqueado: no se arranca
+  if(HAY_FIREBASE){
+    iniciarFirebase().catch(e=>{
+      console.error(e);
+      S.modo="local"; mostrarApp(); avisar("Firebase no disponible: modo local");
+    });
+  }else{
+    mostrarApp();
+  }
+});
 </script>
 </body>
 </html>
