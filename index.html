@@ -1022,7 +1022,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.7.2";
+const APP_VERSION = "2.8.0";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -3136,6 +3136,59 @@ function seriesComprasPorPersona(R){
   };
 }
 
+/* Comparativa por categoría contra el mismo día del periodo anterior.
+   Dos líneas y, sobre cada punto de la actual, cuánto se ha movido: verde si
+   se gasta menos que entonces, rojo si más. Es la lectura que dice si el mes
+   va mejor o peor, no en total sino sobre en sobre. */
+function grComparativa(items,{alto=190,ancho=320}={}){
+  const n = items.length;
+  const max = Math.max(1, ...items.flatMap(c=>[c.total, c.totalAntCorte]));
+  const px = i=> 30 + i*(ancho-40)/Math.max(1,n-1);
+  const py = v=> alto-26-(v/max)*(alto-62);   // hueco arriba para los rótulos
+
+  const ejes = [0,.5,1].map(f=>`<line x1="30" x2="${ancho}" y1="${py(max*f)}" y2="${py(max*f)}"
+      stroke="currentColor" stroke-dasharray="2 4" opacity=".35"/>
+    <text x="0" y="${py(max*f)+3}" font-size="8">${corto(max*f)}</text>`).join("");
+
+  const ptsAnt = items.map((c,i)=>`${px(i)},${py(c.totalAntCorte)}`);
+  const ptsAct = items.map((c,i)=>`${px(i)},${py(c.total)}`);
+
+  const lineaAnt = n>1
+    ? `<polyline fill="none" points="${ptsAnt.join(" ")}" stroke="var(--suave)" stroke-width="1.4"
+        stroke-dasharray="4 4" opacity=".8"/>` : "";
+  const lineaAct = n>1
+    ? `<polyline fill="none" points="${ptsAct.join(" ")}" stroke="var(--tinta)" stroke-width="2.2"
+        stroke-linejoin="round" stroke-linecap="round"/>` : "";
+
+  const marcas = items.map((c,i)=>{
+    const v = c.variacionCorte;
+    /* Una diferencia por debajo del medio punto no es ni mejor ni peor:
+       pintarla de verde sugeriría un ahorro que no existe. */
+    const igual = v!==null && Math.abs(v) < .005;
+    const tono = v===null? "var(--suave)" : igual? "var(--suave)"
+               : v>0? "var(--margen)" : "var(--verde)";
+    const texto = v===null ? (c.total>0? "nuevo" : "")
+               : igual ? "igual"
+               : `${v>0?"+":""}${Math.round(v*100)}%`;
+    /* Los rótulos de los extremos se anclan hacia dentro para no salirse */
+    const anclaje = i===0? "start" : i===n-1? "end" : "middle";
+    const dx = i===0? -4 : i===n-1? 4 : 0;
+    return `<circle cx="${px(i)}" cy="${py(c.totalAntCorte)}" r="2" fill="var(--suave)" opacity=".8"/>
+      <circle cx="${px(i)}" cy="${py(c.total)}" r="3.4" fill="${tono}"/>
+      ${texto? `<text x="${px(i)+dx}" y="${py(c.total)-9}" font-size="8.5" font-weight="600"
+        text-anchor="${anclaje}" fill="${tono}">${texto}</text>`:""}`;
+  }).join("");
+
+  const etiquetas = items.map((c,i)=>`<text x="${px(i)}" y="${alto-6}" font-size="8"
+    text-anchor="middle" fill="${col(c.color)}">${esc(c.cod)}</text>`).join("");
+
+  return `<svg class="gr" viewBox="0 0 ${ancho} ${alto}">${ejes}${lineaAnt}${lineaAct}${marcas}${etiquetas}</svg>
+    <div class="gr-leyenda">
+      <span><i style="background:var(--tinta)"></i>Este periodo</span>
+      <span class="leyenda-punteada"><i></i>mismo día del anterior</span>
+    </div>`;
+}
+
 function kpi(etiqueta,valor,pie,{tono="",pct=null}={}){
   return `<div class="kpi ${tono}">
     <em>${etiqueta}</em>
@@ -3428,6 +3481,26 @@ function vResumen(R){
         <td class="num" data-etq="Actual">${fmt(c.total)}</td><td class="num" data-etq="Anterior al mismo día">${fmt(c.totalAntCorte)}</td>
         <td class="num ${tonoVariacion(c.variacionCorte)}" data-etq="Variación">${variacionTexto(c.variacionCorte)}</td></tr>`).join("")}</tbody></table>
   </section>
+
+  ${(()=>{
+    /* Solo las categorías con movimiento en alguno de los dos periodos, y como
+       mucho ocho: con doce puntos los rótulos de porcentaje se pisan. */
+    const comp = R.porCat.filter(c=>c.total>0 || c.totalAntCorte>0)
+      .sort((a,b)=>b.total-a.total).slice(0,8);
+    if(comp.length<2) return "";
+    const mejor = comp.filter(c=>c.variacionCorte!==null && c.variacionCorte < -.005).length;
+    const peor  = comp.filter(c=>c.variacionCorte!==null && c.variacionCorte >  .005).length;
+    return `<section class="tarjeta" data-acento="azul">
+      <div class="cab"><h2>Contra el mes pasado</h2>
+        <span class="cod">al día ${R.diaHoy}</span></div>
+      <p class="nota">Cada sobre frente a lo que llevabas gastado en él a estas alturas del periodo anterior.</p>
+      ${grComparativa(comp)}
+      <div class="kpis dos-col">
+        ${kpi("Vas mejor en", `${mejor} de ${comp.length}`, "gastas menos que entonces", {tono:mejor?"bueno":""})}
+        ${kpi("Vas peor en", `${peor} de ${comp.length}`, "gastas más que entonces", {tono:peor?"malo":""})}
+      </div>
+    </section>`;
+  })()}
 
   <section class="tarjeta" data-acento="lila">
     <div class="cab"><h2>Principales gastos</h2><span class="cod">acumulado del periodo</span></div>

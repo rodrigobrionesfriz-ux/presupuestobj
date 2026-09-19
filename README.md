@@ -453,3 +453,12 @@ Tres decisiones que evitan que canse:
 - **Se respeta el movimiento reducido del sistema.** Si está activado, no hay transiciones ni giros aunque el relieve esté encendido.
 
 En **Ajustes → Relieve** se puede dejar la vista plana. La preferencia se guarda en el dispositivo, no en el hogar, porque depende de la pantalla de cada uno.
+
+
+## Contra el mes pasado
+
+En el resumen, justo después de los KPI, un gráfico enfrenta cada sobre con lo que llevabas gastado en él **a estas alturas del periodo anterior**: línea continua para lo actual, punteada para entonces.
+
+Sobre cada punto de la línea actual va la variación en porcentaje, **verde si gastas menos** que en el mismo día del mes pasado y **rojo si gastas más**. Una diferencia menor al medio punto se marca como *igual* en gris, porque pintar de verde un 0,2% sugeriría un ahorro que no existe. Un sobre sin gasto entonces sale como *nuevo*.
+
+Debajo, dos KPI resumen en cuántos sobres vas mejor y en cuántos peor. Se muestran como mucho ocho categorías, ordenadas por gasto actual: con doce, los rótulos de porcentaje se pisan.
