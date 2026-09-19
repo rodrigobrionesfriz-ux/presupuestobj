@@ -462,3 +462,15 @@ En el resumen, justo después de los KPI, un gráfico enfrenta cada sobre con lo
 Sobre cada punto de la línea actual va la variación en porcentaje, **verde si gastas menos** que en el mismo día del mes pasado y **rojo si gastas más**. Una diferencia menor al medio punto se marca como *igual* en gris, porque pintar de verde un 0,2% sugeriría un ahorro que no existe. Un sobre sin gasto entonces sale como *nuevo*.
 
 Debajo, dos KPI resumen en cuántos sobres vas mejor y en cuántos peor. Se muestran como mucho ocho categorías, ordenadas por gasto actual: con doce, los rótulos de porcentaje se pisan.
+
+
+## Alerta de heladas
+
+Cuando la mínima prevista baja de **1,5°C**, la app avisa. El umbral no es cero a propósito: a ras de suelo hace más frío que a la altura a la que se mide la temperatura, así que con 1°C en el pronóstico ya puede helar abajo.
+
+Dos niveles: **riesgo** entre 0 y 1,5°C en azul, y **helada** bajo cero en rojo.
+
+- **En el chip de la cabecera** aparece un copo cuando hay helada en los próximos tres días. Muestra siempre la peor de esa ventana, no la primera: si mañana hay riesgo y pasado una helada de verdad, el aviso habla de la helada. Al mantenerlo pulsado dice cuándo.
+- **En la ventana del clima**, un aviso arriba con los días y sus mínimas, y en la lista de los siete días la mínima de cada jornada afectada va marcada en su color.
+
+Si no hay ninguna mínima bajo el umbral, no aparece nada.

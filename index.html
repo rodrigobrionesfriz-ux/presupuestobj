@@ -112,6 +112,17 @@ header .marca>div{min-width:0}
   letter-spacing:.06em;text-transform:uppercase}
 .leyenda-viento span{display:inline-flex;align-items:center;gap:4px}
 
+.aviso-helada{display:flex;align-items:center;gap:11px;margin:0 0 14px;padding:11px 12px;
+  border-radius:4px;border-left:3px solid var(--azul);background:var(--papel);color:var(--azul)}
+.aviso-helada.grave{border-left-color:var(--margen);color:var(--margen)}
+.aviso-helada svg{flex:none}
+.aviso-helada b{display:block;font-size:13.5px}
+.aviso-helada span{display:block;font-family:var(--tipo-num);font-size:11px;color:var(--suave);margin-top:2px}
+.cd-temp em.riesgo{color:var(--azul);font-weight:600}
+.cd-temp em.helada{color:var(--margen);font-weight:600}
+.chip-helada{display:inline-flex;align-items:center;margin-left:5px;padding-left:6px;
+  border-left:1px solid rgba(228,233,221,.3);line-height:1;color:#7FB2D9}
+.chip-helada.helada{color:#E8836B}
 .clima-lugares{margin-bottom:14px}
 .clima-lugares .borrar{font-size:14px;margin-left:2px;color:inherit;opacity:.6}
 .clima-cab{display:flex;align-items:center;gap:14px;padding:4px 0 14px;
@@ -1022,7 +1033,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.8.0";
+const APP_VERSION = "2.9.0";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -4748,6 +4759,12 @@ document.addEventListener("input", e=>{
    Datos de Open-Meteo: sin clave de API ni registro. Se guarda la última
    respuesta en el dispositivo para que el icono aparezca al instante y
    siga mostrando algo sin conexión. */
+/* Heladas: por debajo de 1,5°C ya hay riesgo aunque el termómetro no llegue
+   a cero, porque a ras de suelo la temperatura es menor que a la altura de
+   medición. Bajo cero se da por hecha. */
+const HELADA_RIESGO = 1.5;
+const nivelHelada = t => t==null? null : t<0? "helada" : t<HELADA_RIESGO? "riesgo" : null;
+
 const CLIMA_TTL = 30*60*1000;                 // media hora
 const climaCache = {};
 
@@ -4772,6 +4789,11 @@ const escalaViento = v=>
  : v<50 ? {clase:"v-moderado", nombre:"viento moderado"}
  : v<75 ? {clase:"v-fuerte",   nombre:"viento fuerte"}
  : {clase:"v-temporal", nombre:"temporal"};
+
+const iconoHelada = (px=13)=>`<svg viewBox="0 0 16 16" width="${px}" height="${px}" aria-hidden="true"
+  fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+  <path d="M8 1.6v12.8M2.5 4.8l11 6.4M13.5 4.8l-11 6.4"/>
+  <path d="M6.2 3.1 8 4.9l1.8-1.8M6.2 12.9 8 11.1l1.8 1.8"/></svg>`;
 
 const iconoViento = (px=13)=>`<svg viewBox="0 0 16 12" width="${px+3}" height="${px}" aria-hidden="true"
   fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -4894,6 +4916,20 @@ function recordarClima(estado){ guardarLocal("pf-clima-ultimo", JSON.stringify(e
 function climaRecordado(){
   try{ return JSON.parse(leerLocal("pf-clima-ultimo")||"null"); }catch{ return null; }
 }
+function proximaHelada(datos,dias=3){
+  const d = datos?.daily; if(!d?.time) return null;
+  /* Se devuelve la peor de la ventana, no la primera: si mañana hay riesgo y
+     pasado una helada de verdad, el aviso debe hablar de la helada. */
+  let peor = null;
+  for(let k=0;k<Math.min(dias,d.time.length);k++){
+    const nivel = nivelHelada(d.temperature_2m_min[k]);
+    if(!nivel) continue;
+    const cand = {nivel, fecha:d.time[k], min:d.temperature_2m_min[k], dias:k};
+    if(!peor || cand.min < peor.min) peor = cand;
+  }
+  return peor;
+}
+
 function dibujarChip(estado,{viejo=false}={}){
   const btn = $("#btn-clima"); if(!btn || !estado) return;
   const v = estado.viento;
@@ -4901,7 +4937,11 @@ function dibujarChip(estado,{viejo=false}={}){
   btn.innerHTML = `${iconoClima(estado.codigo, 19)}`
     + (estado.lugar? `<span class="chip-lugar">${esc(estado.lugar)}</span>` : "")
     + `<b>${estado.temp}°</b>`
-    + (esc_? `<span class="chip-viento ${esc_.clase}">${iconoViento(12)}<b>${Math.round(v)}</b></span>` : "");
+    + (esc_? `<span class="chip-viento ${esc_.clase}">${iconoViento(12)}<b>${Math.round(v)}</b></span>` : "")
+    + (estado.helada? `<span class="chip-helada ${estado.helada.nivel}" title="${
+        estado.helada.nivel==="helada"? "Helada" : "Riesgo de helada"} ${
+        estado.helada.dias===0? "hoy" : estado.helada.dias===1? "mañana" : "en "+estado.helada.dias+" días"
+      }">${iconoHelada(12)}</span>` : "");
   btn.title = `${estado.lugar} · ${WMO(estado.codigo).t}`
     + (esc_? ` · ${esc_.nombre} ${Math.round(v)} km/h` : "")
     + ` · ${antiguedad(estado.ts)}`;
@@ -4918,6 +4958,7 @@ async function pintarClima(){
     const estado = {codigo:datos.current?.weather_code ?? 3,
                     temp:Math.round(datos.current?.temperature_2m ?? 0),
                     viento:datos.current?.wind_speed_10m ?? null,
+                    helada:proximaHelada(datos),
                     lugar:lugar.nombre, ts};
     recordarClima(estado);
     dibujarChip(estado, {viejo: Date.now()-ts > CLIMA_TTL});
@@ -4976,11 +5017,23 @@ function modalClima(){
             <span>${esc(lugar.nombre)}${lugar.esGPS?' <em class="cl-gps">tu ubicación</em>':""} · ${WMO(datos.current?.weather_code).t}
               <em class="cl-edad">actualizado ${antiguedad(ts)}</em></span></div>
         </div>
+        ${(()=>{
+          const dias = d.time.map((f,k)=>({f, min:d.temperature_2m_min[k], nivel:nivelHelada(d.temperature_2m_min[k])}))
+                             .filter(x=>x.nivel);
+          if(!dias.length) return "";
+          const grave = dias.some(x=>x.nivel==="helada");
+          return `<div class="aviso-helada ${grave?"grave":""}">
+            ${iconoHelada(18)}
+            <div><b>${grave? "Helada prevista" : "Riesgo de helada"}</b>
+              <span>${dias.map(x=>`${x.f===d.time[0]? "hoy" : DIA_CORTO(x.f)} ${Math.round(x.min)}°`).join(" · ")}</span></div>
+          </div>`;
+        })()}
         <div class="clima-dias">${d.time.map((f,k)=>`
           <div class="clima-dia">
             <span class="cd-nombre">${k===0?"Hoy":DIA_CORTO(f)}</span>
             ${iconoClima(d.weather_code[k], 22)}
-            <span class="cd-temp"><b>${Math.round(d.temperature_2m_max[k])}°</b><em>${Math.round(d.temperature_2m_min[k])}°</em></span>
+            <span class="cd-temp"><b>${Math.round(d.temperature_2m_max[k])}°</b><em class="${
+              nivelHelada(d.temperature_2m_min[k])||""}">${Math.round(d.temperature_2m_min[k])}°</em></span>
             <span class="cd-lluvia">
               <span class="cd-barra"><i style="height:${Math.round((d.precipitation_sum[k]||0)/lluvia*100)}%"></i></span>
               ${(d.precipitation_sum[k]||0).toFixed(1)} mm</span>
@@ -4991,7 +5044,7 @@ function modalClima(){
           ${[[6,"calma"],[20,"brisa"],[38,"moderado"],[60,"fuerte"],[85,"temporal"]]
             .map(([v,n])=>`<span class="${escalaViento(v).clase}">${iconoViento(10)}${n}</span>`).join("")}
         </div>
-        <p class="nota ayuda">Máxima y mínima, lluvia acumulada y racha máxima de viento. Datos de Open-Meteo, que se refrescan cada media hora; sin conexión se sigue mostrando la última lectura.</p>`;
+        <p class="nota ayuda">Se avisa de helada cuando la mínima baja de ${HELADA_RIESGO.toString().replace(".",",")}°C: a ras de suelo hace más frío que a la altura a la que se mide. Máxima y mínima, lluvia acumulada y racha máxima de viento. Datos de Open-Meteo, que se refrescan cada media hora; sin conexión se sigue mostrando la última lectura.</p>`;
     }catch(e){
       cuerpo().innerHTML = `<p class="aviso-credito">No se pudo obtener el clima. Permite el acceso a tu ubicación en el navegador, o añade una ciudad con <b>+ Añadir</b>.</p>`;
     }
