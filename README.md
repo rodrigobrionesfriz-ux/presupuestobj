@@ -440,3 +440,16 @@ Para publicar una actualización obligatoria basta con editar `version.json`:
 ```json
 { "version": "2.6.0", "minVersion": "2.6.0", "force": true }
 ```
+
+
+## Relieve
+
+Las tarjetas del resumen, los KPI, los consejos y los gráficos reaccionan al puntero: se inclinan siguiéndolo, se levantan con sombra y un brillo se desplaza por la superficie. Al pulsar se hunden un poco.
+
+Tres decisiones que evitan que canse:
+
+- **Las tarjetas anchas se inclinan la mitad.** El mismo ángulo en una superficie grande marea en vez de dar profundidad, así que por encima de 420px de ancho el giro baja de 6 a 3 grados.
+- **En pantallas táctiles no hay inclinación**, solo el hundido al pulsar. Sin cursor que seguir, el efecto no tiene sentido y además gasta batería.
+- **Se respeta el movimiento reducido del sistema.** Si está activado, no hay transiciones ni giros aunque el relieve esté encendido.
+
+En **Ajustes → Relieve** se puede dejar la vista plana. La preferencia se guarda en el dispositivo, no en el hogar, porque depende de la pantalla de cada uno.

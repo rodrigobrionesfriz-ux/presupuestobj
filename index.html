@@ -539,6 +539,48 @@ body.bloqueado{overflow:hidden}
 .bloqueo-tarjeta .btn.primario:disabled{opacity:.6}
 .bloqueo-tarjeta .enlace{display:block;margin:16px auto 0;color:#93A594;font-size:12.5px}
 .bloqueo-tarjeta .error{color:#E8836B;margin-bottom:14px}
+/* ===================== relieve ===================== */
+html[data-relieve="si"] .kpi,
+html[data-relieve="si"] .tarjeta,
+html[data-relieve="si"] .consejo,
+html[data-relieve="si"] svg.gr{
+  transform-style:preserve-3d; will-change:transform;
+  transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s ease;
+}
+/* El brillo sigue al puntero; sin él, el degradado queda fuera y no se ve */
+html[data-relieve="si"] .kpi,
+html[data-relieve="si"] .consejo{position:relative;overflow:hidden}
+html[data-relieve="si"] .kpi::after,
+html[data-relieve="si"] .consejo::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(240px circle at var(--brillo,-50% -50%),
+    rgba(255,255,255,.5), rgba(255,255,255,0) 60%);
+  opacity:0;transition:opacity .22s ease;
+}
+html[data-relieve="si"] .kpi:hover::after,
+html[data-relieve="si"] .consejo:hover::after{opacity:.55}
+html[data-tema="oscuro"][data-relieve="si"] .kpi::after,
+html[data-tema="oscuro"][data-relieve="si"] .consejo::after,
+html[data-tema="calido"][data-relieve="si"] .kpi::after,
+html[data-tema="calido"][data-relieve="si"] .consejo::after{
+  background:radial-gradient(240px circle at var(--brillo,-50% -50%),
+    rgba(255,255,255,.16), rgba(255,255,255,0) 60%);
+}
+html[data-relieve="si"] .kpi:hover{box-shadow:0 14px 28px rgba(22,36,28,.16)}
+html[data-relieve="si"] .tarjeta:hover{box-shadow:0 18px 36px rgba(22,36,28,.13)}
+html[data-relieve="si"] .consejo:hover{box-shadow:0 12px 24px rgba(22,36,28,.14)}
+html[data-relieve="si"] svg.gr:hover{filter:drop-shadow(0 10px 18px rgba(22,36,28,.18))}
+/* Hundido al pulsar: es la única respuesta que se nota en una pantalla táctil */
+html[data-relieve="si"] .kpi:active,
+html[data-relieve="si"] .consejo:active{transform:scale(.978) translateZ(0)!important;
+  transition-duration:.08s}
+html[data-relieve="si"] .clicable:active{transform:scale(.99);transition:transform .08s ease}
+@media(prefers-reduced-motion:reduce){
+  html[data-relieve="si"] .kpi,
+  html[data-relieve="si"] .tarjeta,
+  html[data-relieve="si"] .consejo,
+  html[data-relieve="si"] svg.gr{transition:none;transform:none!important}
+}
 .velo{position:fixed;inset:0;z-index:45;background:rgba(22,36,28,.55);
   opacity:0;transition:opacity .24s ease;pointer-events:none}
 body.menu-abierto .velo{opacity:1;pointer-events:auto}
@@ -975,7 +1017,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.6.0";
+const APP_VERSION = "2.7.0";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -3988,6 +4030,15 @@ function vAjustes(R){
   </section>
 
   <section class="tarjeta">
+    <div class="cab"><h2>Relieve</h2><span class="cod">${efectos3D()? "activado":"desactivado"}</span></div>
+    <div class="chips" id="relieve">
+      <button class="chip ${efectos3D()?"activo":""}" data-relieve="si"><b>3D</b> Con relieve</button>
+      <button class="chip ${efectos3D()?"":"activo"}" data-relieve="no"><b>PLANO</b> Sin efectos</button>
+    </div>
+    <p class="nota ayuda">Las tarjetas se levantan al pasar el cursor y se hunden al pulsarlas. Si tu sistema tiene activado el movimiento reducido, la inclinación no se aplica aunque esté activada.</p>
+  </section>
+
+  <section class="tarjeta">
     <div class="cab"><h2>Tipografía</h2><span class="cod">${NOMBRE_TIPO[S.tipo]||"Inter"}</span></div>
     <div class="chips">
       <button class="chip ${S.tipo==="inter"?"activo":""}" data-tipo-sel="inter"><b>INT</b> Inter</button>
@@ -4306,6 +4357,10 @@ function conectar(R){
   document.querySelectorAll("[data-tema-sel]").forEach(b=>b.onclick=()=>{aplicarTema(b.dataset.temaSel);render()});
   document.querySelectorAll("[data-tipo-sel]").forEach(b=>b.onclick=()=>{
     aplicarTipo(b.dataset.tipoSel); render(); avisar(`Tipografía ${NOMBRE_TIPO[S.tipo]}`);
+  });
+  document.querySelectorAll("[data-relieve]").forEach(b=>b.onclick=()=>{
+    guardarLocal("pf-3d", b.dataset.relieve); aplicarEfectos(); render();
+    avisar(efectos3D()? "Relieve activado" : "Vista plana");
   });
   const ca=$("#chk-alertas"); if(ca) ca.onchange=e=>DB.guardarHogar({config:{...S.config,alertas:e.target.checked}});
   document.querySelectorAll("[data-quitar-miembro]").forEach(b=>b.onclick=()=>
@@ -4905,6 +4960,53 @@ function modalClima(){
       });
     }catch{ caja.innerHTML = `<p class="nota">No se pudo buscar. Revisa la conexión.</p>`; }
   };
+}
+
+/* ============ relieve al tocar y al pasar el cursor =================
+   Las tarjetas se levantan y se inclinan siguiendo el puntero, con un brillo
+   que se mueve con él. En pantallas táctiles no hay cursor, así que ahí solo
+   queda el hundido al pulsar, que es la respuesta que sí se siente. */
+const efectos3D = ()=> leerLocal("pf-3d") !== "no";
+function aplicarEfectos(){
+  document.documentElement.dataset.relieve = efectos3D() ? "si" : "no";
+}
+
+const SEL_RELIEVE = ".kpi, .tarjeta, .consejo, svg.gr";
+let elemInclinado = null;
+
+function soltarInclinacion(el){
+  if(!el) return;
+  el.style.transform = "";
+  el.style.removeProperty("--brillo");
+}
+
+function iniciarRelieve(){
+  aplicarEfectos();
+  const puntero = matchMedia("(hover:hover) and (pointer:fine)");
+  const quieto  = matchMedia("(prefers-reduced-motion: reduce)");
+  if(!puntero.matches || quieto.matches) return;   // táctil o movimiento reducido
+
+  document.addEventListener("pointermove", e=>{
+    const el = e.target.closest?.(SEL_RELIEVE) || null;
+    if(elemInclinado && elemInclinado !== el) soltarInclinacion(elemInclinado);
+    elemInclinado = el;
+    if(!el || !efectos3D()) return;
+    const r = el.getBoundingClientRect();
+    if(!r.width || !r.height) return;
+    const x = (e.clientX - r.left)/r.width  - .5;
+    const y = (e.clientY - r.top )/r.height - .5;
+    /* Las tarjetas grandes se inclinan menos: el mismo ángulo en una
+       superficie ancha marea en vez de dar profundidad. */
+    const grados = r.width > 420 ? 3 : 6;
+    el.style.transform = `perspective(760px) rotateX(${(-y*grados).toFixed(2)}deg)`
+      + ` rotateY(${(x*grados).toFixed(2)}deg) translateZ(8px)`;
+    el.style.setProperty("--brillo", `${((x+.5)*100).toFixed(1)}% ${((y+.5)*100).toFixed(1)}%`);
+  }, {passive:true});
+
+  document.addEventListener("pointerleave", ()=>{ soltarInclinacion(elemInclinado); elemInclinado=null; }, true);
+  addEventListener("blur", ()=>{ soltarInclinacion(elemInclinado); elemInclinado=null; });
+  // Un repintado deja huérfano el elemento inclinado
+  addEventListener("scroll", ()=>{ if(elemInclinado){ soltarInclinacion(elemInclinado); elemInclinado=null; } }, {passive:true});
 }
 
 function iniciarHistorial(){
@@ -6494,6 +6596,7 @@ async function instalarApp(){
 
 /* ============================== arranque ========================== */
 iniciarHistorial();
+iniciarRelieve();
 aplicarTema(leerLocal("pf-tema")||"papel");
 aplicarTipo(leerLocal("pf-tipo")||"inter");
 cargarFondoLocal();
