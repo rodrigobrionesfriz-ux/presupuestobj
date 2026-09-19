@@ -449,7 +449,7 @@ Las tarjetas del resumen, los KPI, los consejos y los gráficos reaccionan al pu
 Tres decisiones que evitan que canse:
 
 - **Las tarjetas anchas se inclinan la mitad.** El mismo ángulo en una superficie grande marea en vez de dar profundidad, así que por encima de 420px de ancho el giro baja de 6 a 3 grados.
-- **En pantallas táctiles no hay inclinación**, solo el hundido al pulsar. Sin cursor que seguir, el efecto no tiene sentido y además gasta batería.
+- **Con el dedo el relieve aparece al tocar**: la tarjeta se inclina hacia el punto pulsado, se hunde y vuelve con un pequeño rebote al soltar. Con ratón, además, la inclinación sigue al cursor de forma continua.
 - **Se respeta el movimiento reducido del sistema.** Si está activado, no hay transiciones ni giros aunque el relieve esté encendido.
 
 En **Ajustes → Relieve** se puede dejar la vista plana. La preferencia se guarda en el dispositivo, no en el hogar, porque depende de la pantalla de cada uno.

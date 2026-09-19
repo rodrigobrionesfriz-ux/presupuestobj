@@ -558,7 +558,9 @@ html[data-relieve="si"] .consejo::after{
   opacity:0;transition:opacity .22s ease;
 }
 html[data-relieve="si"] .kpi:hover::after,
-html[data-relieve="si"] .consejo:hover::after{opacity:.55}
+html[data-relieve="si"] .consejo:hover::after,
+html[data-relieve="si"] .kpi.pulsado::after,
+html[data-relieve="si"] .consejo.pulsado::after{opacity:.55}
 html[data-tema="oscuro"][data-relieve="si"] .kpi::after,
 html[data-tema="oscuro"][data-relieve="si"] .consejo::after,
 html[data-tema="calido"][data-relieve="si"] .kpi::after,
@@ -570,10 +572,13 @@ html[data-relieve="si"] .kpi:hover{box-shadow:0 14px 28px rgba(22,36,28,.16)}
 html[data-relieve="si"] .tarjeta:hover{box-shadow:0 18px 36px rgba(22,36,28,.13)}
 html[data-relieve="si"] .consejo:hover{box-shadow:0 12px 24px rgba(22,36,28,.14)}
 html[data-relieve="si"] svg.gr:hover{filter:drop-shadow(0 10px 18px rgba(22,36,28,.18))}
-/* Hundido al pulsar: es la única respuesta que se nota en una pantalla táctil */
-html[data-relieve="si"] .kpi:active,
-html[data-relieve="si"] .consejo:active{transform:scale(.978) translateZ(0)!important;
-  transition-duration:.08s}
+/* La pulsación la calcula el motor, no el CSS: así el hundido se combina con
+   la inclinación hacia el punto tocado en vez de pisarla. */
+html[data-relieve="si"] .pulsado{transition-duration:.07s}
+html[data-relieve="si"] .rebote{transition:transform .34s cubic-bezier(.34,1.5,.64,1)}
+html[data-relieve="si"] .kpi.pulsado,
+html[data-relieve="si"] .consejo.pulsado{box-shadow:0 6px 14px rgba(22,36,28,.2)}
+html[data-relieve="si"] .tarjeta.pulsado{box-shadow:0 10px 22px rgba(22,36,28,.18)}
 html[data-relieve="si"] .clicable:active{transform:scale(.99);transition:transform .08s ease}
 @media(prefers-reduced-motion:reduce){
   html[data-relieve="si"] .kpi,
@@ -1017,7 +1022,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.7.0";
+const APP_VERSION = "2.7.1";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -4972,7 +4977,7 @@ function aplicarEfectos(){
 }
 
 const SEL_RELIEVE = ".kpi, .tarjeta, .consejo, svg.gr";
-let elemInclinado = null;
+let elemInclinado = null, elemPulsado = null;
 
 function soltarInclinacion(el){
   if(!el) return;
@@ -4980,33 +4985,70 @@ function soltarInclinacion(el){
   el.style.removeProperty("--brillo");
 }
 
+function inclinar(el, e, pulsado){
+  const r = el.getBoundingClientRect();
+  if(!r.width || !r.height) return;
+  const x = (e.clientX - r.left)/r.width  - .5;
+  const y = (e.clientY - r.top )/r.height - .5;
+  /* Las superficies anchas se inclinan menos: el mismo ángulo en una tarjeta
+     grande marea en vez de dar profundidad. */
+  const grados = r.width > 420 ? 3 : 7;
+  el.style.transform =
+      `perspective(760px) rotateX(${(-y*grados).toFixed(2)}deg)`
+    + ` rotateY(${(x*grados).toFixed(2)}deg)`
+    + ` translateZ(${pulsado? 3 : 8}px) scale(${pulsado? .975 : 1})`;
+  el.style.setProperty("--brillo", `${((x+.5)*100).toFixed(1)}% ${((y+.5)*100).toFixed(1)}%`);
+}
+
 function iniciarRelieve(){
   aplicarEfectos();
-  const puntero = matchMedia("(hover:hover) and (pointer:fine)");
-  const quieto  = matchMedia("(prefers-reduced-motion: reduce)");
-  if(!puntero.matches || quieto.matches) return;   // táctil o movimiento reducido
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-  document.addEventListener("pointermove", e=>{
-    const el = e.target.closest?.(SEL_RELIEVE) || null;
-    if(elemInclinado && elemInclinado !== el) soltarInclinacion(elemInclinado);
-    elemInclinado = el;
+  /* Con ratón, la inclinación sigue al cursor de forma continua. */
+  if(matchMedia("(hover:hover) and (pointer:fine)").matches){
+    document.addEventListener("pointermove", e=>{
+      if(elemPulsado) return;                     // mientras se pulsa manda la pulsación
+      const el = e.target.closest?.(SEL_RELIEVE) || null;
+      if(elemInclinado && elemInclinado !== el) soltarInclinacion(elemInclinado);
+      elemInclinado = el;
+      if(el && efectos3D()) inclinar(el, e, false);
+    }, {passive:true});
+    /* Sin captura: en fase de captura este manejador recibe también los
+       pointerleave de los hijos de la tarjeta, y el relieve se cancelaba al
+       mover el cursor entre el título y la cifra. Aquí solo interesa cuando
+       el puntero abandona la página. */
+    document.addEventListener("pointerleave", ()=>{
+      soltarInclinacion(elemInclinado); elemInclinado = null;
+    });
+  }
+
+  /* Con el dedo no hay cursor que seguir, así que el relieve aparece al tocar:
+     la tarjeta se inclina hacia el punto pulsado y vuelve con un pequeño
+     rebote al soltar. Vale igual para el ratón. */
+  document.addEventListener("pointerdown", e=>{
+    const el = e.target.closest?.(SEL_RELIEVE);
     if(!el || !efectos3D()) return;
-    const r = el.getBoundingClientRect();
-    if(!r.width || !r.height) return;
-    const x = (e.clientX - r.left)/r.width  - .5;
-    const y = (e.clientY - r.top )/r.height - .5;
-    /* Las tarjetas grandes se inclinan menos: el mismo ángulo en una
-       superficie ancha marea en vez de dar profundidad. */
-    const grados = r.width > 420 ? 3 : 6;
-    el.style.transform = `perspective(760px) rotateX(${(-y*grados).toFixed(2)}deg)`
-      + ` rotateY(${(x*grados).toFixed(2)}deg) translateZ(8px)`;
-    el.style.setProperty("--brillo", `${((x+.5)*100).toFixed(1)}% ${((y+.5)*100).toFixed(1)}%`);
+    elemPulsado = el;
+    el.classList.remove("rebote");
+    el.classList.add("pulsado");
+    inclinar(el, e, true);
   }, {passive:true});
 
-  document.addEventListener("pointerleave", ()=>{ soltarInclinacion(elemInclinado); elemInclinado=null; }, true);
-  addEventListener("blur", ()=>{ soltarInclinacion(elemInclinado); elemInclinado=null; });
-  // Un repintado deja huérfano el elemento inclinado
-  addEventListener("scroll", ()=>{ if(elemInclinado){ soltarInclinacion(elemInclinado); elemInclinado=null; } }, {passive:true});
+  const soltar = ()=>{
+    const el = elemPulsado; if(!el) return;
+    elemPulsado = null;
+    el.classList.remove("pulsado");
+    el.classList.add("rebote");
+    soltarInclinacion(el);
+    setTimeout(()=>el.classList.remove("rebote"), 340);
+  };
+  ["pointerup","pointercancel"].forEach(ev=>document.addEventListener(ev, soltar, {passive:true}));
+
+  addEventListener("blur", ()=>{ soltar(); soltarInclinacion(elemInclinado); elemInclinado=null; });
+  addEventListener("scroll", ()=>{
+    soltar();
+    if(elemInclinado){ soltarInclinacion(elemInclinado); elemInclinado = null; }
+  }, {passive:true});
 }
 
 function iniciarHistorial(){
