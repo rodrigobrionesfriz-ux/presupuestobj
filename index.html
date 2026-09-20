@@ -1033,7 +1033,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.9.0";
+const APP_VERSION = "2.9.1";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -3021,6 +3021,41 @@ function modalNombreHogar(){
   }, "Guardar nombre");
 }
 
+/* De dónde sale el saldo que no es de nadie. Casi siempre son movimientos
+   a nombre de alguien que ya no está en la lista del hogar, o una parte del
+   arrastre que ningún cierre atribuyó. */
+function modalSinAsignar(){
+  const R = calcular();
+  const nombres = new Set(personasHogar());
+  const movs = S.movimientos
+    .filter(m=>enPeriodo(m.fecha,R.mes) && afectaCaja(m) && !nombres.has(m.miembro))
+    .sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const flujoSuelto = movs.reduce((a,m)=>
+    a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
+  const arrastreAsignado = R.porPersona.reduce((a,p)=>a+(p.arrastre||0),0);
+  const arrastreSuelto = R.remanente - arrastreAsignado;
+  const resto = R.restoDisponible - flujoSuelto - arrastreSuelto;
+
+  const quienes = {};
+  movs.forEach(m=>{ const k=(m.miembro||"").trim()||"(sin nombre)"; quienes[k]=(quienes[k]||0)+1; });
+
+  modalInfo("Saldo sin asignar", etiquetaPeriodo(R.mes),
+    `<p class="nota">Es la parte del disponible que no pertenece a ninguno de los integrantes del hogar. Suele venir de movimientos anotados a nombre de alguien que ya no está en la lista.</p>
+     <div class="cierre-linea"><span>Movimientos ajenos al hogar</span>
+       <b class="${flujoSuelto<0?"rojo":"verde"}">${flujoSuelto>=0?"+":""}${fmt(flujoSuelto)}</b></div>
+     ${Math.abs(arrastreSuelto)>=1? `<div class="cierre-linea"><span>Arrastre sin atribuir</span>
+       <b class="${arrastreSuelto<0?"rojo":"verde"}">${arrastreSuelto>=0?"+":""}${fmt(arrastreSuelto)}</b></div>`:""}
+     ${Math.abs(resto)>=1? `<div class="cierre-linea"><span>Diferencia por ingreso estimado</span>
+       <b class="${resto<0?"rojo":"verde"}">${resto>=0?"+":""}${fmt(resto)}</b></div>`:""}
+     <div class="cierre-linea total"><span>Total sin asignar</span><b>${fmt(R.restoDisponible)}</b></div>
+
+     ${Object.keys(quienes).length? `<p class="nota ayuda" style="margin-top:14px">A nombre de: ${
+       Object.entries(quienes).map(([n,c])=>`<b>${esc(n)}</b> (${c})`).join(", ")}. Si alguno debería estar en el hogar, añádelo en Ajustes; si es un error, edita el movimiento y reasígnalo.</p>`:""}
+
+     ${movs.length? listaDetalle(movs)
+       : `<p class="nota ayuda">No hay movimientos ajenos en este periodo: el saldo viene solo de las líneas de arriba.</p>`}`);
+}
+
 function modalFijosPendientes(){
   const R = calcular();
   const lista = R.detalleFijos;
@@ -3590,7 +3625,8 @@ function vPanel(R){
       ${R.porPersona.map(p=>`<span class="clicable" data-detalle-persona="${esc(p.nombre)}" role="button" tabindex="0">
         <i style="background:${col(p.color)}"></i>${esc(p.nombre)}
         <b class="${p.disponible<0?"rojo":""}">${fmt(p.disponible)}</b></span>`).join("")}
-      ${Math.abs(R.restoDisponible)>=1?`<span title="Movimientos sin persona asignada"><i style="background:#B9C0B6"></i>sin asignar<b>${fmt(R.restoDisponible)}</b></span>`:""}
+      ${Math.abs(R.restoDisponible)>=1?`<span class="clicable" data-accion="ver-sin-asignar" role="button" tabindex="0"
+        title="Ver de dónde sale este saldo"><i style="background:#B9C0B6"></i>sin asignar<b>${fmt(R.restoDisponible)}</b> ›</span>`:""}
     </div>`:""}
     ${R.esMesActual?`<div class="cinta-pie">
       <div><em>Ritmo variable</em><b>${fmt(R.ritmoVariable)}/día</b></div>
@@ -4354,7 +4390,14 @@ function conectar(R){
   const ex=$("#extra-deuda"); if(ex) ex.onchange=e=>DB.guardarHogar({config:{...S.config,extraDeuda:num(e.target.value)}});
   const abrir = (sel,fn)=>document.querySelectorAll(sel).forEach(el=>{
     const dato = el.dataset.detalleCat || el.dataset.detallePersona;
-    el.onclick=e=>{ if(e.target.closest("[data-editar-cat],button")) return; fn(dato); };
+    /* El guardia evita que un botón interno (editar el sobre, por ejemplo)
+       dispare el detalle. Pero si el propio elemento es el botón, entonces
+       el clic sí va dirigido aquí: sin esta salvedad se ignoraba a sí mismo. */
+    el.onclick=e=>{
+      const interno = e.target.closest("[data-editar-cat],button");
+      if(interno && interno!==el) return;
+      fn(dato);
+    };
     el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(dato); } };
   });
   document.querySelectorAll("[data-abrir-sobre]").forEach(el=>{
@@ -4468,6 +4511,7 @@ function acciones(a,R){
     "mas-sobres":()=>{ S.verTodosSobres=!S.verTodosSobres; render(); },
     "guardar-remanente":()=>modalGuardarRemanente(),
     "ver-fijos":()=>modalFijosPendientes(),
+    "ver-sin-asignar":()=>modalSinAsignar(),
     "add-producto":async()=>{
       const campo = $("#lc-nuevo"); const v = (campo?.value||"").trim();
       if(!v){ avisar("Escribe qué falta"); return; }
