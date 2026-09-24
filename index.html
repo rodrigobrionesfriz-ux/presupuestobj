@@ -508,6 +508,7 @@ tr.clicable td{transition:background .15s}
 .cerrar-modal:hover{background:var(--margen);border-color:var(--margen);color:var(--hoja)}
 html[data-tema="claro"] .cerrar-modal{border-width:2px}
 .toggle{display:flex;border:1px solid var(--tinta);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.toggle.cuatro button{font-size:12px;padding:10px 4px}
 .toggle button{flex:1;background:none;border:none;padding:10px;font-family:var(--tipo-ui);font-size:13.5px;
   cursor:pointer;color:var(--tinta)}
 .toggle button.activo{background:var(--tinta);color:var(--hoja);font-weight:600}
@@ -1033,7 +1034,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "2.9.1";
+const APP_VERSION = "3.0.0";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -1156,6 +1157,7 @@ const PSEUDO = {
   ahorro:{cod:"AHO", nombre:"Aporte a ahorro",  color:"#3F7D58"},
   retiro:{cod:"RET", nombre:"Retiro de ahorro", color:"#C7913A"},
   pago:  {cod:"PAG", nombre:"Pago de tarjeta",  color:"#7A4A55"},
+  avance:{cod:"AVA", nombre:"Avance en efectivo", color:"#B5651D"},
 };
 
 /* ============ devengo frente a caja ===============================
@@ -1167,8 +1169,12 @@ const PSEUDO = {
 const afectaCaja = m => {
   if(m.tipo==="gasto")  return !m.tarjetaId;        // a crédito aún no sale
   if(m.tipo==="ahorro" || m.tipo==="retiro") return !m.soloCuenta;
-  return true;                                      // ingresos y pagos de tarjeta
+  return true;              // ingresos, pagos de tarjeta y avances en efectivo
 };
+/* Un avance entrega dinero ahora y lo carga a la tarjeta: entra en caja como
+   un ingreso, pero no es ingreso del hogar y no cuenta para la tasa de ahorro
+   ni para el "% de los ingresos". */
+const SUMA_CAJA = ["ingreso","retiro","avance"];
 const esCredito = m => m.tipo==="gasto" && !!m.tarjetaId;
 const codDe   = m => PSEUDO[m.tipo]?.cod   || m.categoria;
 const colorDe = m => PSEUDO[m.tipo]?.color || CAT[m.categoria]?.color || "#8A9099";
@@ -1312,7 +1318,7 @@ const fmt = (n)=>{
 function deltasDeudaMovimiento(antes,despues){
   const cambios={};
   const sumar=(id,delta)=>{ if(id && delta) cambios[id]=(cambios[id]||0)+delta; };
-  const cargo=m=>m?.tipo==="gasto" && m.tarjetaId ? {id:m.tarjetaId,monto:m.monto||0} : null;
+  const cargo=m=>(m?.tipo==="gasto"||m?.tipo==="avance") && m.tarjetaId ? {id:m.tarjetaId,monto:m.monto||0} : null;
   const pago=m=>m?.deudaId && (m.tipo==="pago" || (m.tipo==="gasto"&&m.categoria==="DEU"))
     ? {id:m.deudaId,monto:m.monto||0} : null;
   const ca=cargo(antes), cd=cargo(despues), pa=pago(antes), pd=pago(despues);
@@ -1906,7 +1912,7 @@ function mostrarApp(){
 function saldoDePeriodo(mm){
   const dentro = S.movimientos.filter(m=>enPeriodo(m.fecha,mm) && afectaCaja(m));
   const suma = t => dentro.filter(m=>m.tipo===t).reduce((a,b)=>a+b.monto,0);
-  return suma("ingreso") + suma("retiro")
+  return suma("ingreso") + suma("retiro") + suma("avance")
        - suma("gasto") - suma("ahorro") - suma("pago");
 }
 /* Flujo de caja de una persona en un periodo, ajustes de cierre incluidos:
@@ -2002,7 +2008,7 @@ function flujoCajaEntre(nombre,desde,hasta,desdeTs=0){
   return S.movimientos
     .filter(m=>m.miembro===nombre && afectaCaja(m) && !m.ajusteCierre
             && posterior(m) && m.fecha<=hasta)
-    .reduce((a,m)=> a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
+    .reduce((a,m)=> a + (SUMA_CAJA.includes(m.tipo)? m.monto : -m.monto), 0);
 }
 /* Lo que esta persona debería tener el día `corte`.
    Se calcula EXACTAMENTE igual que el disponible por persona del panel:
@@ -2014,7 +2020,7 @@ function saldoAFecha(nombre,corte){
   const arrastre = remanenteInfo(mes).porPersona?.[nombre] || 0;
   const flujo = S.movimientos
     .filter(m=>m.miembro===nombre && afectaCaja(m) && enPeriodo(m.fecha,mes) && m.fecha<=corte)
-    .reduce((a,m)=> a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
+    .reduce((a,m)=> a + (SUMA_CAJA.includes(m.tipo)? m.monto : -m.monto), 0);
   /* Si el ingreso estimado de la persona supera lo que ha entrado de verdad,
      el panel muestra dinero que aún no ha llegado: conviene avisarlo. */
   const estimado = (S.config.ingresosPersona||{})[nombre] || 0;
@@ -2033,7 +2039,7 @@ function flujoPersona(nombre,mes){
   const suyos = S.movimientos.filter(m=>enPeriodo(m.fecha,mes) && m.miembro===nombre
     && !m.ajusteCierre && afectaCaja(m));
   const suma = t=>suyos.filter(m=>m.tipo===t).reduce((a,b)=>a+b.monto,0);
-  return suma("ingreso") + suma("retiro")
+  return suma("ingreso") + suma("retiro") + suma("avance")
        - suma("gasto") - suma("ahorro") - suma("pago");
 }
 const saldoTeorico = (nombre,mes)=>saldoAFecha(nombre, mes===periodoDe(hoyISO())? hoyISO() : finPeriodo(mes));
@@ -2145,11 +2151,14 @@ function calcular(){
   const comprasCredito = gastos.filter(esCredito).reduce((a,b)=>a+b.monto,0);
   const gastosCaja = totalGasto - comprasCredito;
   const pagosTarjeta = delMes.filter(m=>m.tipo==="pago").reduce((a,b)=>a+b.monto,0);
+  /* Los avances entran en caja pero no son ingresos: suman al disponible sin
+     tocar la tasa de ahorro ni el "% de los ingresos". */
+  const totalAvance = delMes.filter(m=>m.tipo==="avance").reduce((a,b)=>a+b.monto,0);
   const anclaRem = infoRem.ancla;
   const cierrePropio = cierreDe(mes);
   const declaradoCierre = cierrePropio
     ? Object.values(cierrePropio.saldos||{}).reduce((a,b)=>a+(b||0),0) : null;
-  const disponible = remanente + ingresoBase - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;
+  const disponible = remanente + ingresoBase + totalAvance - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;
 
   /* Saldo de cada cuenta: el inicial más todo lo aportado menos lo retirado,
      desde siempre y no solo de este mes. */
@@ -2331,6 +2340,7 @@ function calcular(){
     const retiro = retiros.filter(x=>x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
     const credito = g.filter(esCredito).reduce((a,b)=>a+b.monto,0);
     const pagos = delMes.filter(x=>x.tipo==="pago" && x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
+    const avance = delMes.filter(x=>x.tipo==="avance" && x.miembro===nombre).reduce((a,b)=>a+b.monto,0);
     /* Base de ingreso de esta persona: lo suyo registrado frente a lo suyo
        estimado, con el mismo criterio que se aplica al hogar. */
     const arrastre = infoRem.porPersona?.[nombre] || 0;
@@ -2347,7 +2357,8 @@ function calcular(){
       nombre, gasto, ingreso, aporte, retiro, baseP,
       neto:ingreso-gasto,
       arrastre,
-      disponible: arrastre + baseP - (gasto-credito) - pagos - aporte + retiro,
+      avance,
+      disponible: arrastre + baseP + avance - (gasto-credito) - pagos - aporte + retiro,
       credito, pagos,
       n:g.length, registrados,
       ticket: g.length? gasto/g.length : 0,
@@ -2356,10 +2367,10 @@ function calcular(){
       topCat: top? {cod:top[0], monto:top[1]} : null,
       color: colorPersona(nombre),
     };
-  }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0||p.arrastre!==0).sort((a,b)=>b.gasto-a.gasto);
+  }).filter(p=>p.gasto>0||p.ingreso>0||p.aporte>0||p.baseP>0||p.arrastre!==0||p.avance>0).sort((a,b)=>b.gasto-a.gasto);
   const sinAsignar = gastos.filter(x=>!personasHogar().includes(x.miembro)).reduce((a,b)=>a+b.monto,0);
   const restoDisponible = disponible - porPersona.reduce((a,p)=>a+p.disponible,0);
-  const saldoCierre = ingresoBase - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;  // sin arrastre
+  const saldoCierre = ingresoBase + totalAvance - gastosCaja - pagosTarjeta - totalAporte + totalRetiro;  // sin arrastre
 
   return {mes,mesAnt,delMes,gastos,ingresos,gastosAnt,totalGasto,totalIngreso,ingresoBase,presupuestoTotal,disponible,
     dias,diaHoy,restantes,esMesActual,ritmoDiario,proyectado,porCat,esenciales,prescindibles,acumulado,historico,porDia,
@@ -2367,7 +2378,7 @@ function calcular(){
     gastoFijo,gastoVariable,ritmoVariable,variableRestante,metodoProyeccion,fijosPendientes,detalleFijos,margenRestante,margenTrasFijos,disponibleDiario,
     ingresoRegistrado,ingresoEstimado,baseUsada,porPersona,sinAsignar,restoDisponible,
     aportes,retiros,totalAporte,totalRetiro,cuentasCalc,saldoAhorros,
-    comprasCredito,gastosCaja,pagosTarjeta,
+    comprasCredito,gastosCaja,pagosTarjeta,totalAvance,
     ahorroReal,tasaAhorro,ahorroProyectado,tasaProyectada,remanente,saldoCierre,anclaRem,cierrePropio,declaradoCierre,
     porMetodo:agrupar("metodo"),porMiembro:agrupar("miembro"),topConceptos,ticketGeneral,umbralMicro,micro,microTotal,
     recurrentes,recurrentesNoEsenciales:recurrentes.filter(r=>!CAT[r.cod]?.esencial),
@@ -3031,7 +3042,7 @@ function modalSinAsignar(){
     .filter(m=>enPeriodo(m.fecha,R.mes) && afectaCaja(m) && !nombres.has(m.miembro))
     .sort((a,b)=>a.fecha<b.fecha?1:-1);
   const flujoSuelto = movs.reduce((a,m)=>
-    a + (["ingreso","retiro"].includes(m.tipo)? m.monto : -m.monto), 0);
+    a + (SUMA_CAJA.includes(m.tipo)? m.monto : -m.monto), 0);
   const arrastreAsignado = R.porPersona.reduce((a,p)=>a+(p.arrastre||0),0);
   const arrastreSuelto = R.remanente - arrastreAsignado;
   const resto = R.restoDisponible - flujoSuelto - arrastreSuelto;
@@ -3610,6 +3621,7 @@ function vPanel(R){
       : ""}
     <div class="renglon ${R.comprasCredito>0?"tenue":""}"><span>Gastos del periodo</span><i></i><b>−${fmt(R.totalGasto)}</b></div>
     ${R.comprasCredito>0?`<div class="renglon"><span>· de los cuales a crédito</span><i></i><b class="verde">+${fmt(R.comprasCredito)}</b></div>`:""}
+    ${R.totalAvance>0?`<div class="renglon"><span>Avances en efectivo</span><i></i><b class="verde">+${fmt(R.totalAvance)}</b></div>`:""}
     ${R.pagosTarjeta>0?`<div class="renglon"><span>Pagos de tarjeta</span><i></i><b>−${fmt(R.pagosTarjeta)}</b></div>`:""}
     ${R.totalAporte>0?`<div class="renglon"><span>Ahorro transferido</span><i></i><b>−${fmt(R.totalAporte)}</b></div>`:""}
     ${R.totalRetiro>0?`<div class="renglon"><span>Retiros de ahorro</span><i></i><b>+${fmt(R.totalRetiro)}</b></div>`:""}
@@ -3733,7 +3745,7 @@ function vMovimientos(R){
           <span class="cod" style="color:${col(colorDe(m))}">${esc(codDe(m))}</span>
           <div class="mov-txt"><b>${esc(m.nota||PSEUDO[m.tipo]?.nombre||CAT[m.categoria]?.nombre||"Movimiento")}${m.sub?`<em class="etq-sub">${esc(nombreSub(m.categoria,m.sub))}</em>`:""}</b>
             <small><span class="quien" style="color:${col(colorPersona(m.miembro))}">${esc(m.miembro||"—")}</span> · ${esc(m.metodo)}${m.tarjetaId?` · ${esc(S.deudas.find(d=>d.id===m.tarjetaId)?.nombre||"tarjeta")}`:m.cuentaId?` · ${esc(nombreCuenta(m.cuentaId))}`:m.deudaId?` · ${esc(S.deudas.find(d=>d.id===m.deudaId)?.nombre||"deuda")}`:""}${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}${m.esencial?"":" · prescindible"}</small></div>
-          <span class="mov-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
+          <span class="mov-monto ${SUMA_CAJA.includes(m.tipo)?"verde":""}">${SUMA_CAJA.includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
           <span class="lapiz" aria-hidden="true">✎</span>
         </div>`;}).join("")}
       </div>`).join("")}</div>
@@ -4655,7 +4667,7 @@ function listaDetalle(movs){
           ${autor&&autor!==m.miembro?` · reg. ${esc(autor)}`:""}
         </small>
       </div>
-      <span class="detalle-monto ${["ingreso","retiro"].includes(m.tipo)?"verde":""}">${["ingreso","retiro"].includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
+      <span class="detalle-monto ${SUMA_CAJA.includes(m.tipo)?"verde":""}">${SUMA_CAJA.includes(m.tipo)?"+":"−"}${fmt(m.monto)}</span>
     </div>`;
   }).join("")}</div>`;
 }
@@ -5298,10 +5310,23 @@ function modalMovimiento(id=null){
 
   modal(m? "Editar movimiento":"Registrar movimiento",`
     ${m?`<p class="nota migaja">Registrado el ${esc(m.fecha)} · corrige lo que esté mal asignado y guarda.</p>`:""}
-    <div class="toggle tres"><button class="${tipoIni==="gasto"?"activo":""}" id="t-gasto">Gasto</button>
+    <div class="toggle cuatro"><button class="${tipoIni==="gasto"?"activo":""}" id="t-gasto">Gasto</button>
       <button class="${tipoIni==="ingreso"?"activo":""}" id="t-ingreso">Ingreso</button>
-      <button class="${esAhorro?"activo":""}" id="t-ahorro">Ahorrar</button></div>
-    <label class="campo"><span>Monto</span><input class="grande importe" id="m-monto" type="text" inputmode="numeric" placeholder="0.00" value="${m?vf(m.monto):""}"></label>
+      <button class="${esAhorro?"activo":""}" id="t-ahorro">Ahorrar</button>
+      <button class="${tipoIni==="avance"?"activo":""}" id="t-avance">Avance</button></div>
+    <label class="campo" id="campo-monto"><span>Monto</span><input class="grande importe" id="m-monto" type="text" inputmode="numeric" placeholder="0.00" value="${m?vf(m.monto):""}"></label>
+
+    <div id="bloque-avance" class="${tipoIni==="avance"?"":"oculto"}">
+      <p class="nota">Un avance en efectivo carga el total a la tarjeta y te entrega una parte: la diferencia son intereses y comisiones, y se anotan como gasto del periodo.</p>
+      <label class="campo"><span>Costo total del crédito</span>
+        <input class="grande importe" id="av-total" type="text" inputmode="numeric" placeholder="0"></label>
+      <label class="campo"><span>Monto que recibes</span>
+        <input class="importe" id="av-recibe" type="text" inputmode="numeric" placeholder="0"></label>
+      <p class="cierre-dif" id="av-costo">Escribe los dos montos para ver el costo financiero.</p>
+      ${tarjetas().length? `<label class="campo"><span>¿A qué tarjeta se carga?</span>
+        <select id="av-tarjeta">${tarjetas().map((t,i)=>`<option value="${t.id}" ${i===0?"selected":""}>${esc(t.nombre)} · saldo ${fmt(t.saldo)}</option>`).join("")}</select></label>`
+      : `<p class="nota aviso-credito">No tienes tarjetas registradas. Créalas en <b>Deudas</b> para poder cargar el avance.</p>`}
+    </div>
     <div id="bloque-cat" class="${tipoIni==="gasto"?"":"oculto"}">
       <div class="campo"><span class="campo-tit">Categoría</span><div class="chips" id="m-cats">
         ${CATEGORIAS.map(c=>`<button class="chip ${catIni===c.cod?"activo":""}" data-cat="${c.cod}" style="${catIni===c.cod?`border-color:${col(c.color)};color:${col(c.color)}`:""}"><b>${c.cod}</b> ${c.nombre}</button>`).join("")}
@@ -5360,10 +5385,39 @@ function modalMovimiento(id=null){
       <select id="m-miembro">${miembros.map(x=>`<option ${miembroIni===x?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
     ${registrador?`<p class="nota firma">Registrado por <b>${esc(registrador)}</b>${m&&m.creado?` · ${new Date(m.creado).toLocaleDateString("es")}`:""}</p>`:""}
   `, async()=>{
+    const modo = $("#t-gasto").classList.contains("activo") ? "gasto"
+               : $("#t-ingreso").classList.contains("activo") ? "ingreso"
+               : $("#t-avance").classList.contains("activo") ? "avance" : "ahorro";
+
+    /* El avance se guarda como dos apuntes: el efectivo recibido, que entra en
+       caja y carga la tarjeta, y el costo financiero, que es gasto del periodo
+       y también carga la tarjeta. Entre los dos suman el costo total, así que
+       la deuda, la caja y el gasto cuadran sin tratar nada como caso especial. */
+    if(modo==="avance"){
+      if(m) return "Un avance ya registrado se corrige desde sus dos movimientos en el libro.";
+      const total   = num($("#av-total").value);
+      const recibe  = num($("#av-recibe").value);
+      const tarjeta = $("#av-tarjeta")?.value || "";
+      if(!tarjeta) return "Elige la tarjeta a la que se carga el avance.";
+      if(total<=0)  return "Escribe el costo total del crédito.";
+      if(recibe<=0) return "Escribe cuánto dinero recibes.";
+      if(recibe>total) return "Lo que recibes no puede superar el costo total.";
+      const quien = $("#m-miembro").value;
+      const fecha = $("#m-fecha").value || hoyISO();
+      const nota  = $("#m-nota").value.trim() || "Avance en efectivo";
+      const base = { fecha, metodo:"Transferencia", tarjetaId:tarjeta, cuentaId:"", deudaId:"",
+        soloCuenta:false, miembro:quien, sub:"", uid:S.uid||"", autor:miNombre(), creado:Date.now() };
+      await DB.mutarMovimiento(null, {...base, tipo:"avance", monto:recibe,
+        categoria:"OTR", esencial:true, nota});
+      const costo = total - recibe;
+      if(costo>0) await DB.mutarMovimiento(null, {...base, tipo:"gasto", monto:costo,
+        categoria:"DEU", esencial:true, nota:`Costo financiero · ${nota}`});
+      avisar(`Avance de ${fmt(recibe)} registrado`);
+      return;
+    }
+
     const monto = num($("#m-monto").value);
     if(monto<=0) return "Escribe un monto mayor que cero.";
-    const modo = $("#t-gasto").classList.contains("activo") ? "gasto"
-               : $("#t-ingreso").classList.contains("activo") ? "ingreso" : "ahorro";
     let tipo = modo, cuentaId = "", soloCuenta = false;
     if(modo==="ahorro"){
       if(!S.cuentas.length) return "Crea primero una cuenta de ahorro en Ahorro → Cuentas de ahorro.";
@@ -5413,30 +5467,53 @@ function modalMovimiento(id=null){
           avisar("Movimiento eliminado");
         }} : null);
 
-  const g=$("#t-gasto"), ing=$("#t-ingreso"), aho=$("#t-ahorro");
+  const g=$("#t-gasto"), ing=$("#t-ingreso"), aho=$("#t-ahorro"), avc=$("#t-avance");
   const verTarjeta = ()=>{
     const esGasto = g.classList.contains("activo");
     $("#bloque-tarjeta").classList.toggle("oculto", !(esGasto && $("#m-metodo").value==="Crédito"));
   };
   const cambiarModo = (activo)=>{
-    [g,ing,aho].forEach(b=>b.classList.remove("activo"));
+    [g,ing,aho,avc].forEach(b=>b?.classList.remove("activo"));
     activo.classList.add("activo");
-    const modo = activo===g? "gasto" : activo===ing? "ingreso" : "ahorro";
+    const modo = activo===g? "gasto" : activo===ing? "ingreso"
+               : activo===avc? "avance" : "ahorro";
+    $("#bloque-avance").classList.toggle("oculto", modo!=="avance");
+    $("#campo-monto").classList.toggle("oculto", modo==="avance");
     $("#bloque-cat").classList.toggle("oculto", modo!=="gasto");
     const catActual = document.querySelector("#m-cats .activo")?.dataset.cat;
     $("#bloque-deuda").classList.toggle("oculto", !(modo==="gasto" && catActual==="DEU"));
     $("#bloque-ahorro").classList.toggle("oculto", modo!=="ahorro");
     const etq=$("#etq-miembro");
     if(etq) etq.textContent = modo==="ahorro"? "¿Quién transfiere?"
-                            : modo==="ingreso"? "¿Quién lo recibe?" : "¿De quién es el gasto?";
+                            : modo==="ingreso"? "¿Quién lo recibe?"
+                            : modo==="avance"? "¿Quién recibe el efectivo?" : "¿De quién es el gasto?";
     const nota=$("#m-nota");
     if(nota) nota.placeholder = modo==="ahorro"? "Abono mensual, aguinaldo…"
-                              : modo==="ingreso"? "Sueldo, venta, devolución…" : "Supermercado, gasolina…";
+                              : modo==="ingreso"? "Sueldo, venta, devolución…"
+                              : modo==="avance"? "Avance en efectivo" : "Supermercado, gasolina…";
     if(modo==="ahorro" && !m) $("#m-metodo").value = "Transferencia";
     verTarjeta();
   };
   $("#m-metodo").onchange = verTarjeta;
   g.onclick=()=>cambiarModo(g); ing.onclick=()=>cambiarModo(ing); aho.onclick=()=>cambiarModo(aho);
+  if(avc) avc.onclick=()=>cambiarModo(avc);
+
+  /* El costo financiero se ve mientras se escriben los dos montos */
+  const verCosto = ()=>{
+    const nota=$("#av-costo"); if(!nota) return;
+    const total=num($("#av-total").value), recibe=num($("#av-recibe").value);
+    if(!total || !recibe){ nota.className="cierre-dif";
+      nota.textContent="Escribe los dos montos para ver el costo financiero."; return; }
+    if(recibe>total){ nota.className="cierre-dif menos";
+      nota.textContent="Lo que recibes no puede superar el costo total."; return; }
+    const costo=total-recibe;
+    nota.className = costo>0? "cierre-dif menos" : "cierre-dif ok";
+    nota.textContent = costo>0
+      ? `Costo financiero: ${fmt(costo)} (${Math.round(costo/total*100)}% del total). Se anota como gasto.`
+      : "Sin costo financiero: recibes el total.";
+  };
+  ["#av-total","#av-recibe"].forEach(s=>$(s)?.addEventListener("input",verCosto));
+  verCosto();
   document.querySelectorAll("#m-flujo [data-flujo]").forEach(b=>b.onclick=()=>{
     document.querySelectorAll("#m-flujo [data-flujo]").forEach(x=>x.classList.remove("activo"));
     b.classList.add("activo");

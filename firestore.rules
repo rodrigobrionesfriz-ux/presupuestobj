@@ -61,7 +61,7 @@ service cloud.firestore {
             'tipo', 'monto', 'categoria', 'fecha', 'metodo',
             'miembro', 'nota', 'esencial'
           ])
-          && d.tipo in ['gasto', 'ingreso', 'ahorro', 'retiro', 'pago']
+          && d.tipo in ['gasto', 'ingreso', 'ahorro', 'retiro', 'pago', 'avance']
           && monto(d.monto) && d.monto > 0
           && texto(d.categoria, 12)
           && fecha(d.fecha)

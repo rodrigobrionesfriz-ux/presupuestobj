@@ -474,3 +474,19 @@ Dos niveles: **riesgo** entre 0 y 1,5°C en azul, y **helada** bajo cero en rojo
 - **En la ventana del clima**, un aviso arriba con los días y sus mínimas, y en la lista de los siete días la mínima de cada jornada afectada va marcada en su color.
 
 Si no hay ninguna mínima bajo el umbral, no aparece nada.
+
+
+## Avance en efectivo
+
+Cuarto botón de la ventana de registro, junto a Gasto, Ingreso y Ahorrar. Pide dos montos: el **costo total del crédito**, que es lo que la tarjeta cobra, y el **monto que recibes**. La diferencia es el costo financiero, y se ve en vivo mientras escribes, con su porcentaje sobre el total.
+
+Se guarda como dos apuntes en vez de como un caso especial:
+
+| Apunte | Deuda | Caja | Gasto |
+|---|---|---|---|
+| Avance, por lo recibido | sube | sube | no |
+| Costo financiero, en el sobre `DEU` | sube | no | sí |
+
+Entre los dos suman el costo total, así que la deuda, el disponible y el gasto cuadran usando la misma maquinaria que una compra a crédito. Corregir o borrar cualquiera de los dos devuelve su parte a la deuda.
+
+**El avance no cuenta como ingreso.** Entra en caja porque es dinero disponible, pero no infla los ingresos registrados ni la tasa de ahorro: es deuda, no sueldo. En la cinta aparece en su propia línea, y en el desglose por persona suma a quien recibió el efectivo.
