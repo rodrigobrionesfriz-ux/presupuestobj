@@ -490,3 +490,12 @@ Se guarda como dos apuntes en vez de como un caso especial:
 Entre los dos suman el costo total, así que la deuda, el disponible y el gasto cuadran usando la misma maquinaria que una compra a crédito. Corregir o borrar cualquiera de los dos devuelve su parte a la deuda.
 
 **El avance no cuenta como ingreso.** Entra en caja porque es dinero disponible, pero no infla los ingresos registrados ni la tasa de ahorro: es deuda, no sueldo. En la cinta aparece en su propia línea, y en el desglose por persona suma a quien recibió el efectivo.
+
+
+## Periodo mostrado al abrir
+
+La app abre siempre en el periodo que contiene el día de hoy, que con un ciclo distinto del día 1 no coincide con el mes del calendario: el 1 de octubre, con ciclo del día 4, el periodo en curso es el que va del 4 de septiembre al 3 de octubre.
+
+El día de ciclo vive en la configuración del hogar, que llega después del arranque, así que el periodo se recalcula cuando esa configuración entra, no solo al iniciar. Mientras nadie navegue con las flechas, cada repintado lo mantiene al día, de modo que al cruzar la medianoche del cambio de ciclo la app se reubica sola.
+
+Las flechas de periodo marcan la elección como manual y entonces deja de recalcularse, para no arrastrar al usuario de vuelta mientras revisa otro mes.

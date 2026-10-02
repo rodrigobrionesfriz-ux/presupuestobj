@@ -1034,7 +1034,7 @@ const FIREBASE_CONFIG = {
   appId: "1:222103601034:web:29bbe79c22f663a4e65273"
 };
 const HAY_FIREBASE = !FIREBASE_CONFIG.apiKey.startsWith("TU_");
-const APP_VERSION = "3.0.0";
+const APP_VERSION = "3.0.1";
 /* Créditos: se muestran al pie de la barra lateral. Cámbialos aquí. */
 const CREDITOS = {
   autor: "Rodrigo Briones",
@@ -1541,7 +1541,10 @@ async function iniciarFirebase(){
         S.presupuestos = {...presInicial(),...(v.presupuestos||{})};
         S.perfiles = v.perfiles||{};
         S.miembrosUid = v.miembrosUid||[];
-        if(!S.mesFijado){ S.mes = periodoDe(hoyISO()); S.mesFijado = true; }
+        /* La configuración trae el día de ciclo, así que hasta aquí no se
+           sabe a qué periodo pertenece hoy. Se recalcula salvo que el usuario
+           ya se haya movido a otro mes con las flechas. */
+        if(!S.mesFijado) S.mes = periodoDe(hoyISO());
         S.adminUid = v.adminUid||""; S.adminCorreo = v.adminCorreo||"";
         S.nombreHogar = v.nombre||"Mi hogar";
         render();
@@ -1896,7 +1899,7 @@ async function registrarmeEnHogar(){
 
 function mostrarApp(){
   if(actualizacionPendiente) return;   // una actualización obligatoria manda
-  if(!S.mesFijado){ S.mes = periodoDe(hoyISO()); S.mesFijado = true; }
+  if(!S.mesFijado) S.mes = periodoDe(hoyISO());
   $("#acceso").classList.add("oculto");
   $("#app").classList.remove("oculto");
   render();
@@ -2665,6 +2668,10 @@ function ajustarCabecera(){
 
 function render(){
   if($("#app").classList.contains("oculto")) return;
+  /* Si nadie ha navegado a otro mes, el periodo mostrado siempre es el que
+     contiene el día de hoy: así al cruzar la medianoche del cambio de ciclo
+     la app se reubica sola. */
+  if(!S.mesFijado) S.mes = periodoDe(hoyISO());
   sincronizarCategorias();
   const R = calcular();
   $("#mes-txt").innerHTML = `<span class="mes-largo">${esc(etiquetaPeriodo(S.mes))}</span>`
@@ -4393,7 +4400,7 @@ function conectar(R){
     else {
       DB.guardarHogar({config:{...S.config,[k]:num(v)}});
       // Al cambiar el día del ciclo, saltamos al periodo que contiene hoy
-      if(k==="diaCiclo"){ S.mes = periodoDe(hoyISO()); render(); avisar(`Ciclo del día ${diaCiclo()}`); }
+      if(k==="diaCiclo"){ S.mesFijado=false; S.mes = periodoDe(hoyISO()); render(); avisar(`Ciclo del día ${diaCiclo()}`); }
     }
   });
   const ft=$("#f-texto"); if(ft) ft.oninput=e=>{S.filtroTexto=e.target.value;const p=e.target.selectionStart;render();
@@ -6915,8 +6922,8 @@ pintarClima();
 setInterval(pintarClima, CLIMA_TTL);
 $("#velo").onclick=cerrarMenu;
 addEventListener("resize",()=>{ ajustarCabecera(); if(enEscritorio() && menuAbierto()) cerrarMenu(); });
-$("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);render()};
-$("#mes-sig").onclick=()=>{S.mes=sumaMes(S.mes,1);render()};
+$("#mes-ant").onclick=()=>{S.mes=sumaMes(S.mes,-1);S.mesFijado=true;render()};
+$("#mes-sig").onclick=()=>{S.mes=sumaMes(S.mes,1);S.mesFijado=true;render()};
 $("#fab").onclick=()=>modalMovimiento();
 /* El botón flotante se aparta mientras se desplaza la pantalla, para no tapar
    cifras, y vuelve al detenerse. */
